@@ -330,7 +330,7 @@ public class RSPSHub extends Application {
 
         // --- SEARCH & FILTERS ---
         topControls = new VBox(15);
-        topControls.setPadding(new Insets(20, 40, 0, 40));
+        topControls.setPadding(new Insets(20, 40, 20, 40));
 
         searchBar = new TextField();
         searchBar.setPromptText("Search for a server...");
@@ -433,14 +433,16 @@ public class RSPSHub extends Application {
         topControls.getChildren().clear();
         boolean showSearch = !showingFriends && !showingStats && !showingLeaderboard;
         if (showSearch) {
-            topControls.setPadding(new Insets(20, 40, 0, 40));
+            topControls.setPadding(new Insets(20, 40, 20, 40));
+            topControls.setAlignment(Pos.TOP_LEFT);
             topControls.getChildren().add(sortRow);
             boolean showFilters = !showingLibrary;
             filterBar.setVisible(showFilters);
             filterBar.setManaged(showFilters);
             if (showFilters) topControls.getChildren().add(filterBar);
         } else {
-            topControls.setPadding(new Insets(18, 40, 18, 40));
+            topControls.setPadding(new Insets(22, 40, 0, 40));
+            topControls.setAlignment(Pos.TOP_LEFT);
             String title    = showingFriends ? "FRIENDS" : showingStats ? "STATS" : "LEADERBOARD";
             String subtitle = showingFriends ? "Manage your friends and messages"
                             : showingStats   ? "Your playtime across all servers"
@@ -1219,20 +1221,21 @@ public class RSPSHub extends Application {
             glowAnim.play();
         }
 
-        // Hover popup for level details — delayed to avoid flicker
+        // Hover popup for level details
         Popup[] popupRef = {null};
-        PauseTransition hoverDelay = new PauseTransition(Duration.millis(180));
+        boolean[] overPopup = {false};
+        PauseTransition hoverDelay = new PauseTransition(Duration.millis(220));
         hoverDelay.setOnFinished(e -> {
             if (popupRef[0] != null && popupRef[0].isShowing()) return;
-            Popup p = buildLevelPopup(server.name, skillLevel, skillProgress, milestoneColor);
+            Popup p = buildLevelPopup(server.name, skillLevel, skillProgress, milestoneColor, overPopup, popupRef);
             popupRef[0] = p;
             Bounds b = levelBadge.localToScreen(levelBadge.getBoundsInLocal());
-            p.show(levelBadge, b.getMinX() - 90, b.getMinY() - 175);
+            p.show(levelBadge, b.getMinX() - 90, b.getMinY() - 185);
         });
         levelBadge.setOnMouseEntered(e -> hoverDelay.playFromStart());
         levelBadge.setOnMouseExited(e -> {
             hoverDelay.stop();
-            if (popupRef[0] != null) { popupRef[0].hide(); popupRef[0] = null; }
+            if (!overPopup[0] && popupRef[0] != null) { popupRef[0].hide(); popupRef[0] = null; }
         });
 
         Label players = new Label("\uD83D\uDFE2 " + server.players_online + " Online");
@@ -1291,9 +1294,10 @@ public class RSPSHub extends Application {
 
     // ── LEVEL POPUP ──────────────────────────────────────────────────────────
 
-    private Popup buildLevelPopup(String serverName, int level, double progress, String color) {
+    private Popup buildLevelPopup(String serverName, int level, double progress, String color,
+                                   boolean[] overPopup, Popup[] popupRef) {
         Popup popup = new Popup();
-        popup.setAutoHide(true);
+        popup.setAutoHide(false);
 
         VBox box = new VBox(10);
         box.setStyle(
@@ -1303,7 +1307,7 @@ public class RSPSHub extends Application {
             "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 20, 0, 0, 4);"
         );
         box.setPadding(new Insets(16, 20, 16, 20));
-        box.setPrefWidth(260);
+        box.setPrefWidth(290);
 
         // Header row: server name + level
         Label nameLbl = new Label(serverName);
@@ -1314,18 +1318,21 @@ public class RSPSHub extends Application {
         HBox headerRow = new HBox(nameLbl, hSpacer, lvlLbl);
         headerRow.setAlignment(Pos.CENTER_LEFT);
 
-        // Rank title
+        // Big level number + rank side by side — unconstrained
         String rank = ServerSkillSystem.getRankName(level);
-        Label rankLbl = new Label(rank);
-        rankLbl.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 22px; -fx-font-weight: bold;");
-
-        // Big level number
         Label bigLvl = new Label(String.valueOf(level));
         bigLvl.setStyle("-fx-text-fill: white; -fx-font-size: 48px; -fx-font-weight: bold;");
+        bigLvl.setMinWidth(Region.USE_PREF_SIZE);
 
-        HBox levelRow = new HBox(16, bigLvl, new VBox(4, rankLbl));
+        Label rankLbl = new Label(rank);
+        rankLbl.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 20px; -fx-font-weight: bold;");
+        rankLbl.setMinWidth(Region.USE_PREF_SIZE);
+
+        VBox rankStack = new VBox(2, rankLbl);
+        rankStack.setAlignment(Pos.BOTTOM_LEFT);
+
+        HBox levelRow = new HBox(14, bigLvl, rankStack);
         levelRow.setAlignment(Pos.CENTER_LEFT);
-        ((VBox) levelRow.getChildren().get(1)).setAlignment(Pos.BOTTOM_LEFT);
 
         // XP bar track
         StackPane track = new StackPane();
@@ -1353,6 +1360,14 @@ public class RSPSHub extends Application {
         HBox xpRow = new HBox(xpLbl, xpSpacer, nextLbl);
 
         box.getChildren().addAll(headerRow, levelRow, track, xpRow);
+
+        box.setOnMouseEntered(e -> overPopup[0] = true);
+        box.setOnMouseExited(e -> {
+            overPopup[0] = false;
+            popup.hide();
+            popupRef[0] = null;
+        });
+
         popup.getContent().add(box);
 
         // Animate XP bar fill after popup shows

@@ -31,6 +31,8 @@
     -fx-cursor: hand;
     -fx-border-width: 0 0 2 0;
     -fx-border-color: transparent;
+    -fx-padding: 6 10 6 10;
+    -fx-background-insets: 0;
 }
 
 .nav-tab-active {
