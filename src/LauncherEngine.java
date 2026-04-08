@@ -108,6 +108,31 @@ public class LauncherEngine {
         return Files.exists(jarPath);
     }
 
+    /**
+     * Checks if the remote JAR differs from the local one by comparing file sizes.
+     * Returns false if the check fails so we don't block the user unnecessarily.
+     */
+    public static boolean isUpdateAvailable(ServerProfile server) {
+        try {
+            Path jarPath = Paths.get(downloadPath, server.name.replaceAll(" ", "_"), "SlothLite.jar");
+            if (!Files.exists(jarPath)) return false;
+
+            long localSize = Files.size(jarPath);
+
+            HttpURLConnection conn = (HttpURLConnection) new URL(server.jar_url).openConnection();
+            conn.setRequestMethod("HEAD");
+            conn.setConnectTimeout(4000);
+            conn.setReadTimeout(4000);
+            long remoteSize = conn.getContentLengthLong();
+            conn.disconnect();
+
+            return remoteSize > 0 && remoteSize != localSize;
+        } catch (Exception e) {
+            System.err.println("Update check failed for " + server.name + ": " + e.getMessage());
+            return false;
+        }
+    }
+
     public static void main(String[] args) {
         // Now the main method just starts the Hub environment
         init();
