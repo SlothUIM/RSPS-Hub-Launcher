@@ -1,6 +1,7 @@
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Side;
 import javafx.scene.Cursor;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -46,7 +47,14 @@ public class RSPSHub extends Application {
 
     // Top control refs (toggled per tab)
     private HBox filterBar;
+    private HBox sortRow;
     private TextField searchBar;
+
+    // Notification badge (updated in updateDisplay)
+    private Label notifBadge;
+
+    // Sort state
+    private String sortOrder = "Players (High → Low)";
 
     // Social state
     private String friendsSubTab = "ONLINE";
@@ -220,9 +228,21 @@ public class RSPSHub extends Application {
         accountWidget.setCursor(Cursor.HAND);
         accountWidget.setOnMouseClicked(e -> showSettings(stage));
 
+        // Notification bell
+        Button bellBtn = new Button("🔔");
+        bellBtn.getStyleClass().add("nav-bell-btn");
+        notifBadge = new Label("0");
+        notifBadge.getStyleClass().add("nav-bell-badge");
+        notifBadge.setVisible(false);
+        notifBadge.setManaged(false);
+        StackPane bellPane = new StackPane(bellBtn, notifBadge);
+        bellPane.setAlignment(Pos.CENTER);
+        StackPane.setAlignment(notifBadge, Pos.TOP_RIGHT);
+        bellBtn.setOnAction(e -> showNotificationPopup(bellBtn));
+
         Region navSpacer = new Region();
         HBox.setHgrow(navSpacer, Priority.ALWAYS);
-        navbar.getChildren().addAll(brand, storeTab, libraryTab, friendsTab, navSpacer, accountWidget);
+        navbar.getChildren().addAll(brand, storeTab, libraryTab, friendsTab, navSpacer, bellPane, accountWidget);
 
         // --- SEARCH & FILTERS ---
         VBox topControls = new VBox(15);
@@ -231,7 +251,21 @@ public class RSPSHub extends Application {
         searchBar = new TextField();
         searchBar.setPromptText("Search for a server...");
         searchBar.getStyleClass().add("search-field");
+        HBox.setHgrow(searchBar, Priority.ALWAYS);
         searchBar.textProperty().addListener((obs, old, val) -> { searchText = val; updateDisplay(); });
+
+        // Sort menu
+        Label sortLabel = new Label("Sort by:");
+        sortLabel.getStyleClass().add("auth-muted");
+        MenuButton sortBtn = new MenuButton(sortOrder);
+        sortBtn.getStyleClass().add("dark-menu-btn");
+        for (String opt : new String[]{"Players (High → Low)", "Name A–Z", "Name Z–A"}) {
+            MenuItem sortItem = new MenuItem(opt);
+            sortItem.setOnAction(e -> { sortOrder = opt; sortBtn.setText(opt); updateDisplay(); });
+            sortBtn.getItems().add(sortItem);
+        }
+        sortRow = new HBox(10, searchBar, sortLabel, sortBtn);
+        sortRow.setAlignment(Pos.CENTER_LEFT);
 
         filterBar = new HBox(10);
         String[] tags = {"All", "Custom", "PvP", "Economy", "OSRS", "Hardcore", "Leagues", "Vanilla", "Ironman", "Skilling"};
@@ -246,7 +280,7 @@ public class RSPSHub extends Application {
             });
             filterBar.getChildren().add(tagBtn);
         }
-        topControls.getChildren().addAll(searchBar, filterBar);
+        topControls.getChildren().addAll(sortRow, filterBar);
 
         hubRoot.setTop(new VBox(TitleBar.create(stage), navbar, topControls));
 
@@ -285,9 +319,18 @@ public class RSPSHub extends Application {
         serverGrid.setSpacing(20);
         serverGrid.setPadding(new Insets(30));
 
-        // Hide search & tags in friends; hide tags in library
-        searchBar.setVisible(!showingFriends);
-        searchBar.setManaged(!showingFriends);
+        // Update notification badge
+        long pending = friendRequests.stream().filter(r -> r.incoming).count();
+        if (notifBadge != null) {
+            notifBadge.setText(String.valueOf(pending));
+            notifBadge.setVisible(pending > 0);
+            notifBadge.setManaged(pending > 0);
+        }
+
+        // Hide search/sort/tags in friends; hide tags in library
+        boolean showSearch = !showingFriends;
+        sortRow.setVisible(showSearch);
+        sortRow.setManaged(showSearch);
         boolean showFilters = !showingFriends && !showingLibrary;
         filterBar.setVisible(showFilters);
         filterBar.setManaged(showFilters);
@@ -303,14 +346,36 @@ public class RSPSHub extends Application {
             .filter(s -> !showingLibrary || LauncherEngine.isDownloaded(s))
             .collect(Collectors.toList());
 
+        // Apply sort
+        switch (sortOrder) {
+            case "Name A–Z" -> filtered.sort(Comparator.comparing(s -> s.name));
+            case "Name Z–A" -> filtered.sort(Comparator.comparing((ServerProfile s) -> s.name).reversed());
+            default         -> filtered.sort(Comparator.comparingInt((ServerProfile s) -> s.players_online).reversed());
+        }
+
         if (filtered.isEmpty()) {
             Label oops = new Label(showingLibrary ? "You haven't installed any servers yet!" : "No servers match your search.");
             oops.getStyleClass().add("empty-label");
             serverGrid.getChildren().add(oops);
-        } else {
-            for (ServerProfile server : filtered)
-                serverGrid.getChildren().add(createServerCard(server));
+            return;
         }
+
+        // Pinned first
+        List<ServerProfile> pinned   = filtered.stream().filter(s -> LauncherEngine.favouriteServers.contains(s.name)).collect(Collectors.toList());
+        List<ServerProfile> unpinned = filtered.stream().filter(s -> !LauncherEngine.favouriteServers.contains(s.name)).collect(Collectors.toList());
+
+        if (!pinned.isEmpty()) {
+            Label pinnedHdr = new Label("★  FAVOURITES");
+            pinnedHdr.getStyleClass().add("pinned-header");
+            serverGrid.getChildren().add(pinnedHdr);
+            for (ServerProfile s : pinned) serverGrid.getChildren().add(createServerCard(s));
+            if (!unpinned.isEmpty()) {
+                Label allHdr = new Label("ALL SERVERS");
+                allHdr.getStyleClass().add("pinned-header");
+                serverGrid.getChildren().add(allHdr);
+            }
+        }
+        for (ServerProfile s : unpinned) serverGrid.getChildren().add(createServerCard(s));
     }
 
     // ── FRIENDS CONTENT ──────────────────────────────────────────────────────
@@ -863,7 +928,13 @@ public class RSPSHub extends Application {
         Label time = new Label(msg.timestamp);
         time.getStyleClass().add("msg-timestamp");
 
-        bubble.getChildren().addAll(content, time);
+        if (msg.isOwn) {
+            Label receipt = new Label("✓ Sent");
+            receipt.getStyleClass().add("msg-read-receipt");
+            bubble.getChildren().addAll(content, time, receipt);
+        } else {
+            bubble.getChildren().addAll(content, time);
+        }
 
         if (msg.isOwn) {
             row.setAlignment(Pos.CENTER_RIGHT);
@@ -921,23 +992,154 @@ public class RSPSHub extends Application {
         info.getChildren().addAll(title, desc, tagBox);
         HBox.setHgrow(info, Priority.ALWAYS);
 
+        // Note text below description
+        String existingNote = LauncherEngine.serverNotes.get(server.name);
+        if (existingNote != null && !existingNote.isEmpty()) {
+            Label noteLbl = new Label("📝  " + existingNote);
+            noteLbl.getStyleClass().add("server-note-text");
+            info.getChildren().add(noteLbl);
+        }
+
         VBox actions = new VBox(10);
         actions.setAlignment(Pos.CENTER_RIGHT);
+
+        // Star (favourite) + Note buttons
+        boolean isFav = LauncherEngine.favouriteServers.contains(server.name);
+        Button starBtn = new Button(isFav ? "★" : "☆");
+        starBtn.getStyleClass().add(isFav ? "fav-btn-active" : "fav-btn");
+        starBtn.setOnAction(e -> {
+            e.consume();
+            if (LauncherEngine.favouriteServers.contains(server.name))
+                LauncherEngine.favouriteServers.remove(server.name);
+            else
+                LauncherEngine.favouriteServers.add(server.name);
+            LauncherEngine.saveSettings();
+            updateDisplay();
+        });
+
+        Button noteBtn = new Button("📝");
+        noteBtn.getStyleClass().add("note-btn");
+        String currentNote = LauncherEngine.serverNotes.get(server.name);
+        noteBtn.setTooltip(new Tooltip(currentNote != null ? currentNote : "Add a note"));
+        noteBtn.setOnAction(e -> {
+            e.consume();
+            String note = LauncherEngine.serverNotes.get(server.name);
+            DarkDialog.showInput((Stage) card.getScene().getWindow(),
+                "Note for " + server.name + ":", note != null ? note : "",
+                result -> {
+                    if (result.trim().isEmpty()) LauncherEngine.serverNotes.remove(server.name);
+                    else LauncherEngine.serverNotes.put(server.name, result.trim());
+                    LauncherEngine.saveSettings();
+                    updateDisplay();
+                });
+        });
+
+        HBox cardTools = new HBox(4, starBtn, noteBtn);
+        cardTools.setAlignment(Pos.CENTER_RIGHT);
 
         Label players = new Label("🟢 " + server.players_online + " Online");
         players.getStyleClass().add("player-count");
 
-        Button playBtn = new Button(LauncherEngine.isDownloaded(server) ? "PLAY" : "INSTALL");
+        boolean downloaded = LauncherEngine.isDownloaded(server);
+        Button playBtn = new Button(downloaded ? "PLAY" : "INSTALL");
         playBtn.getStyleClass().add("play-button");
         playBtn.setOnAction(e -> {
             e.consume();
             handlePlayAction(server, (Stage) card.getScene().getWindow(), playBtn, () -> { if (showingLibrary) updateDisplay(); });
         });
 
-        actions.getChildren().addAll(players, playBtn);
+        actions.getChildren().addAll(cardTools, players, playBtn);
+
+        // Uninstall button shown only in library
+        if (showingLibrary && downloaded) {
+            Button uninstallBtn = new Button("Uninstall");
+            uninstallBtn.getStyleClass().add("settings-logout-btn");
+            uninstallBtn.setOnAction(e -> {
+                e.consume();
+                Stage owner = (Stage) card.getScene().getWindow();
+                DarkDialog.showAlert(owner, "Uninstalling " + server.name + "...");
+                new Thread(() -> {
+                    LauncherEngine.uninstallServer(server);
+                    javafx.application.Platform.runLater(this::updateDisplay);
+                }).start();
+            });
+            actions.getChildren().add(uninstallBtn);
+        }
+
         card.getChildren().addAll(bannerPane, info, actions);
         card.setOnMouseClicked(e -> showServerDetail((Stage) card.getScene().getWindow(), server));
         return card;
+    }
+
+    // ── NOTIFICATION POPUP ───────────────────────────────────────────────────
+
+    private void showNotificationPopup(Button anchor) {
+        ContextMenu menu = new ContextMenu();
+
+        List<FriendRequest> incoming = friendRequests.stream()
+            .filter(r -> r.incoming).collect(Collectors.toList());
+
+        if (incoming.isEmpty()) {
+            Label none = new Label("No new notifications");
+            none.getStyleClass().add("auth-muted");
+            none.setPadding(new Insets(8, 16, 8, 16));
+            menu.getItems().add(new CustomMenuItem(none, false));
+        } else {
+            for (FriendRequest req : new ArrayList<>(incoming)) {
+                HBox row = new HBox(10);
+                row.setAlignment(Pos.CENTER_LEFT);
+                row.setPadding(new Insets(8, 14, 8, 14));
+                row.setPrefWidth(300);
+
+                Label avatar = new Label(req.username.substring(0, 1).toUpperCase());
+                avatar.getStyleClass().add("friend-avatar-offline");
+
+                Label msg = new Label(req.username + " sent you a friend request");
+                msg.getStyleClass().add("friend-name");
+                msg.setWrapText(true);
+                msg.setMaxWidth(160);
+                HBox.setHgrow(msg, Priority.ALWAYS);
+
+                Button acceptBtn = new Button("✓");
+                acceptBtn.getStyleClass().add("auth-btn");
+                acceptBtn.setPrefSize(32, 28);
+                acceptBtn.setOnAction(e -> {
+                    friends.add(new Friend(req.username, true, null));
+                    friendRequests.remove(req);
+                    ActivityStore.add(new ActivityItem(req.username, "joined as your friend", "", "Just now"));
+                    menu.hide();
+                    updateDisplay();
+                });
+
+                Button declineBtn = new Button("✕");
+                declineBtn.getStyleClass().add("settings-secondary-btn");
+                declineBtn.setPrefSize(32, 28);
+                declineBtn.setOnAction(e -> {
+                    friendRequests.remove(req);
+                    menu.hide();
+                    updateDisplay();
+                });
+
+                row.getChildren().addAll(avatar, msg, acceptBtn, declineBtn);
+                menu.getItems().add(new CustomMenuItem(row, false));
+            }
+
+            menu.getItems().add(new SeparatorMenuItem());
+
+            Label viewAll = new Label("View all in Friends → Requests");
+            viewAll.getStyleClass().add("auth-muted");
+            viewAll.setPadding(new Insets(6, 14, 6, 14));
+            MenuItem viewAllItem = new CustomMenuItem(viewAll, true);
+            viewAllItem.setOnAction(e -> {
+                friendsSubTab = "REQUESTS";
+                showingFriends = true;
+                setActiveTab(friendsTab);
+                updateDisplay();
+            });
+            menu.getItems().add(viewAllItem);
+        }
+
+        menu.show(anchor, Side.BOTTOM, 0, 4);
     }
 
     // ── PLAY HANDLER ─────────────────────────────────────────────────────────

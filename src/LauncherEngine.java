@@ -9,6 +9,10 @@ import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Set;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.HashMap;
 
 import com.google.gson.Gson;
 
@@ -26,6 +30,8 @@ public class LauncherEngine {
     public static String downloadPath = System.getProperty("user.home") + "/.rsps_hub/";
     public static boolean minimizeOnLaunch = false;
     public static boolean autoUpdateClients = false;
+    public static Set<String> favouriteServers = new LinkedHashSet<>();
+    public static Map<String, String> serverNotes = new HashMap<>();
 
     private static final Path SETTINGS_PATH =
         Paths.get(System.getProperty("user.home"), ".rsps_hub", "settings.json");
@@ -35,15 +41,19 @@ public class LauncherEngine {
         String statusMessage;
         boolean minimizeOnLaunch;
         boolean autoUpdateClients;
+        List<String> favouriteServers;
+        Map<String, String> serverNotes;
     }
 
     public static void saveSettings() {
         try {
             SettingsData d = new SettingsData();
-            d.downloadPath     = downloadPath;
-            d.statusMessage    = statusMessage;
-            d.minimizeOnLaunch = minimizeOnLaunch;
+            d.downloadPath      = downloadPath;
+            d.statusMessage     = statusMessage;
+            d.minimizeOnLaunch  = minimizeOnLaunch;
             d.autoUpdateClients = autoUpdateClients;
+            d.favouriteServers  = new ArrayList<>(favouriteServers);
+            d.serverNotes       = serverNotes;
             Files.createDirectories(SETTINGS_PATH.getParent());
             Files.writeString(SETTINGS_PATH, new Gson().toJson(d));
         } catch (Exception e) {
@@ -55,8 +65,10 @@ public class LauncherEngine {
         try {
             if (!Files.exists(SETTINGS_PATH)) return;
             SettingsData d = new Gson().fromJson(Files.readString(SETTINGS_PATH), SettingsData.class);
-            if (d.downloadPath  != null) downloadPath  = d.downloadPath;
-            if (d.statusMessage != null) statusMessage = d.statusMessage;
+            if (d.downloadPath       != null) downloadPath      = d.downloadPath;
+            if (d.statusMessage      != null) statusMessage     = d.statusMessage;
+            if (d.favouriteServers   != null) favouriteServers  = new LinkedHashSet<>(d.favouriteServers);
+            if (d.serverNotes        != null) serverNotes       = d.serverNotes;
             minimizeOnLaunch  = d.minimizeOnLaunch;
             autoUpdateClients = d.autoUpdateClients;
         } catch (Exception e) {
@@ -146,6 +158,24 @@ public class LauncherEngine {
     public static boolean isDownloaded(ServerProfile server) {
         Path jarPath = Paths.get(downloadPath, server.name.replaceAll(" ", "_"), "SlothLite.jar");
         return Files.exists(jarPath);
+    }
+
+    /**
+     * Deletes all files for the given server from the download folder.
+     */
+    public static boolean uninstallServer(ServerProfile server) {
+        try {
+            Path serverFolder = Paths.get(downloadPath, server.name.replaceAll(" ", "_"));
+            if (!Files.exists(serverFolder)) return true;
+            Files.walk(serverFolder)
+                .sorted(java.util.Comparator.reverseOrder())
+                .map(Path::toFile)
+                .forEach(java.io.File::delete);
+            return true;
+        } catch (Exception e) {
+            System.err.println("Failed to uninstall " + server.name + ": " + e.getMessage());
+            return false;
+        }
     }
 
     /**

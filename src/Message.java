@@ -4,6 +4,8 @@ public class Message {
     public String timestamp;
     public boolean isOwn;
 
+    public Message() {}  // required for Gson deserialization
+
     public Message(String sender, String content, String timestamp, boolean isOwn) {
         this.sender = sender;
         this.content = content;
