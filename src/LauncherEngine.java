@@ -33,11 +33,15 @@ public class LauncherEngine {
     public static boolean autoUpdateClients = false;
     public static boolean lightMode = false;
     public static boolean autoLaunch = false;
+    public static String accentColor = "#ff981f";
     public static Set<String> favouriteServers = new LinkedHashSet<>();
     public static Map<String, String> serverNotes = new HashMap<>();
 
     private static final Path SETTINGS_PATH =
         Paths.get(System.getProperty("user.home"), ".rsps_hub", "settings.json");
+
+    private static final Path ACCENT_CSS_PATH =
+        Paths.get(System.getProperty("user.home"), ".rsps_hub", "accent.css");
 
     private static class SettingsData {
         String downloadPath;
@@ -46,6 +50,7 @@ public class LauncherEngine {
         boolean autoUpdateClients;
         boolean lightMode;
         boolean autoLaunch;
+        String accentColor;
         List<String> favouriteServers;
         Map<String, String> serverNotes;
     }
@@ -59,6 +64,7 @@ public class LauncherEngine {
             d.autoUpdateClients = autoUpdateClients;
             d.lightMode         = lightMode;
             d.autoLaunch        = autoLaunch;
+            d.accentColor       = accentColor;
             d.favouriteServers  = new ArrayList<>(favouriteServers);
             d.serverNotes       = serverNotes;
             Files.createDirectories(SETTINGS_PATH.getParent());
@@ -74,6 +80,7 @@ public class LauncherEngine {
             SettingsData d = new Gson().fromJson(Files.readString(SETTINGS_PATH), SettingsData.class);
             if (d.downloadPath       != null) downloadPath      = d.downloadPath;
             if (d.statusMessage      != null) statusMessage     = d.statusMessage;
+            if (d.accentColor        != null) accentColor       = d.accentColor;
             if (d.favouriteServers   != null) favouriteServers  = new LinkedHashSet<>(d.favouriteServers);
             if (d.serverNotes        != null) serverNotes       = d.serverNotes;
             minimizeOnLaunch  = d.minimizeOnLaunch;
@@ -89,7 +96,66 @@ public class LauncherEngine {
         List<String> sheets = new ArrayList<>();
         sheets.add(cls.getResource("style.css").toExternalForm());
         if (lightMode) sheets.add(cls.getResource("style-light.css").toExternalForm());
+        if (Files.exists(ACCENT_CSS_PATH)) sheets.add(getAccentCssUrl());
         return sheets;
+    }
+
+    /** URL with cache-busting fragment so JavaFX re-reads the file every time. */
+    public static String getAccentCssUrl() {
+        return ACCENT_CSS_PATH.toUri().toString() + "#" + System.currentTimeMillis();
+    }
+
+    public static void setAccentColor(String hex) {
+        accentColor = hex;
+        writeAccentCss();
+        saveSettings();
+    }
+
+    public static void writeAccentCss() {
+        try {
+            Files.createDirectories(ACCENT_CSS_PATH.getParent());
+            Files.writeString(ACCENT_CSS_PATH, generateAccentCss(accentColor));
+        } catch (Exception e) {
+            System.err.println("Failed to write accent CSS: " + e.getMessage());
+        }
+    }
+
+    private static String generateAccentCss(String c) {
+        return String.join("\n",
+            ".nav-tab-active { -fx-text-fill: " + c + "; -fx-border-color: " + c + "; }",
+            ".search-field:focused { -fx-border-color: " + c + "; }",
+            ".filter-btn-active { -fx-border-color: " + c + "; }",
+            ".play-button { -fx-background-color: " + c + "; }",
+            ".detail-icon-placeholder { -fx-text-fill: " + c + "; }",
+            ".detail-stars-display { -fx-text-fill: " + c + "; }",
+            ".review-avatar { -fx-text-fill: " + c + "; }",
+            ".review-star-selected { -fx-text-fill: " + c + "; }",
+            ".msg-bubble-me { -fx-background-color: " + c + "; }",
+            ".msg-sender-name { -fx-text-fill: " + c + "; }",
+            ".nav-avatar { -fx-background-color: " + c + "; }",
+            ".nav-account-widget:hover .nav-username { -fx-text-fill: " + c + "; }",
+            ".nav-bell-badge { -fx-background-color: " + c + "; }",
+            ".settings-section-header { -fx-text-fill: " + c + "; }",
+            ".settings-checkbox:selected .box { -fx-background-color: " + c + "; -fx-border-color: " + c + "; }",
+            ".settings-avatar { -fx-background-color: " + c + "; }",
+            ".auth-field:focused { -fx-border-color: " + c + "; }",
+            ".auth-btn { -fx-background-color: " + c + "; }",
+            ".auth-link { -fx-text-fill: " + c + "; }",
+            ".friends-subtab-active { -fx-text-fill: " + c + "; -fx-border-color: transparent transparent " + c + " transparent; }",
+            ".friends-section-header { -fx-text-fill: " + c + "; }",
+            ".profile-avatar { -fx-background-color: " + c + "; }",
+            ".dialog-pane .button-bar .button:default { -fx-background-color: " + c + "; }",
+            ".dialog-pane .text-field:focused { -fx-border-color: " + c + "; }",
+            ".splash-logo { -fx-text-fill: " + c + "; }",
+            ".splash-progress .bar { -fx-background-color: " + c + "; }",
+            ".dev-textarea:focused { -fx-border-color: " + c + "; }",
+            ".dev-tag-check:selected .box { -fx-background-color: " + c + "; -fx-border-color: " + c + "; }",
+            ".fav-btn:hover { -fx-text-fill: " + c + "; }",
+            ".fav-btn-active { -fx-text-fill: " + c + "; }",
+            ".pinned-header { -fx-text-fill: " + c + "; }",
+            ".dark-menu-btn:hover { -fx-border-color: " + c + "; }",
+            ".nav-brand { -fx-text-fill: " + c + "; }"
+        );
     }
 
     public static void setAutoLaunch(boolean enable) {
@@ -118,6 +184,7 @@ public class LauncherEngine {
      */
     public static void init() {
         loadSettings();
+        writeAccentCss();
         try {
             Files.createDirectories(Paths.get(downloadPath));
             System.out.println("Hub initialized at: " + downloadPath);

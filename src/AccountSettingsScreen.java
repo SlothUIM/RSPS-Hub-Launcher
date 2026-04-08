@@ -8,6 +8,8 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 public class AccountSettingsScreen {
 
@@ -164,23 +166,52 @@ public class AccountSettingsScreen {
         );
     }
 
-    private static VBox buildAppearanceSection() {
-        String[] colors   = {"#ff981f", "#4a9eff", "#4caf50", "#e05252", "#9b5de5"};
-        String[] names    = {"Orange",  "Blue",    "Green",   "Red",     "Purple"};
+    private static void applyDotStyle(Label dot, String hex, boolean selected) {
+        String ring = selected ? "white" : "transparent";
+        dot.setStyle("-fx-background-color: " + hex + ";"
+            + "-fx-border-color: " + ring + ";"
+            + "-fx-border-width: 2.5;"
+            + "-fx-border-radius: 14;"
+            + "-fx-background-radius: 14;");
+    }
 
-        Label selectedLabel = new Label("Current: Orange");
+    private static VBox buildAppearanceSection() {
+        String[] colors = {"#ff981f", "#4a9eff", "#4caf50", "#e05252", "#9b5de5"};
+        String[] names  = {"Orange",  "Blue",    "Green",   "Red",     "Purple"};
+
+        String currentName = "Custom";
+        for (int i = 0; i < colors.length; i++)
+            if (colors[i].equalsIgnoreCase(LauncherEngine.accentColor)) currentName = names[i];
+
+        Label selectedLabel = new Label("Current: " + currentName);
         selectedLabel.getStyleClass().add("settings-color-selected");
 
         HBox colorRow = new HBox(12);
         colorRow.setAlignment(Pos.CENTER_LEFT);
 
+        List<Label> dots = new ArrayList<>();
         for (int i = 0; i < colors.length; i++) {
+            final String hex  = colors[i];
             final String name = names[i];
             Label dot = new Label();
             dot.getStyleClass().add("color-dot");
-            dot.setStyle("-fx-background-color: " + colors[i] + ";");
-            dot.setOnMouseClicked(e -> selectedLabel.setText("Current: " + name + "  (takes effect on restart)"));
+            dot.setCursor(javafx.scene.Cursor.HAND);
+            applyDotStyle(dot, hex, hex.equalsIgnoreCase(LauncherEngine.accentColor));
+            dots.add(dot);
             colorRow.getChildren().add(dot);
+
+            dot.setOnMouseClicked(e -> {
+                LauncherEngine.setAccentColor(hex);
+                selectedLabel.setText("Current: " + name);
+                for (int j = 0; j < dots.size(); j++)
+                    applyDotStyle(dots.get(j), colors[j], colors[j].equalsIgnoreCase(hex));
+                // Live reload in current scene
+                javafx.scene.Scene scene = dot.getScene();
+                if (scene != null) {
+                    scene.getStylesheets().removeIf(s -> s.contains("accent.css"));
+                    scene.getStylesheets().add(LauncherEngine.getAccentCssUrl());
+                }
+            });
         }
 
         CheckBox lightCheck = new CheckBox("Light mode");
