@@ -89,7 +89,7 @@ public class RegisterScreen {
                         String errorMsg = "Registration failed.";
                         if (response.contains("\"message\":\"")) {
                             errorMsg = response.split("\"message\":\"")[1].split("\"")[0];
-                        }
+                        } 
                         showError(errorLabel, errorMsg);
                     }
                 });

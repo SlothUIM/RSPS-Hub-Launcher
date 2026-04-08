@@ -205,7 +205,7 @@ public class DeveloperPortalScreen {
                         successPanel.setVisible(true);
                         successPanel.setManaged(true);
                         submitBtn.setVisible(false); // Hide button on success
-                    } else {
+                    } else { 
                         submitBtn.setDisable(false);
                         String errorMsg = "Submission failed.";
                         if (response.contains("\"message\":\"")) {

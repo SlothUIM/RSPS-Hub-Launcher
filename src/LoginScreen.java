@@ -89,7 +89,7 @@ public class LoginScreen {
                 });
                 return null;
             });
-        });
+        }); 
 
         // Allow Enter key to submit
         passwordField.setOnAction(e -> loginBtn.fire());
