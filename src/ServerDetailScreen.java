@@ -42,7 +42,7 @@ public class ServerDetailScreen {
         backBtn.setOnAction(e -> onBack.run());
 
         topBar.getChildren().add(backBtn);
-        root.setTop(topBar);
+        root.setTop(new VBox(TitleBar.create(stage), topBar));
 
         // --- SCROLLABLE CONTENT ---
         VBox content = new VBox(0);
@@ -66,6 +66,7 @@ public class ServerDetailScreen {
 
         Scene scene = new Scene(root);
         scene.getStylesheets().add(ServerDetailScreen.class.getResource("style.css").toExternalForm());
+        SceneUtils.applyRoundedCorners(scene, root);
         return scene;
     }
 

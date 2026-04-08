@@ -8,9 +8,12 @@ import javafx.stage.Stage;
 public class RegisterScreen {
 
     public static Scene create(Stage stage, Runnable onRegisterSuccess, Runnable onShowLogin) {
-        VBox root = new VBox();
+        BorderPane root = new BorderPane();
         root.getStyleClass().add("auth-root");
-        root.setAlignment(Pos.CENTER);
+        root.setTop(TitleBar.create(stage));
+
+        VBox centered = new VBox();
+        centered.setAlignment(Pos.CENTER);
 
         VBox card = new VBox(14);
         card.getStyleClass().add("auth-card");
@@ -83,10 +86,12 @@ public class RegisterScreen {
         loginRow.getChildren().addAll(hasAccount, loginLink);
 
         card.getChildren().addAll(brand, subtitle, sep, userGroup, emailGroup, passGroup, confirmGroup, errorLabel, registerBtn, loginRow);
-        root.getChildren().add(card);
+        centered.getChildren().add(card);
+        root.setCenter(centered);
 
         Scene scene = new Scene(root);
         scene.getStylesheets().add(RegisterScreen.class.getResource("style.css").toExternalForm());
+        SceneUtils.applyRoundedCorners(scene, root);
         return scene;
     }
 

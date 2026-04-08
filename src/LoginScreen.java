@@ -9,9 +9,12 @@ import java.util.function.Consumer;
 public class LoginScreen {
 
     public static Scene create(Stage stage, Consumer<String> onLoginSuccess, Runnable onShowRegister) {
-        VBox root = new VBox();
+        BorderPane root = new BorderPane();
         root.getStyleClass().add("auth-root");
-        root.setAlignment(Pos.CENTER);
+        root.setTop(TitleBar.create(stage));
+
+        VBox centered = new VBox();
+        centered.setAlignment(Pos.CENTER);
 
         VBox card = new VBox(16);
         card.getStyleClass().add("auth-card");
@@ -74,10 +77,12 @@ public class LoginScreen {
         registerRow.getChildren().addAll(noAccount, registerLink);
 
         card.getChildren().addAll(brand, subtitle, sep, userGroup, passGroup, errorLabel, loginBtn, registerRow);
-        root.getChildren().add(card);
+        centered.getChildren().add(card);
+        root.setCenter(centered);
 
         Scene scene = new Scene(root);
         scene.getStylesheets().add(LoginScreen.class.getResource("style.css").toExternalForm());
+        SceneUtils.applyRoundedCorners(scene, root);
         return scene;
     }
 

@@ -1,6 +1,7 @@
 /* --- GLOBAL STYLES --- */
 .root-pane {
     -fx-background-color: #0f1115;
+    -fx-background-radius: 10;
 }
 
 .main-scroll {
@@ -681,6 +682,7 @@
 .auth-root {
     -fx-background-color: #0f1115;
     -fx-alignment: center;
+    -fx-background-radius: 10;
 }
 
 .auth-card {
@@ -761,4 +763,110 @@
 .auth-error {
     -fx-text-fill: #e05252;
     -fx-font-size: 13px;
+}
+
+/* --- CUSTOM TITLE BAR --- */
+.custom-title-bar {
+    -fx-background-color: #13161c;
+    -fx-border-color: #2a2e39;
+    -fx-border-width: 0 0 1 0;
+    -fx-pref-height: 36px;
+    -fx-min-height: 36px;
+    -fx-padding: 0 4 0 16;
+}
+
+.title-bar-app-name {
+    -fx-text-fill: #555d6e;
+    -fx-font-size: 11px;
+    -fx-font-weight: 800;
+}
+
+.title-bar-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: #8b92a5;
+    -fx-font-size: 14px;
+    -fx-cursor: hand;
+    -fx-padding: 0 14;
+    -fx-pref-height: 36px;
+    -fx-min-height: 36px;
+    -fx-background-radius: 0;
+    -fx-border-width: 0;
+}
+
+.title-bar-btn:hover {
+    -fx-background-color: #2a2e39;
+    -fx-text-fill: white;
+}
+
+.title-bar-close:hover {
+    -fx-background-color: #c42b1c;
+    -fx-text-fill: white;
+}
+
+/* --- SPLASH SCREEN --- */
+.splash-root {
+    -fx-background-color: #0f1115;
+    -fx-background-radius: 10;
+}
+
+.splash-logo {
+    -fx-text-fill: #ff981f;
+    -fx-font-size: 64px;
+    -fx-font-weight: 800;
+}
+
+.splash-tagline {
+    -fx-text-fill: #555d6e;
+    -fx-font-size: 15px;
+}
+
+.splash-progress {
+    -fx-pref-height: 8px;
+    -fx-background-color: transparent;
+}
+
+.splash-progress .track {
+    -fx-background-color: #1a1d24;
+    -fx-background-radius: 4;
+    -fx-padding: 4 0;
+}
+
+.splash-progress .bar {
+    -fx-background-color: #ff981f;
+    -fx-background-radius: 4;
+    -fx-padding: 4 0;
+    -fx-effect: dropshadow(gaussian, rgba(255,152,31,0.5), 6, 0, 0, 0);
+}
+
+
+/* --- SCROLLBARS --- */
+.scroll-bar {
+    -fx-background-color: #0f1115;
+}
+
+.scroll-bar .track {
+    -fx-background-color: #0f1115;
+    -fx-background-radius: 0;
+    -fx-border-color: transparent;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #2a2e39;
+    -fx-background-radius: 4;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: #3a3e4a;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+    -fx-shape: " ";
+    -fx-padding: 2;
 }

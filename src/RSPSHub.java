@@ -8,6 +8,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -45,11 +46,10 @@ public class RSPSHub extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+        primaryStage.initStyle(StageStyle.TRANSPARENT);
         primaryStage.setTitle("RSPS Hub Launcher");
         primaryStage.setWidth(1000);
         primaryStage.setHeight(800);
-        showLoginScreen(primaryStage);
-        primaryStage.show();
 
         friends.add(new Friend("PKMaster99",  true,  "SlothLite"));
         friends.add(new Friend("IronmanJoe",  true,  "MythicPS"));
@@ -58,6 +58,9 @@ public class RSPSHub extends Application {
 
         groups.add("RSPS Gang");
         groupMembers.put("RSPS Gang", new ArrayList<>(List.of("PKMaster99", "IronmanJoe")));
+
+        SplashScreen.show(primaryStage, () -> showLoginScreen(primaryStage));
+        primaryStage.show();
     }
 
     // ── SCREEN NAVIGATION ────────────────────────────────────────────────────
@@ -202,7 +205,7 @@ public class RSPSHub extends Application {
         }
         topControls.getChildren().addAll(searchBar, filterBar);
 
-        hubRoot.setTop(new VBox(navbar, topControls));
+        hubRoot.setTop(new VBox(TitleBar.create(stage), navbar, topControls));
 
         // --- CONTENT ---
         serverGrid = new VBox(20);
@@ -216,6 +219,7 @@ public class RSPSHub extends Application {
 
         Scene scene = new Scene(hubRoot);
         scene.getStylesheets().add(getClass().getResource("style.css").toExternalForm());
+        SceneUtils.applyRoundedCorners(scene, hubRoot);
         stage.setScene(scene);
     }
 

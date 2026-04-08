@@ -37,7 +37,7 @@ public class DeveloperPortalScreen {
         pageTitle.getStyleClass().add("settings-page-title");
 
         topBar.getChildren().addAll(backBtn, leftSpacer, pageTitle, rightSpacer);
-        root.setTop(topBar);
+        root.setTop(new VBox(TitleBar.create(stage), topBar));
 
         // --- CONTENT ---
         VBox content = new VBox(40);
@@ -66,6 +66,7 @@ public class DeveloperPortalScreen {
 
         Scene scene = new Scene(root);
         scene.getStylesheets().add(DeveloperPortalScreen.class.getResource("style.css").toExternalForm());
+        SceneUtils.applyRoundedCorners(scene, root);
         return scene;
     }
 
