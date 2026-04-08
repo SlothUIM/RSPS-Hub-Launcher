@@ -69,7 +69,31 @@ public class RegisterScreen {
             } else if (!password.equals(confirm)) {
                 showError(errorLabel, "Passwords do not match.");
             } else {
-                onRegisterSuccess.run();
+                registerBtn.setText("CREATING ACCOUNT...");
+                registerBtn.setDisable(true);
+                errorLabel.setVisible(false);
+
+                String payload = String.format("{\"username\":\"%s\", \"email\":\"%s\", \"password\":\"%s\"}", username, email, password);
+
+                ApiClient.postJson("register", payload).thenAccept(response -> {
+                    javafx.application.Platform.runLater(() -> {
+                        registerBtn.setText("CREATE ACCOUNT");
+                        registerBtn.setDisable(false);
+                        
+                        if (response != null && !response.contains("error")) {
+                            onRegisterSuccess.run();
+                        } else {
+                            showError(errorLabel, "Username or email already exists.");
+                        }
+                    });
+                }).exceptionally(ex -> {
+                    javafx.application.Platform.runLater(() -> {
+                        registerBtn.setText("CREATE ACCOUNT");
+                        registerBtn.setDisable(false);
+                        showError(errorLabel, "Could not connect to server.");
+                    });
+                    return null;
+                });
             }
         });
 

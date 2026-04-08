@@ -55,10 +55,40 @@ public class LoginScreen {
         loginBtn.setOnAction(e -> {
             String username = usernameField.getText().trim();
             String password = passwordField.getText().trim();
+            
             if (username.isEmpty() || password.isEmpty()) {
                 showError(errorLabel, "Please fill in all fields.");
             } else {
-                onLoginSuccess.accept(username);
+                // Disable button so they don't spam click
+                loginBtn.setText("LOGGING IN...");
+                loginBtn.setDisable(true);
+                errorLabel.setVisible(false);
+
+                // Create the JSON string
+                String payload = String.format("{\"username\":\"%s\", \"password\":\"%s\"}", username, password);
+
+                // Send to the DuckDNS API
+                ApiClient.postJson("login", payload).thenAccept(response -> {
+                    // Switch back to the UI thread to update the screen
+                    javafx.application.Platform.runLater(() -> {
+                        loginBtn.setText("LOGIN");
+                        loginBtn.setDisable(false);
+                        
+                        // NOTE: You might need to adjust this depending on what your API actually returns!
+                        if (response != null && !response.contains("error")) {
+                            onLoginSuccess.accept(username);
+                        } else {
+                            showError(errorLabel, "Invalid username or password.");
+                        }
+                    });
+                }).exceptionally(ex -> {
+                    javafx.application.Platform.runLater(() -> {
+                        loginBtn.setText("LOGIN");
+                        loginBtn.setDisable(false);
+                        showError(errorLabel, "Could not connect to server.");
+                    });
+                    return null;
+                });
             }
         });
 
