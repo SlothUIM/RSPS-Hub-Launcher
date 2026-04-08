@@ -42,6 +42,16 @@ public class RSPSHub extends Application {
     // Navbar tab refs
     private Button storeTab, libraryTab, friendsTab;
 
+    // Top control refs (toggled per tab)
+    private HBox filterBar;
+    private TextField searchBar;
+
+    // Social state
+    private String friendsSubTab = "ONLINE";
+    private List<FriendRequest> friendRequests = new ArrayList<>();
+    private List<String> blockedUsers = new ArrayList<>();
+    private Party currentParty = null;
+
     // ── LIFECYCLE ────────────────────────────────────────────────────────────
 
     @Override
@@ -51,13 +61,19 @@ public class RSPSHub extends Application {
         primaryStage.setWidth(1000);
         primaryStage.setHeight(800);
 
-        friends.add(new Friend("PKMaster99",  true,  "SlothLite"));
-        friends.add(new Friend("IronmanJoe",  true,  "MythicPS"));
+        Friend pk  = new Friend("PKMaster99",  true,  "SlothLite");  pk.statusMessage  = "Grinding slayer";
+        Friend joe = new Friend("IronmanJoe",  true,  "MythicPS");   joe.statusMessage = "AFK - brb";
+        friends.add(pk);
+        friends.add(joe);
         friends.add(new Friend("ZulrahGrind", false, null));
         friends.add(new Friend("Sasqu",       false, null));
 
         groups.add("RSPS Gang");
         groupMembers.put("RSPS Gang", new ArrayList<>(List.of("PKMaster99", "IronmanJoe")));
+
+        friendRequests.add(new FriendRequest("NightmarePS_Dev", true,  "5m ago"));
+        friendRequests.add(new FriendRequest("Slayer_King",     true,  "2h ago"));
+        friendRequests.add(new FriendRequest("CosmicRSPS",      false, "10m ago"));
 
         SplashScreen.show(primaryStage, () -> showLoginScreen(primaryStage));
         primaryStage.show();
@@ -96,6 +112,16 @@ public class RSPSHub extends Application {
 
     private void showServerDetail(Stage stage, ServerProfile server) {
         stage.setScene(ServerDetailScreen.create(stage, server, () -> showHub(stage)));
+    }
+
+    private void showProfile(Stage stage, String username) {
+        Friend friend = friends.stream().filter(f -> f.username.equals(username)).findFirst().orElse(null);
+        boolean online = friend != null && friend.online;
+        String status  = friend != null && friend.statusMessage != null ? friend.statusMessage : "";
+        stage.setScene(ProfileScreen.create(stage, username, online, status, blockedUsers,
+            () -> { showHub(stage); showingFriends = true; setActiveTab(friendsTab); updateDisplay(); },
+            () -> { showHub(stage); openConversation(username, false); }
+        ));
     }
 
     private void openConversation(String conversationId, boolean isGroup) {
@@ -171,7 +197,18 @@ public class RSPSHub extends Application {
         avatarCircle.getStyleClass().add("nav-avatar");
         Label usernameLabel = new Label(LauncherEngine.currentUsername);
         usernameLabel.getStyleClass().add("nav-username");
-        HBox accountWidget = new HBox(10, avatarCircle, usernameLabel);
+        VBox userInfo = new VBox(1, usernameLabel);
+        if (LauncherEngine.statusMessage != null && !LauncherEngine.statusMessage.isEmpty()) {
+            Label statusLbl = new Label(LauncherEngine.statusMessage);
+            statusLbl.getStyleClass().add("nav-status-message");
+            userInfo.getChildren().add(statusLbl);
+        }
+        if (LauncherEngine.activeServer != null && !LauncherEngine.activeServer.isEmpty()) {
+            Label presenceLbl = new Label("▶ " + LauncherEngine.activeServer);
+            presenceLbl.getStyleClass().add("nav-rich-presence");
+            userInfo.getChildren().add(presenceLbl);
+        }
+        HBox accountWidget = new HBox(10, avatarCircle, userInfo);
         accountWidget.setAlignment(Pos.CENTER);
         accountWidget.getStyleClass().add("nav-account-widget");
         accountWidget.setCursor(Cursor.HAND);
@@ -185,12 +222,12 @@ public class RSPSHub extends Application {
         VBox topControls = new VBox(15);
         topControls.setPadding(new Insets(20, 40, 0, 40));
 
-        TextField searchBar = new TextField();
+        searchBar = new TextField();
         searchBar.setPromptText("Search for a server...");
         searchBar.getStyleClass().add("search-field");
         searchBar.textProperty().addListener((obs, old, val) -> { searchText = val; updateDisplay(); });
 
-        HBox filterBar = new HBox(10);
+        filterBar = new HBox(10);
         String[] tags = {"All", "Custom", "PvP", "Economy", "OSRS", "Hardcore", "Leagues", "Vanilla", "Ironman", "Skilling"};
         for (String tag : tags) {
             Button tagBtn = new Button(tag);
@@ -242,6 +279,13 @@ public class RSPSHub extends Application {
         serverGrid.setSpacing(20);
         serverGrid.setPadding(new Insets(30));
 
+        // Hide search & tags in friends; hide tags in library
+        searchBar.setVisible(!showingFriends);
+        searchBar.setManaged(!showingFriends);
+        boolean showFilters = !showingFriends && !showingLibrary;
+        filterBar.setVisible(showFilters);
+        filterBar.setManaged(showFilters);
+
         if (showingFriends) {
             buildFriendsContent();
             return;
@@ -267,19 +311,53 @@ public class RSPSHub extends Application {
 
     private void buildFriendsContent() {
         serverGrid.setSpacing(6);
-        serverGrid.setPadding(new Insets(24, 40, 40, 40));
+        serverGrid.setPadding(new Insets(16, 40, 40, 40));
+        serverGrid.getChildren().add(buildFriendsSubTabBar());
+        switch (friendsSubTab) {
+            case "REQUESTS" -> buildRequestsContent();
+            case "ACTIVITY" -> buildActivityContent();
+            default         -> buildOnlineFriendsContent();
+        }
+    }
 
-        // Add friend
+    private HBox buildFriendsSubTabBar() {
+        HBox bar = new HBox(4);
+        bar.setPadding(new Insets(0, 0, 12, 0));
+        long incoming = friendRequests.stream().filter(r -> r.incoming).count();
+        bar.getChildren().addAll(
+            subTab("FRIENDS",  "ONLINE"),
+            subTab("REQUESTS" + (incoming > 0 ? "  " + incoming : ""), "REQUESTS"),
+            subTab("ACTIVITY", "ACTIVITY")
+        );
+        return bar;
+    }
+
+    private Button subTab(String label, String tab) {
+        Button btn = new Button(label);
+        btn.getStyleClass().add(friendsSubTab.equals(tab) ? "friends-subtab-active" : "friends-subtab");
+        btn.setOnAction(e -> { friendsSubTab = tab; updateDisplay(); });
+        return btn;
+    }
+
+    private void buildOnlineFriendsContent() {
+        // Party panel
+        if (currentParty != null) serverGrid.getChildren().add(buildPartyPanel());
+
+        // Add friend → sends request instead of adding directly
         TextField addField = new TextField();
         addField.setPromptText("Add friend by username...");
         addField.getStyleClass().add("search-field");
         addField.setPrefWidth(260);
 
-        Button addBtn = new Button("Add Friend");
+        Button addBtn = new Button("Send Request");
         addBtn.getStyleClass().add("settings-secondary-btn");
         addBtn.setOnAction(e -> {
             String u = addField.getText().trim();
-            if (!u.isEmpty()) { friends.add(new Friend(u, false, null)); addField.clear(); updateDisplay(); }
+            if (!u.isEmpty()) {
+                friendRequests.add(new FriendRequest(u, false, "Just now"));
+                addField.clear();
+                updateDisplay();
+            }
         });
         addField.setOnAction(e -> addBtn.fire());
 
@@ -288,9 +366,12 @@ public class RSPSHub extends Application {
         addRow.setPadding(new Insets(0, 0, 16, 0));
         serverGrid.getChildren().add(addRow);
 
-        // Online / offline
-        List<Friend> online  = friends.stream().filter(f ->  f.online).collect(Collectors.toList());
-        List<Friend> offline = friends.stream().filter(f -> !f.online).collect(Collectors.toList());
+        List<Friend> visible = friends.stream()
+            .filter(f -> !blockedUsers.contains(f.username))
+            .collect(Collectors.toList());
+
+        List<Friend> online  = visible.stream().filter(f ->  f.online).collect(Collectors.toList());
+        List<Friend> offline = visible.stream().filter(f -> !f.online).collect(Collectors.toList());
 
         if (!online.isEmpty()) {
             serverGrid.getChildren().add(friendsGroupHeader("ONLINE — " + online.size()));
@@ -300,20 +381,167 @@ public class RSPSHub extends Application {
             serverGrid.getChildren().add(friendsGroupHeader("OFFLINE — " + offline.size()));
             for (Friend f : offline) serverGrid.getChildren().add(createFriendRow(f));
         }
-        if (friends.isEmpty()) {
-            Label empty = new Label("No friends yet. Add someone above!");
+        if (visible.isEmpty()) {
+            Label empty = new Label("No friends yet. Send someone a request above!");
             empty.getStyleClass().add("empty-label");
             serverGrid.getChildren().add(empty);
         }
 
-        // Groups
         serverGrid.getChildren().add(friendsGroupHeader("GROUP CHATS"));
-
-        for (String group : groups)
-            serverGrid.getChildren().add(createGroupRow(group));
-
-        // New group form
+        for (String group : groups) serverGrid.getChildren().add(createGroupRow(group));
         serverGrid.getChildren().add(buildNewGroupForm());
+    }
+
+    private void buildRequestsContent() {
+        List<FriendRequest> incoming = friendRequests.stream().filter(r ->  r.incoming).collect(Collectors.toList());
+        List<FriendRequest> outgoing = friendRequests.stream().filter(r -> !r.incoming).collect(Collectors.toList());
+
+        if (incoming.isEmpty() && outgoing.isEmpty()) {
+            Label empty = new Label("No pending friend requests.");
+            empty.getStyleClass().add("empty-label");
+            serverGrid.getChildren().add(empty);
+            return;
+        }
+
+        if (!incoming.isEmpty()) {
+            serverGrid.getChildren().add(friendsGroupHeader("INCOMING — " + incoming.size()));
+            for (FriendRequest req : new ArrayList<>(incoming)) {
+                HBox card = new HBox(14);
+                card.getStyleClass().add("request-card");
+                card.setAlignment(Pos.CENTER_LEFT);
+
+                Label avatar = new Label(req.username.substring(0, 1).toUpperCase());
+                avatar.getStyleClass().add("friend-avatar-offline");
+
+                VBox info = new VBox(3);
+                HBox.setHgrow(info, Priority.ALWAYS);
+                Label name = new Label(req.username);  name.getStyleClass().add("friend-name");
+                Label time = new Label("Sent " + req.timestamp); time.getStyleClass().add("friend-status-offline");
+                info.getChildren().addAll(name, time);
+
+                Button acceptBtn = new Button("Accept");
+                acceptBtn.getStyleClass().add("auth-btn");
+                acceptBtn.setOnAction(e -> {
+                    friends.add(new Friend(req.username, true, null));
+                    friendRequests.remove(req);
+                    ActivityStore.add(new ActivityItem(req.username, "joined as your friend", "", "Just now"));
+                    updateDisplay();
+                });
+
+                Button declineBtn = new Button("Decline");
+                declineBtn.getStyleClass().add("settings-secondary-btn");
+                declineBtn.setOnAction(e -> { friendRequests.remove(req); updateDisplay(); });
+
+                card.getChildren().addAll(avatar, info, acceptBtn, declineBtn);
+                serverGrid.getChildren().add(card);
+            }
+        }
+
+        if (!outgoing.isEmpty()) {
+            serverGrid.getChildren().add(friendsGroupHeader("SENT — " + outgoing.size()));
+            for (FriendRequest req : new ArrayList<>(outgoing)) {
+                HBox card = new HBox(14);
+                card.getStyleClass().add("request-card");
+                card.setAlignment(Pos.CENTER_LEFT);
+
+                Label avatar = new Label(req.username.substring(0, 1).toUpperCase());
+                avatar.getStyleClass().add("friend-avatar-offline");
+
+                VBox info = new VBox(3);
+                HBox.setHgrow(info, Priority.ALWAYS);
+                Label name = new Label(req.username);  name.getStyleClass().add("friend-name");
+                Label time = new Label("Pending • " + req.timestamp); time.getStyleClass().add("friend-status-offline");
+                info.getChildren().addAll(name, time);
+
+                Button cancelBtn = new Button("Cancel");
+                cancelBtn.getStyleClass().add("settings-secondary-btn");
+                cancelBtn.setOnAction(e -> { friendRequests.remove(req); updateDisplay(); });
+
+                card.getChildren().addAll(avatar, info, cancelBtn);
+                serverGrid.getChildren().add(card);
+            }
+        }
+    }
+
+    private void buildActivityContent() {
+        List<ActivityItem> feed = ActivityStore.getFeed();
+        if (feed.isEmpty()) {
+            Label empty = new Label("No activity yet.");
+            empty.getStyleClass().add("empty-label");
+            serverGrid.getChildren().add(empty);
+            return;
+        }
+        for (ActivityItem item : feed) {
+            HBox row = new HBox(12);
+            row.getStyleClass().add("activity-item");
+            row.setAlignment(Pos.CENTER_LEFT);
+            row.setPadding(new Insets(10, 0, 10, 0));
+
+            Label avatar = new Label(item.username.substring(0, 1).toUpperCase());
+            avatar.getStyleClass().add("friend-avatar-offline");
+            avatar.setMinWidth(36); avatar.setMaxWidth(36);
+            avatar.setMinHeight(36); avatar.setMaxHeight(36);
+
+            String actionText = item.target.isEmpty()
+                ? item.username + " " + item.action
+                : item.username + " " + item.action + " " + item.target;
+
+            Label action = new Label(actionText);
+            action.getStyleClass().add("activity-action");
+            HBox.setHgrow(action, Priority.ALWAYS);
+
+            Label time = new Label(item.timestamp);
+            time.getStyleClass().add("activity-time");
+
+            row.getChildren().addAll(avatar, action, time);
+            serverGrid.getChildren().add(row);
+        }
+    }
+
+    private VBox buildPartyPanel() {
+        VBox panel = new VBox(10);
+        panel.getStyleClass().add("party-panel");
+        panel.setPadding(new Insets(14, 16, 14, 16));
+
+        HBox headerRow = new HBox(10);
+        headerRow.setAlignment(Pos.CENTER_LEFT);
+        Label partyTitle = new Label("PARTY");
+        partyTitle.getStyleClass().add("party-title");
+        HBox.setHgrow(partyTitle, Priority.ALWAYS);
+
+        Button disbandBtn = new Button("Disband");
+        disbandBtn.getStyleClass().add("settings-secondary-btn");
+        disbandBtn.setOnAction(e -> { currentParty = null; updateDisplay(); });
+
+        Button launchBtn = new Button("Launch Together");
+        launchBtn.getStyleClass().add("play-button");
+        launchBtn.setPadding(new Insets(8, 16, 8, 16));
+        launchBtn.setOnAction(e -> {
+            if (allServers == null || allServers.isEmpty()) return;
+            List<String> names = allServers.stream().map(s -> s.name).collect(Collectors.toList());
+            ChoiceDialog<String> dialog = new ChoiceDialog<>(names.get(0), names);
+            dialog.setTitle("Launch Together");
+            dialog.setHeaderText("Pick a server for your party");
+            dialog.setContentText("Server:");
+            dialog.showAndWait().ifPresent(chosen -> {
+                allServers.stream().filter(s -> s.name.equals(chosen)).findFirst().ifPresent(server -> {
+                    Stage st = (Stage) panel.getScene().getWindow();
+                    handlePlayAction(server, st, launchBtn, null);
+                });
+            });
+        });
+
+        headerRow.getChildren().addAll(partyTitle, disbandBtn, launchBtn);
+
+        FlowPane membersPane = new FlowPane(8, 8);
+        for (String member : currentParty.members) {
+            Label chip = new Label(member);
+            chip.getStyleClass().add("party-member-chip");
+            membersPane.getChildren().add(chip);
+        }
+
+        panel.getChildren().addAll(headerRow, membersPane);
+        return panel;
     }
 
     private Label friendsGroupHeader(String text) {
@@ -331,11 +559,16 @@ public class RSPSHub extends Application {
 
         Label avatar = new Label(friend.username.substring(0, 1).toUpperCase());
         avatar.getStyleClass().add(friend.online ? "friend-avatar-online" : "friend-avatar-offline");
+        avatar.setCursor(Cursor.HAND);
+        avatar.setOnMouseClicked(e -> showProfile((Stage) row.getScene().getWindow(), friend.username));
 
-        VBox info = new VBox(3);
+        VBox info = new VBox(2);
         HBox.setHgrow(info, Priority.ALWAYS);
+
         Label name = new Label(friend.username);
         name.getStyleClass().add("friend-name");
+        name.setCursor(Cursor.HAND);
+        name.setOnMouseClicked(e -> showProfile((Stage) row.getScene().getWindow(), friend.username));
 
         Label status;
         if (friend.online && friend.playingServer != null) {
@@ -347,17 +580,36 @@ public class RSPSHub extends Application {
         }
         info.getChildren().addAll(name, status);
 
-        // Buttons
+        if (friend.statusMessage != null && !friend.statusMessage.isEmpty()) {
+            Label statusMsg = new Label("\"" + friend.statusMessage + "\"");
+            statusMsg.getStyleClass().add("friend-status-msg");
+            info.getChildren().add(statusMsg);
+        }
+
+        // Party button
+        boolean inParty = currentParty != null && currentParty.members.contains(friend.username);
+        Button partyBtn = new Button(currentParty == null ? "Party Up" : (inParty ? "In Party" : "Invite"));
+        partyBtn.getStyleClass().add("settings-secondary-btn");
+        partyBtn.setDisable(inParty);
+        partyBtn.setOnAction(e -> {
+            if (currentParty == null) currentParty = new Party(LauncherEngine.currentUsername);
+            currentParty.addMember(friend.username);
+            updateDisplay();
+        });
+
         Button msgBtn = new Button("Message");
         msgBtn.getStyleClass().add("settings-secondary-btn");
         msgBtn.setOnAction(e -> openConversation(friend.username, false));
 
-        Button discordBtn = new Button("📞 Call");
+        Button discordBtn = new Button("📞");
         discordBtn.getStyleClass().add("friend-discord-btn");
-        discordBtn.setTooltip(new Tooltip("Opens Discord to call this friend"));
-        // Wire to real Discord URL when backend provides it
+        discordBtn.setTooltip(new Tooltip("Call on Discord"));
 
-        row.getChildren().addAll(avatar, info, msgBtn, discordBtn);
+        Button blockBtn = new Button("Block");
+        blockBtn.getStyleClass().add("friend-block-btn");
+        blockBtn.setOnAction(e -> { blockedUsers.add(friend.username); updateDisplay(); });
+
+        row.getChildren().addAll(avatar, info, partyBtn, msgBtn, discordBtn, blockBtn);
         return row;
     }
 
@@ -672,11 +924,13 @@ public class RSPSHub extends Application {
                 javafx.application.Platform.runLater(() -> {
                     playBtn.setDisable(false);
                     playBtn.setText("PLAY");
+                    LauncherEngine.activeServer = server.name;
                     if (LauncherEngine.minimizeOnLaunch) stage.setIconified(true);
                     LauncherEngine.launchGame(server);
                 });
             }).start();
         } else {
+            LauncherEngine.activeServer = server.name;
             if (LauncherEngine.minimizeOnLaunch) stage.setIconified(true);
             LauncherEngine.launchGame(server);
         }

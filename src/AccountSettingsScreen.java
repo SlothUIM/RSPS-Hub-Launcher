@@ -99,7 +99,16 @@ public class AccountSettingsScreen {
         emailField.setEditable(false);
         emailField.setOpacity(0.4);
 
-        return section("PROFILE", avatarBox, settingRow("Display Name", nameField), settingRow("Email", emailField));
+        TextField statusField = new TextField(LauncherEngine.statusMessage != null ? LauncherEngine.statusMessage : "");
+        statusField.getStyleClass().add("auth-field");
+        statusField.setMaxWidth(Double.MAX_VALUE);
+        statusField.setPromptText("e.g. Grinding slayer, AFK...");
+        statusField.textProperty().addListener((obs, old, val) -> LauncherEngine.statusMessage = val);
+
+        return section("PROFILE", avatarBox,
+            settingRow("Display Name", nameField),
+            settingRow("Email", emailField),
+            settingRow("Status", statusField));
     }
 
     private static VBox buildLauncherSection(Stage stage) {

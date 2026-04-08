@@ -1,7 +1,8 @@
 public class Friend {
     public String username;
     public boolean online;
-    public String playingServer; // null if offline
+    public String playingServer;
+    public String statusMessage;
 
     public Friend(String username, boolean online, String playingServer) {
         this.username = username;

@@ -19,6 +19,8 @@ public class LauncherEngine {
     // Session
     public static String currentUsername = "";
     public static String avatarImagePath = null;
+    public static String statusMessage   = "";
+    public static String activeServer    = null;
 
     // Settings
     public static String downloadPath = System.getProperty("user.home") + "/.rsps_hub/";
