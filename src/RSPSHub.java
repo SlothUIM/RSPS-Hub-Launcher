@@ -429,14 +429,28 @@ public class RSPSHub extends Application {
             downloadBadge.setManaged(dlCount > 0);
         }
 
-        // Add/remove topControls from parent VBox — guaranteed layout recalc
+        // Rebuild topControls content to keep consistent height across all tabs
+        topControls.getChildren().clear();
         boolean showSearch = !showingFriends && !showingStats && !showingLeaderboard;
-        boolean hasControls = hubTopVBox.getChildren().contains(topControls);
-        if (showSearch && !hasControls) hubTopVBox.getChildren().add(topControls);
-        else if (!showSearch && hasControls) hubTopVBox.getChildren().remove(topControls);
-        boolean showFilters = showSearch && !showingLibrary;
-        filterBar.setVisible(showFilters);
-        filterBar.setManaged(showFilters);
+        if (showSearch) {
+            topControls.setPadding(new Insets(20, 40, 0, 40));
+            topControls.getChildren().add(sortRow);
+            boolean showFilters = !showingLibrary;
+            filterBar.setVisible(showFilters);
+            filterBar.setManaged(showFilters);
+            if (showFilters) topControls.getChildren().add(filterBar);
+        } else {
+            topControls.setPadding(new Insets(18, 40, 18, 40));
+            String title    = showingFriends ? "FRIENDS" : showingStats ? "STATS" : "LEADERBOARD";
+            String subtitle = showingFriends ? "Manage your friends and messages"
+                            : showingStats   ? "Your playtime across all servers"
+                            :                  "Top players by total playtime";
+            Label titleLbl = new Label(title);
+            titleLbl.setStyle("-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;");
+            Label subLbl = new Label(subtitle);
+            subLbl.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 13px;");
+            topControls.getChildren().addAll(titleLbl, subLbl);
+        }
 
         if (showingFriends) { buildFriendsContent(); return; }
         if (showingStats)       { buildStatsContent();       return; }
@@ -1205,15 +1219,19 @@ public class RSPSHub extends Application {
             glowAnim.play();
         }
 
-        // Hover popup for level details
+        // Hover popup for level details — delayed to avoid flicker
         Popup[] popupRef = {null};
-        levelBadge.setOnMouseEntered(e -> {
-            if (popupRef[0] != null) popupRef[0].hide();
-            popupRef[0] = buildLevelPopup(server.name, skillLevel, skillProgress, milestoneColor);
+        PauseTransition hoverDelay = new PauseTransition(Duration.millis(180));
+        hoverDelay.setOnFinished(e -> {
+            if (popupRef[0] != null && popupRef[0].isShowing()) return;
+            Popup p = buildLevelPopup(server.name, skillLevel, skillProgress, milestoneColor);
+            popupRef[0] = p;
             Bounds b = levelBadge.localToScreen(levelBadge.getBoundsInLocal());
-            popupRef[0].show(levelBadge, b.getMinX() - 80, b.getMinY() - 160);
+            p.show(levelBadge, b.getMinX() - 90, b.getMinY() - 175);
         });
+        levelBadge.setOnMouseEntered(e -> hoverDelay.playFromStart());
         levelBadge.setOnMouseExited(e -> {
+            hoverDelay.stop();
             if (popupRef[0] != null) { popupRef[0].hide(); popupRef[0] = null; }
         });
 
