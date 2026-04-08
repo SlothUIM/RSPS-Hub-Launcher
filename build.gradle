@@ -12,6 +12,8 @@ java {
     }
 }
 
+compileJava.options.encoding = 'UTF-8'
+
 javafx {
     version = '17.0.18'
     modules = ['javafx.controls', 'javafx.fxml', 'javafx.media', 'javafx.web', 'javafx.swing']

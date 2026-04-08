@@ -60,7 +60,7 @@ public class AccountSettingsScreen {
         root.setCenter(scrollPane);
 
         Scene scene = new Scene(root);
-        scene.getStylesheets().add(AccountSettingsScreen.class.getResource("style.css").toExternalForm());
+        scene.getStylesheets().addAll(LauncherEngine.getStylesheets(AccountSettingsScreen.class));
         SceneUtils.applyRoundedCorners(scene, root, stage);
         return scene;
     }
@@ -147,10 +147,20 @@ public class AccountSettingsScreen {
         autoUpdateCheck.setSelected(LauncherEngine.autoUpdateClients);
         autoUpdateCheck.selectedProperty().addListener((obs, old, val) -> { LauncherEngine.autoUpdateClients = val; LauncherEngine.saveSettings(); });
 
+        CheckBox autoLaunchCheck = new CheckBox("Start RSPS Hub with Windows");
+        autoLaunchCheck.getStyleClass().add("settings-checkbox");
+        autoLaunchCheck.setSelected(LauncherEngine.autoLaunch);
+        autoLaunchCheck.selectedProperty().addListener((obs, old, val) -> {
+            LauncherEngine.autoLaunch = val;
+            LauncherEngine.setAutoLaunch(val);
+            LauncherEngine.saveSettings();
+        });
+
         return section("LAUNCHER SETTINGS",
             settingRow("Download Location", downloadRow),
             settingRow("Minimize on Launch", minimizeCheck),
-            settingRow("Auto-update Clients", autoUpdateCheck)
+            settingRow("Auto-update Clients", autoUpdateCheck),
+            settingRow("Auto-launch", autoLaunchCheck)
         );
     }
 
@@ -173,7 +183,23 @@ public class AccountSettingsScreen {
             colorRow.getChildren().add(dot);
         }
 
-        return section("APPEARANCE", settingRow("Accent Color", colorRow), selectedLabel);
+        CheckBox lightCheck = new CheckBox("Light mode");
+        lightCheck.getStyleClass().add("settings-checkbox");
+        lightCheck.setSelected(LauncherEngine.lightMode);
+
+        Label restartHint = new Label("Restart the launcher to apply theme changes.");
+        restartHint.getStyleClass().add("auth-muted");
+        restartHint.setVisible(false);
+        restartHint.setManaged(false);
+
+        lightCheck.selectedProperty().addListener((obs, old, val) -> {
+            LauncherEngine.lightMode = val;
+            LauncherEngine.saveSettings();
+            restartHint.setVisible(true);
+            restartHint.setManaged(true);
+        });
+
+        return section("APPEARANCE", settingRow("Accent Color", colorRow), selectedLabel, settingRow("Theme", lightCheck), restartHint);
     }
 
     private static VBox buildDeveloperSection(Runnable onDevPortal) {

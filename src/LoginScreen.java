@@ -81,7 +81,7 @@ public class LoginScreen {
         root.setCenter(centered);
 
         Scene scene = new Scene(root);
-        scene.getStylesheets().add(LoginScreen.class.getResource("style.css").toExternalForm());
+        scene.getStylesheets().addAll(LauncherEngine.getStylesheets(LoginScreen.class));
         SceneUtils.applyRoundedCorners(scene, root, stage);
         return scene;
     }

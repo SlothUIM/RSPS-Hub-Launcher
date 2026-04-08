@@ -1,0 +1,645 @@
+/* ============================================================
+   RSPS Hub Launcher — Light Mode Override
+   Loaded in addition to style.css when lightMode = true.
+   All dark colours are overridden here.
+   ============================================================ */
+
+/* ---------- Root / Backgrounds ---------- */
+.root-pane {
+    -fx-background-color: #f0f2f5;
+}
+
+.auth-root {
+    -fx-background-color: #f0f2f5;
+}
+
+.auth-card {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d5e0;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.10), 16, 0, 0, 4);
+}
+
+.auth-brand {
+    -fx-text-fill: #1a1a2e;
+}
+
+.auth-subtitle {
+    -fx-text-fill: #5a6070;
+}
+
+.auth-label {
+    -fx-text-fill: #1a1a2e;
+}
+
+.auth-muted {
+    -fx-text-fill: #5a6070;
+}
+
+.auth-field {
+    -fx-background-color: #f0f2f5;
+    -fx-border-color: #d0d5e0;
+    -fx-text-fill: #1a1a2e;
+    -fx-prompt-text-fill: #8b92a5;
+}
+
+.auth-field:focused {
+    -fx-border-color: #ff981f;
+    -fx-background-color: #ffffff;
+}
+
+/* ---------- Navbar ---------- */
+.navbar {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d5e0;
+}
+
+.nav-brand {
+    -fx-text-fill: #ff981f;
+}
+
+.nav-tab {
+    -fx-text-fill: #5a6070;
+    -fx-background-color: transparent;
+}
+
+.nav-tab:hover {
+    -fx-text-fill: #1a1a2e;
+    -fx-background-color: #e8eaf0;
+}
+
+.nav-tab-active {
+    -fx-text-fill: #ff981f;
+    -fx-background-color: transparent;
+    -fx-border-color: transparent transparent #ff981f transparent;
+}
+
+.nav-username {
+    -fx-text-fill: #1a1a2e;
+}
+
+.nav-status-message {
+    -fx-text-fill: #5a6070;
+}
+
+/* ---------- Search & Filters ---------- */
+.search-field {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d5e0;
+    -fx-text-fill: #1a1a2e;
+    -fx-prompt-text-fill: #8b92a5;
+}
+
+.search-field:focused {
+    -fx-border-color: #ff981f;
+}
+
+.filter-btn {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #5a6070;
+    -fx-border-color: #d0d5e0;
+}
+
+.filter-btn:hover {
+    -fx-background-color: #e8eaf0;
+    -fx-text-fill: #1a1a2e;
+}
+
+.filter-btn-active {
+    -fx-background-color: #ff981f;
+    -fx-text-fill: #ffffff;
+    -fx-border-color: #ff981f;
+}
+
+/* ---------- Server Cards ---------- */
+.server-card {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d5e0;
+}
+
+.server-card:hover {
+    -fx-background-color: #e8eaf0;
+    -fx-border-color: #ff981f;
+}
+
+.card-title {
+    -fx-text-fill: #1a1a2e;
+}
+
+.card-desc {
+    -fx-text-fill: #5a6070;
+}
+
+.card-banner {
+    -fx-background-color: #e8eaf0;
+}
+
+/* ---------- Settings Pages ---------- */
+.settings-topbar {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d5e0;
+}
+
+.settings-section-header {
+    -fx-text-fill: #1a1a2e;
+}
+
+.settings-row-label {
+    -fx-text-fill: #5a6070;
+}
+
+.settings-about-text {
+    -fx-text-fill: #1a1a2e;
+}
+
+.settings-about-sub {
+    -fx-text-fill: #5a6070;
+}
+
+.settings-avatar {
+    -fx-background-color: #ff981f;
+    -fx-text-fill: #ffffff;
+}
+
+.settings-color-selected {
+    -fx-text-fill: #5a6070;
+}
+
+.settings-secondary-btn {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #1a1a2e;
+    -fx-border-color: #d0d5e0;
+}
+
+.settings-secondary-btn:hover {
+    -fx-background-color: #e8eaf0;
+}
+
+.settings-checkbox .box {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d5e0;
+}
+
+.settings-checkbox:selected .box {
+    -fx-background-color: #ff981f;
+    -fx-border-color: #ff981f;
+}
+
+.settings-checkbox {
+    -fx-text-fill: #1a1a2e;
+}
+
+/* ---------- Friends / Social ---------- */
+.friend-row {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d5e0;
+}
+
+.friend-row:hover {
+    -fx-background-color: #e8eaf0;
+}
+
+.friend-name {
+    -fx-text-fill: #1a1a2e;
+}
+
+.friends-section-header {
+    -fx-text-fill: #5a6070;
+}
+
+.request-card {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d5e0;
+}
+
+/* ---------- Chat ---------- */
+.msg-bubble-them {
+    -fx-background-color: #e8eaf0;
+    -fx-text-fill: #1a1a2e;
+}
+
+.chat-topbar {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d5e0;
+}
+
+.chat-input-bar {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d5e0;
+}
+
+.chat-members-bar {
+    -fx-background-color: #f0f2f5;
+    -fx-border-color: #d0d5e0;
+}
+
+/* ---------- Splash ---------- */
+.splash-root {
+    -fx-background-color: #f0f2f5;
+}
+
+.splash-logo {
+    -fx-text-fill: #1a1a2e;
+}
+
+.splash-tagline {
+    -fx-text-fill: #5a6070;
+}
+
+/* ---------- Scroll Bars ---------- */
+.scroll-bar {
+    -fx-background-color: #f0f2f5;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #d0d5e0;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: #b0b8cc;
+}
+
+/* ---------- Context Menu / Menu Items ---------- */
+.context-menu {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d5e0;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.12), 12, 0, 0, 4);
+}
+
+.menu-item {
+    -fx-background-color: transparent;
+    -fx-text-fill: #1a1a2e;
+}
+
+.menu-item:hover {
+    -fx-background-color: #e8eaf0;
+}
+
+/* ---------- Title Bar ---------- */
+.custom-title-bar {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d5e0;
+}
+
+.title-bar-app-name {
+    -fx-text-fill: #1a1a2e;
+}
+
+.title-bar-btn {
+    -fx-text-fill: #5a6070;
+    -fx-background-color: transparent;
+}
+
+.title-bar-btn:hover {
+    -fx-background-color: #e8eaf0;
+    -fx-text-fill: #1a1a2e;
+}
+
+/* ---------- Friends Sub-tabs ---------- */
+.friends-subtab {
+    -fx-background-color: transparent;
+    -fx-text-fill: #5a6070;
+    -fx-border-color: transparent;
+}
+
+.friends-subtab:hover {
+    -fx-text-fill: #1a1a2e;
+    -fx-background-color: #e8eaf0;
+}
+
+.friends-subtab-active {
+    -fx-text-fill: #ff981f;
+    -fx-background-color: transparent;
+    -fx-border-color: transparent transparent #ff981f transparent;
+}
+
+/* ---------- Dark Menu Button ---------- */
+.dark-menu-btn {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #1a1a2e;
+    -fx-border-color: #d0d5e0;
+}
+
+.dark-menu-btn:hover {
+    -fx-background-color: #e8eaf0;
+}
+
+/* ---------- Misc Labels ---------- */
+.empty-label {
+    -fx-text-fill: #5a6070;
+}
+
+.tag-pill {
+    -fx-background-color: #e8eaf0;
+    -fx-text-fill: #5a6070;
+}
+
+.player-count {
+    -fx-text-fill: #5a6070;
+}
+
+.activity-item {
+    -fx-border-color: #d0d5e0;
+}
+
+.activity-action {
+    -fx-text-fill: #1a1a2e;
+}
+
+.activity-time {
+    -fx-text-fill: #5a6070;
+}
+
+/* ---------- Profile Stat Boxes ---------- */
+.profile-stat-box {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d5e0;
+}
+
+.profile-stat-value {
+    -fx-text-fill: #1a1a2e;
+}
+
+.profile-stat-label {
+    -fx-text-fill: #5a6070;
+}
+
+/* ---------- Dialog ---------- */
+.dialog-pane {
+    -fx-background-color: #ffffff;
+}
+
+.dialog-prompt {
+    -fx-text-fill: #1a1a2e;
+}
+
+/* ---------- Stats Page ---------- */
+.stats-server-name {
+    -fx-text-fill: #1a1a2e;
+}
+
+.stats-time-label {
+    -fx-text-fill: #5a6070;
+}
+
+.stats-bar-track {
+    -fx-background-color: #e8eaf0;
+}
+
+/* ---------- Download rows ---------- */
+.download-row-name {
+    -fx-text-fill: #1a1a2e;
+}
+
+.download-row-status {
+    -fx-text-fill: #5a6070;
+}
+
+/* ---------- Reviews ---------- */
+.review-card {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d5e0;
+}
+
+.review-avatar {
+    -fx-background-color: #e8eaf0;
+    -fx-text-fill: #ff981f;
+}
+
+.review-username {
+    -fx-text-fill: #1a1a2e;
+}
+
+.review-star-pick {
+    -fx-text-fill: #c0c5d0;
+}
+
+.screenshot-box {
+    -fx-background-color: #e8eaf0;
+    -fx-border-color: #d0d5e0;
+}
+
+/* ---------- Server Detail Page ---------- */
+.detail-hero {
+    -fx-background-color: #e0e3ea;
+}
+
+.detail-info-bar {
+    -fx-background-color: #f0f2f5;
+}
+
+.detail-description {
+    -fx-text-fill: #1a1a2e;
+}
+
+.detail-stars-display {
+    -fx-text-fill: #1a1a2e;
+}
+
+
+.detail-icon-box {
+    -fx-background-color: #e8eaf0;
+    -fx-border-color: #d0d5e0;
+}
+
+.detail-icon-placeholder {
+    -fx-text-fill: #5a6070;
+}
+
+.detail-description {
+    -fx-text-fill: #1a1a2e;
+}
+
+.card-banner-placeholder {
+    -fx-text-fill: #5a6070;
+}
+
+/* ---------- Developer Portal ---------- */
+.dev-textarea {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #1a1a2e;
+    -fx-border-color: #d0d5e0;
+    -fx-prompt-text-fill: #8b92a5;
+    -fx-control-inner-background: #ffffff;
+}
+
+.dev-textarea .content {
+    -fx-background-color: #ffffff;
+}
+
+.dev-textarea .scroll-pane {
+    -fx-background-color: #ffffff;
+}
+
+.dev-textarea .scroll-pane .viewport {
+    -fx-background-color: #ffffff;
+}
+
+.dev-tag-check {
+    -fx-text-fill: #1a1a2e;
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d5e0;
+}
+
+.dev-tag-check .box {
+    -fx-background-color: #f0f2f5;
+    -fx-border-color: #d0d5e0;
+}
+
+.dev-banner-preview-box,
+.dev-icon-preview-box {
+    -fx-background-color: #e8eaf0;
+    -fx-border-color: #d0d5e0;
+}
+
+.dev-preview-placeholder {
+    -fx-text-fill: #8b92a5;
+}
+
+.dev-visibility-hint {
+    -fx-text-fill: #8b92a5;
+}
+
+.dev-success-panel {
+    -fx-background-color: #e8f5e9;
+    -fx-border-color: #a5d6a7;
+}
+
+/* ---------- Misc missing ---------- */
+.settings-back-btn {
+    -fx-text-fill: #ff981f;
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.settings-back-btn:hover {
+    -fx-background-color: #e8eaf0;
+}
+
+.settings-page-title {
+    -fx-text-fill: #1a1a2e;
+}
+
+.nav-avatar {
+    -fx-background-color: #ff981f;
+    -fx-text-fill: #ffffff;
+}
+
+.nav-rich-presence {
+    -fx-text-fill: #4caf50;
+}
+
+.nav-bell-btn {
+    -fx-text-fill: #5a6070;
+}
+
+.nav-bell-btn:hover {
+    -fx-text-fill: #1a1a2e;
+}
+
+.pinned-header {
+    -fx-text-fill: #ff981f;
+}
+
+.server-note-text {
+    -fx-text-fill: #5a6070;
+}
+
+.fav-btn {
+    -fx-text-fill: #b0b8cc;
+}
+
+.fav-btn:hover {
+    -fx-text-fill: #ff981f;
+}
+
+.note-btn {
+    -fx-text-fill: #b0b8cc;
+}
+
+.note-btn:hover {
+    -fx-text-fill: #1a1a2e;
+}
+
+.group-avatar {
+    -fx-background-color: #e8eaf0;
+    -fx-text-fill: #5a6070;
+}
+
+.friend-discord-btn {
+    -fx-background-color: #e8eaf0;
+    -fx-text-fill: #1a1a2e;
+    -fx-border-color: #d0d5e0;
+}
+
+.friend-more-btn {
+    -fx-background-color: #e8eaf0;
+    -fx-text-fill: #1a1a2e;
+    -fx-border-color: #d0d5e0;
+}
+
+.friend-more-btn .label {
+    -fx-text-fill: #1a1a2e;
+}
+
+.friend-more-btn:hover .label {
+    -fx-text-fill: #1a1a2e;
+}
+
+.friend-more-btn .arrow-button {
+    -fx-background-color: transparent;
+}
+
+.friend-more-btn .arrow {
+    -fx-background-color: #1a1a2e;
+}
+
+.chat-conv-name {
+    -fx-text-fill: #1a1a2e;
+}
+
+.msg-bubble-me {
+    -fx-background-color: #ff981f;
+    -fx-text-fill: #ffffff;
+}
+
+.msg-sender-name {
+    -fx-text-fill: #5a6070;
+}
+
+.msg-timestamp {
+    -fx-text-fill: #8b92a5;
+}
+
+.msg-read-receipt {
+    -fx-text-fill: #4a9eff;
+}
+
+.profile-avatar {
+    -fx-background-color: #ff981f;
+    -fx-text-fill: #ffffff;
+}
+
+.profile-username {
+    -fx-text-fill: #1a1a2e;
+}
+
+.profile-status-msg {
+    -fx-text-fill: #5a6070;
+}
+
+.profile-stat-value {
+    -fx-text-fill: #1a1a2e;
+}
+
+.profile-stat-label {
+    -fx-text-fill: #5a6070;
+}
+
+.settings-logout-btn {
+    -fx-text-fill: #ffffff;
+}
+
+.card-banner {
+    -fx-background-color: #e0e3ea;
+    -fx-border-color: #d0d5e0;
+}

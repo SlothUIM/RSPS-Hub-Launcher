@@ -1,4 +1,7 @@
 import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Side;
@@ -44,7 +47,7 @@ public class RSPSHub extends Application {
     private VBox serverGrid;
 
     // Navbar tab refs
-    private Button storeTab, libraryTab, friendsTab;
+    private Button storeTab, libraryTab, friendsTab, statsTab;
 
     // Top control refs (toggled per tab)
     private HBox filterBar;
@@ -53,6 +56,12 @@ public class RSPSHub extends Application {
 
     // Notification badge (updated in updateDisplay)
     private Label notifBadge;
+
+    // Download badge
+    private Label downloadBadge;
+
+    // Active downloads list
+    public static final ObservableList<DownloadItem> activeDownloads = FXCollections.observableArrayList();
 
     // Sort state
     private String sortOrder = "Players (High → Low)";
@@ -129,6 +138,10 @@ public class RSPSHub extends Application {
         stage.setScene(ServerDetailScreen.create(stage, server, () -> showHub(stage)));
     }
 
+    private void showStats(Stage stage) {
+        stage.setScene(PlaytimeScreen.create(stage, () -> showHub(stage)));
+    }
+
     private void showProfile(Stage stage, String username) {
         Friend friend = friends.stream().filter(f -> f.username.equals(username)).findFirst().orElse(null);
         boolean online = friend != null && friend.online;
@@ -185,6 +198,7 @@ public class RSPSHub extends Application {
         storeTab   = navTab("STORE",   true);
         libraryTab = navTab("LIBRARY", false);
         friendsTab = navTab("FRIENDS", false);
+        statsTab   = navTab("STATS",   false);
 
         storeTab.setOnAction(e -> {
             showingLibrary = false; showingFriends = false; showingMessaging = false;
@@ -204,6 +218,7 @@ public class RSPSHub extends Application {
             setActiveTab(friendsTab);
             updateDisplay();
         });
+        statsTab.setOnAction(e -> showStats(stage));
 
         // Account widget
         String initial = LauncherEngine.currentUsername.isEmpty() ? "?"
@@ -241,9 +256,21 @@ public class RSPSHub extends Application {
         StackPane.setAlignment(notifBadge, Pos.TOP_RIGHT);
         bellBtn.setOnAction(e -> showNotificationPopup(bellBtn));
 
+        // Downloads button
+        Button downloadBtn = new Button("⬇");
+        downloadBtn.getStyleClass().add("nav-download-btn");
+        downloadBadge = new Label("0");
+        downloadBadge.getStyleClass().add("nav-download-badge");
+        downloadBadge.setVisible(false);
+        downloadBadge.setManaged(false);
+        StackPane downloadPane = new StackPane(downloadBtn, downloadBadge);
+        downloadPane.setAlignment(Pos.CENTER);
+        StackPane.setAlignment(downloadBadge, Pos.TOP_RIGHT);
+        downloadBtn.setOnAction(e -> showDownloadsPopup(downloadBtn));
+
         Region navSpacer = new Region();
         HBox.setHgrow(navSpacer, Priority.ALWAYS);
-        navbar.getChildren().addAll(brand, storeTab, libraryTab, friendsTab, navSpacer, bellPane, accountWidget);
+        navbar.getChildren().addAll(brand, storeTab, libraryTab, friendsTab, statsTab, navSpacer, downloadPane, bellPane, accountWidget);
 
         // --- SEARCH & FILTERS ---
         VBox topControls = new VBox(15);
@@ -296,7 +323,7 @@ public class RSPSHub extends Application {
         updateDisplay();
 
         Scene scene = new Scene(hubRoot);
-        scene.getStylesheets().add(getClass().getResource("style.css").toExternalForm());
+        scene.getStylesheets().addAll(LauncherEngine.getStylesheets(getClass()));
         SceneUtils.applyRoundedCorners(scene, hubRoot, stage);
         stage.setScene(scene);
     }
@@ -308,7 +335,7 @@ public class RSPSHub extends Application {
     }
 
     private void setActiveTab(Button active) {
-        for (Button b : new Button[]{storeTab, libraryTab, friendsTab})
+        for (Button b : new Button[]{storeTab, libraryTab, friendsTab, statsTab})
             b.getStyleClass().setAll("nav-tab");
         active.getStyleClass().setAll("nav-tab-active");
     }
@@ -326,6 +353,14 @@ public class RSPSHub extends Application {
             notifBadge.setText(String.valueOf(pending));
             notifBadge.setVisible(pending > 0);
             notifBadge.setManaged(pending > 0);
+        }
+
+        // Update download badge
+        if (downloadBadge != null) {
+            int dlCount = activeDownloads.size();
+            downloadBadge.setText(String.valueOf(dlCount));
+            downloadBadge.setVisible(dlCount > 0);
+            downloadBadge.setManaged(dlCount > 0);
         }
 
         // Hide search/sort/tags in friends; hide tags in library
@@ -790,7 +825,7 @@ public class RSPSHub extends Application {
         root.setCenter(content);
 
         Scene scene = new Scene(root);
-        scene.getStylesheets().add(getClass().getResource("style.css").toExternalForm());
+        scene.getStylesheets().addAll(LauncherEngine.getStylesheets(getClass()));
         SceneUtils.applyRoundedCorners(scene, root);
         dialog.setScene(scene);
         dialog.show();
@@ -1080,10 +1115,13 @@ public class RSPSHub extends Application {
         List<FriendRequest> incoming = friendRequests.stream()
             .filter(r -> r.incoming).collect(Collectors.toList());
 
+        String popupText = LauncherEngine.lightMode ? "-fx-text-fill: #1a1a2e;" : "";
+
         if (incoming.isEmpty()) {
             Label none = new Label("No new notifications");
             none.getStyleClass().add("auth-muted");
             none.setPadding(new Insets(8, 16, 8, 16));
+            if (LauncherEngine.lightMode) none.setStyle("-fx-text-fill: #5a6070;");
             menu.getItems().add(new CustomMenuItem(none, false));
         } else {
             for (FriendRequest req : new ArrayList<>(incoming)) {
@@ -1091,6 +1129,7 @@ public class RSPSHub extends Application {
                 row.setAlignment(Pos.CENTER_LEFT);
                 row.setPadding(new Insets(8, 14, 8, 14));
                 row.setPrefWidth(300);
+                if (LauncherEngine.lightMode) row.setStyle("-fx-background-color: #ffffff;");
 
                 Label avatar = new Label(req.username.substring(0, 1).toUpperCase());
                 avatar.getStyleClass().add("friend-avatar-offline");
@@ -1099,6 +1138,7 @@ public class RSPSHub extends Application {
                 msg.getStyleClass().add("friend-name");
                 msg.setWrapText(true);
                 msg.setMaxWidth(160);
+                msg.setStyle(popupText);
                 HBox.setHgrow(msg, Priority.ALWAYS);
 
                 Button acceptBtn = new Button("✓");
@@ -1130,6 +1170,7 @@ public class RSPSHub extends Application {
             Label viewAll = new Label("View all in Friends → Requests");
             viewAll.getStyleClass().add("auth-muted");
             viewAll.setPadding(new Insets(6, 14, 6, 14));
+            if (LauncherEngine.lightMode) viewAll.setStyle("-fx-text-fill: #5a6070;");
             MenuItem viewAllItem = new CustomMenuItem(viewAll, true);
             viewAllItem.setOnAction(e -> {
                 friendsSubTab = "REQUESTS";
@@ -1143,43 +1184,134 @@ public class RSPSHub extends Application {
         menu.show(anchor, Side.BOTTOM, 0, 4);
     }
 
+    // ── DOWNLOADS POPUP ──────────────────────────────────────────────────────
+
+    private void showDownloadsPopup(Button anchor) {
+        ContextMenu menu = new ContextMenu();
+
+        if (activeDownloads.isEmpty()) {
+            Label none = new Label("No active downloads");
+            none.getStyleClass().add("auth-muted");
+            none.setPadding(new Insets(8, 16, 8, 16));
+            if (LauncherEngine.lightMode) none.setStyle("-fx-text-fill: #5a6070;");
+            menu.getItems().add(new CustomMenuItem(none, false));
+        } else {
+            for (DownloadItem item : new ArrayList<>(activeDownloads)) {
+                VBox row = new VBox(4);
+                row.setPadding(new Insets(8, 14, 8, 14));
+                row.setPrefWidth(320);
+                if (LauncherEngine.lightMode) row.setStyle("-fx-background-color: #ffffff;");
+
+                Label nameLbl = new Label(item.serverName);
+                nameLbl.getStyleClass().add("download-row-name");
+                if (LauncherEngine.lightMode) nameLbl.setStyle("-fx-text-fill: #1a1a2e;");
+
+                ProgressBar bar = new ProgressBar();
+                bar.progressProperty().bind(item.progress);
+                bar.setPrefWidth(260);
+
+                Label statusLbl = new Label();
+                statusLbl.getStyleClass().add("download-row-status");
+                statusLbl.textProperty().bind(item.status);
+                if (LauncherEngine.lightMode) statusLbl.setStyle("-fx-text-fill: #5a6070;");
+
+                Button cancelBtn = new Button("Cancel");
+                cancelBtn.getStyleClass().add("settings-secondary-btn");
+                cancelBtn.setOnAction(e -> {
+                    item.cancelled = true;
+                    menu.hide();
+                });
+
+                HBox bottomRow = new HBox(10, statusLbl, cancelBtn);
+                bottomRow.setAlignment(Pos.CENTER_LEFT);
+
+                row.getChildren().addAll(nameLbl, bar, bottomRow);
+                menu.getItems().add(new CustomMenuItem(row, false));
+            }
+        }
+
+        menu.show(anchor, Side.BOTTOM, 0, 4);
+    }
+
     // ── PLAY HANDLER ─────────────────────────────────────────────────────────
 
-    static void handlePlayAction(ServerProfile server, Stage stage, Button playBtn, Runnable onDownloadComplete) {
+    private void launchAndTrack(ServerProfile server, Stage stage) {
+        LauncherEngine.activeServer = server.name;
+        if (LauncherEngine.minimizeOnLaunch) stage.setIconified(true);
+        Process proc = LauncherEngine.launchGame(server);
+        if (proc != null) {
+            long start = System.currentTimeMillis();
+            new Thread(() -> {
+                try { proc.waitFor(); } catch (InterruptedException ignored) {}
+                long mins = (System.currentTimeMillis() - start) / 60000;
+                PlaytimeStore.recordSession(server.name, mins);
+            }, "playtime-tracker").start();
+        }
+    }
+
+    void handlePlayAction(ServerProfile server, Stage stage, Button playBtn, Runnable onDownloadComplete) {
         if (!LauncherEngine.isDownloaded(server)) {
             playBtn.setDisable(true);
             playBtn.setText("DOWNLOADING...");
+
+            DownloadItem item = new DownloadItem(server.name);
+            activeDownloads.add(item);
+            Platform.runLater(this::updateDisplay);
+            item.status.set("Downloading");
+
+            // cancelledFlag[0] mirrors item.cancelled so the download loop can read it
+            boolean[] cancelledFlag = new boolean[]{false};
             new Thread(() -> {
-                if (LauncherEngine.downloadClient(server)) {
-                    javafx.application.Platform.runLater(() -> {
+                boolean success = LauncherEngine.downloadClient(server,
+                    progress -> {
+                        cancelledFlag[0] = item.cancelled; // keep flag in sync
+                        Platform.runLater(() -> item.progress.set(progress));
+                    },
+                    cancelledFlag
+                );
+                Platform.runLater(() -> {
+                    if (item.cancelled) {
+                        item.status.set("Cancelled");
+                        playBtn.setDisable(false);
+                        playBtn.setText("INSTALL");
+                    } else if (success) {
+                        item.status.set("Complete");
                         playBtn.setDisable(false);
                         playBtn.setText("PLAY");
                         if (onDownloadComplete != null) onDownloadComplete.run();
-                    });
-                } else {
-                    javafx.application.Platform.runLater(() -> { playBtn.setDisable(false); playBtn.setText("INSTALL"); });
-                }
+                    } else {
+                        item.status.set("Failed");
+                        playBtn.setDisable(false);
+                        playBtn.setText("INSTALL");
+                    }
+                    // Remove from active list after a short delay
+                    new Thread(() -> {
+                        try { Thread.sleep(3000); } catch (InterruptedException ignored) {}
+                        Platform.runLater(() -> {
+                            activeDownloads.remove(item);
+                            updateDisplay();
+                        });
+                    }).start();
+                    updateDisplay();
+                });
             }).start();
+
         } else if (LauncherEngine.autoUpdateClients) {
             playBtn.setDisable(true);
             playBtn.setText("CHECKING...");
             new Thread(() -> {
                 if (LauncherEngine.isUpdateAvailable(server)) {
-                    javafx.application.Platform.runLater(() -> playBtn.setText("UPDATING..."));
+                    Platform.runLater(() -> playBtn.setText("UPDATING..."));
                     LauncherEngine.downloadClient(server);
                 }
-                javafx.application.Platform.runLater(() -> {
+                Platform.runLater(() -> {
                     playBtn.setDisable(false);
                     playBtn.setText("PLAY");
-                    LauncherEngine.activeServer = server.name;
-                    if (LauncherEngine.minimizeOnLaunch) stage.setIconified(true);
-                    LauncherEngine.launchGame(server);
+                    launchAndTrack(server, stage);
                 });
             }).start();
         } else {
-            LauncherEngine.activeServer = server.name;
-            if (LauncherEngine.minimizeOnLaunch) stage.setIconified(true);
-            LauncherEngine.launchGame(server);
+            launchAndTrack(server, stage);
         }
     }
 

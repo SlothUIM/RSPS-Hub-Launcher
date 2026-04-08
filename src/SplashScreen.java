@@ -32,7 +32,7 @@ public class SplashScreen {
         root.getChildren().addAll(logo, tagline, progressBar);
 
         Scene scene = new Scene(root);
-        scene.getStylesheets().add(SplashScreen.class.getResource("style.css").toExternalForm());
+        scene.getStylesheets().addAll(LauncherEngine.getStylesheets(SplashScreen.class));
         SceneUtils.applyRoundedCorners(scene, root);
         stage.setScene(scene);
 

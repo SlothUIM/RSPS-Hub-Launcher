@@ -65,7 +65,7 @@ public class DeveloperPortalScreen {
         root.setCenter(scrollPane);
 
         Scene scene = new Scene(root);
-        scene.getStylesheets().add(DeveloperPortalScreen.class.getResource("style.css").toExternalForm());
+        scene.getStylesheets().addAll(LauncherEngine.getStylesheets(DeveloperPortalScreen.class));
         SceneUtils.applyRoundedCorners(scene, root, stage);
         return scene;
     }

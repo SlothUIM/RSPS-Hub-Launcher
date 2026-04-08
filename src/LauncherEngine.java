@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.function.DoubleConsumer;
 
 import com.google.gson.Gson;
 
@@ -30,6 +31,8 @@ public class LauncherEngine {
     public static String downloadPath = System.getProperty("user.home") + "/.rsps_hub/";
     public static boolean minimizeOnLaunch = false;
     public static boolean autoUpdateClients = false;
+    public static boolean lightMode = false;
+    public static boolean autoLaunch = false;
     public static Set<String> favouriteServers = new LinkedHashSet<>();
     public static Map<String, String> serverNotes = new HashMap<>();
 
@@ -41,6 +44,8 @@ public class LauncherEngine {
         String statusMessage;
         boolean minimizeOnLaunch;
         boolean autoUpdateClients;
+        boolean lightMode;
+        boolean autoLaunch;
         List<String> favouriteServers;
         Map<String, String> serverNotes;
     }
@@ -52,6 +57,8 @@ public class LauncherEngine {
             d.statusMessage     = statusMessage;
             d.minimizeOnLaunch  = minimizeOnLaunch;
             d.autoUpdateClients = autoUpdateClients;
+            d.lightMode         = lightMode;
+            d.autoLaunch        = autoLaunch;
             d.favouriteServers  = new ArrayList<>(favouriteServers);
             d.serverNotes       = serverNotes;
             Files.createDirectories(SETTINGS_PATH.getParent());
@@ -71,8 +78,38 @@ public class LauncherEngine {
             if (d.serverNotes        != null) serverNotes       = d.serverNotes;
             minimizeOnLaunch  = d.minimizeOnLaunch;
             autoUpdateClients = d.autoUpdateClients;
+            lightMode         = d.lightMode;
+            autoLaunch        = d.autoLaunch;
         } catch (Exception e) {
             System.err.println("Failed to load settings: " + e.getMessage());
+        }
+    }
+
+    public static List<String> getStylesheets(Class<?> cls) {
+        List<String> sheets = new ArrayList<>();
+        sheets.add(cls.getResource("style.css").toExternalForm());
+        if (lightMode) sheets.add(cls.getResource("style-light.css").toExternalForm());
+        return sheets;
+    }
+
+    public static void setAutoLaunch(boolean enable) {
+        try {
+            if (enable) {
+                String jarPath = LauncherEngine.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
+                // Normalise Windows path
+                if (jarPath.startsWith("/")) jarPath = jarPath.substring(1);
+                ProcessBuilder pb = new ProcessBuilder("reg", "add",
+                    "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                    "/v", "RSPSHub", "/t", "REG_SZ",
+                    "/d", "javaw -jar \"" + jarPath + "\"", "/f");
+                pb.start().waitFor();
+            } else {
+                new ProcessBuilder("reg", "delete",
+                    "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                    "/v", "RSPSHub", "/f").start().waitFor();
+            }
+        } catch (Exception e) {
+            System.err.println("Auto-launch toggle failed: " + e.getMessage());
         }
     }
 
@@ -112,43 +149,75 @@ public class LauncherEngine {
     }
 
     /**
-     * Downloads a specific server's client.
-     * The UI will call this when 'Play' is clicked if the file is missing.
+     * Downloads a specific server's client (no-arg overload).
      */
     public static boolean downloadClient(ServerProfile server) {
+        return downloadClient(server, null, null);
+    }
+
+    /**
+     * Downloads a specific server's client with optional progress reporting and cancel support.
+     * The UI will call this when 'Play' is clicked if the file is missing.
+     */
+    public static boolean downloadClient(ServerProfile server, DoubleConsumer onProgress, boolean[] cancelledFlag) {
+        Path jarPath = null;
         try {
             Path serverFolder = Paths.get(downloadPath, server.name.replaceAll(" ", "_"));
             Files.createDirectories(serverFolder);
-            
-            Path jarPath = serverFolder.resolve("SlothLite.jar");
+
+            jarPath = serverFolder.resolve("SlothLite.jar");
 
             System.out.println("Downloading " + server.name + "...");
-            
+
             URL jarUrl = new URL(server.jar_url);
-            try (InputStream in = jarUrl.openStream()) {
-                Files.copy(in, jarPath, StandardCopyOption.REPLACE_EXISTING);
+            HttpURLConnection conn = (HttpURLConnection) jarUrl.openConnection();
+            conn.connect();
+            long contentLength = conn.getContentLengthLong();
+
+            try (InputStream in = conn.getInputStream();
+                 java.io.OutputStream out = Files.newOutputStream(jarPath)) {
+                byte[] buffer = new byte[8192];
+                long downloaded = 0;
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    if (cancelledFlag != null && cancelledFlag[0]) {
+                        out.close();
+                        Files.deleteIfExists(jarPath);
+                        return false;
+                    }
+                    out.write(buffer, 0, read);
+                    downloaded += read;
+                    if (onProgress != null && contentLength > 0) {
+                        final double progress = (double) downloaded / contentLength;
+                        onProgress.accept(progress);
+                    }
+                }
             }
-            
+
             return true;
         } catch (Exception e) {
             e.printStackTrace();
+            if (jarPath != null) {
+                try { Files.deleteIfExists(jarPath); } catch (Exception ignored) {}
+            }
             return false;
         }
     }
 
     /**
-     * Launches the .jar for a server.
+     * Launches the .jar for a server. Returns the Process, or null on failure.
      */
-    public static void launchGame(ServerProfile server) {
+    public static Process launchGame(ServerProfile server) {
         try {
             Path serverFolder = Paths.get(downloadPath, server.name.replaceAll(" ", "_"));
-            // Note: We use the serverFolder as the working directory so the game 
+            // Note: We use the serverFolder as the working directory so the game
             // saves its own cache/settings in the right spot!
             ProcessBuilder pb = new ProcessBuilder("java", "-jar", "SlothLite.jar");
             pb.directory(serverFolder.toFile());
-            pb.start(); 
+            return pb.start();
         } catch (Exception e) {
             e.printStackTrace();
+            return null;
         }
     }
 

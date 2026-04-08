@@ -92,7 +92,7 @@ public class DarkDialog {
 
     private static void show(Stage dialog, BorderPane root) {
         Scene scene = new Scene(root);
-        scene.getStylesheets().add(DarkDialog.class.getResource("style.css").toExternalForm());
+        scene.getStylesheets().addAll(LauncherEngine.getStylesheets(DarkDialog.class));
         SceneUtils.applyRoundedCorners(scene, root);
         dialog.setScene(scene);
         dialog.show();

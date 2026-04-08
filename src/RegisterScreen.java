@@ -90,7 +90,7 @@ public class RegisterScreen {
         root.setCenter(centered);
 
         Scene scene = new Scene(root);
-        scene.getStylesheets().add(RegisterScreen.class.getResource("style.css").toExternalForm());
+        scene.getStylesheets().addAll(LauncherEngine.getStylesheets(RegisterScreen.class));
         SceneUtils.applyRoundedCorners(scene, root, stage);
         return scene;
     }

@@ -65,7 +65,7 @@ public class ServerDetailScreen {
         root.setCenter(scrollPane);
 
         Scene scene = new Scene(root);
-        scene.getStylesheets().add(ServerDetailScreen.class.getResource("style.css").toExternalForm());
+        scene.getStylesheets().addAll(LauncherEngine.getStylesheets(ServerDetailScreen.class));
         SceneUtils.applyRoundedCorners(scene, root, stage);
         return scene;
     }
@@ -93,10 +93,11 @@ public class ServerDetailScreen {
             hero.getChildren().add(bannerImg);
         }
 
-        // Dark gradient overlay so text is readable over banner
+        // Gradient overlay so text is readable over banner
         Region overlay = new Region();
         overlay.setManaged(false);
-        overlay.setStyle("-fx-background-color: linear-gradient(to bottom, transparent 30%, #0f1115 100%);");
+        String gradientEnd = LauncherEngine.lightMode ? "#f0f2f5" : "#0f1115";
+        overlay.setStyle("-fx-background-color: linear-gradient(to bottom, transparent 30%, " + gradientEnd + " 100%);");
         overlay.prefWidthProperty().bind(hero.widthProperty());
         overlay.prefHeightProperty().bind(hero.heightProperty());
         hero.getChildren().add(overlay);
@@ -182,7 +183,31 @@ public class ServerDetailScreen {
         Button playBtn = new Button(LauncherEngine.isDownloaded(server) ? "PLAY" : "INSTALL");
         playBtn.getStyleClass().add("play-button");
         playBtn.setPrefWidth(160);
-        playBtn.setOnAction(e -> RSPSHub.handlePlayAction(server, stage, playBtn, null));
+        playBtn.setOnAction(e -> {
+            if (!LauncherEngine.isDownloaded(server)) {
+                playBtn.setDisable(true);
+                playBtn.setText("DOWNLOADING...");
+                new Thread(() -> {
+                    boolean ok = LauncherEngine.downloadClient(server);
+                    javafx.application.Platform.runLater(() -> {
+                        playBtn.setDisable(false);
+                        playBtn.setText(ok ? "PLAY" : "INSTALL");
+                    });
+                }).start();
+            } else {
+                LauncherEngine.activeServer = server.name;
+                if (LauncherEngine.minimizeOnLaunch) stage.setIconified(true);
+                Process proc = LauncherEngine.launchGame(server);
+                if (proc != null) {
+                    long start = System.currentTimeMillis();
+                    new Thread(() -> {
+                        try { proc.waitFor(); } catch (InterruptedException ignored) {}
+                        long mins = (System.currentTimeMillis() - start) / 60000;
+                        PlaytimeStore.recordSession(server.name, mins);
+                    }, "playtime-tracker").start();
+                }
+            }
+        });
 
         HBox socialRow = new HBox(8);
         socialRow.setAlignment(Pos.CENTER_RIGHT);

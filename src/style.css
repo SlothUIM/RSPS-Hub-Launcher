@@ -1212,3 +1212,38 @@
     -fx-shape: " ";
     -fx-padding: 2;
 }
+
+/* --- DOWNLOAD BADGE --- */
+.nav-download-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: #8b92a5;
+    -fx-font-size: 16px;
+    -fx-cursor: hand;
+    -fx-padding: 4 8;
+    -fx-border-color: transparent;
+}
+.nav-download-btn:hover { -fx-text-fill: white; }
+.nav-download-badge {
+    -fx-background-color: #4a9eff;
+    -fx-text-fill: white;
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-padding: 1 5;
+    -fx-background-radius: 8;
+    -fx-translate-x: 10;
+    -fx-translate-y: -10;
+}
+
+/* --- DOWNLOAD PROGRESS ROW --- */
+.download-row-name { -fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold; }
+.download-row-status { -fx-text-fill: #8b92a5; -fx-font-size: 11px; }
+
+/* --- STATS PAGE --- */
+.stats-bar-track {
+    -fx-background-color: #1a1d24;
+    -fx-background-radius: 4;
+    -fx-border-radius: 4;
+    -fx-pref-height: 8;
+}
+.stats-server-name { -fx-text-fill: white; -fx-font-size: 13px; }
+.stats-time-label { -fx-text-fill: #8b92a5; -fx-font-size: 12px; }
