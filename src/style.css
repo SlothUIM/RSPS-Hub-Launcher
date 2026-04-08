@@ -72,13 +72,17 @@
 /* --- SERVER CARDS --- */
 .server-card {
     -fx-background-color: #1a1d24;
-    -fx-border-color: #2a2e39;
-    -fx-border-radius: 8;
-    -fx-background-radius: 8;
+    -fx-border-color: transparent;
+    -fx-border-radius: 8 8 0 0;
+    -fx-background-radius: 8 8 0 0;
 }
 
-.server-card:hover {
-    -fx-border-color: #3a3e4a;
+.server-card-wrapper:hover {
+    -fx-border-color: #ff981f;
+}
+
+.server-card-wrapper:hover .xp-bar-fill {
+    -fx-background-color: #ffb44f;
 }
 
 .card-banner {
@@ -1237,6 +1241,33 @@
 /* --- DOWNLOAD PROGRESS ROW --- */
 .download-row-name { -fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold; }
 .download-row-status { -fx-text-fill: #8b92a5; -fx-font-size: 11px; }
+
+/* --- SKILL LEVEL BADGE --- */
+.skill-level-badge {
+    -fx-background-color: #2a2e39;
+    -fx-text-fill: #ff981f;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-padding: 3 9;
+    -fx-background-radius: 10;
+    -fx-cursor: hand;
+}
+
+/* --- XP BAR --- */
+.server-card-wrapper {
+    -fx-background-color: #1a1d24;
+    -fx-border-color: #2a2e39;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+.xp-bar-track {
+    -fx-background-color: #12141a;
+    -fx-background-radius: 0 0 8 8;
+}
+.xp-bar-fill {
+    -fx-background-color: #ff981f;
+    -fx-background-radius: 0 0 0 8;
+}
 
 /* --- SESSION TIMER --- */
 .session-timer-label {

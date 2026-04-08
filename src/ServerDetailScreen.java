@@ -304,14 +304,83 @@ public class ServerDetailScreen {
         VBox section = new VBox(12);
         section.setPadding(new Insets(0, 40, 30, 40));
 
-        Label header = sectionHeader("WHAT'S NEW");
-
-        Label changelogText = new Label(server.changelog);
-        changelogText.getStyleClass().add("detail-description");
-        changelogText.setWrapText(true);
-
-        section.getChildren().addAll(header, changelogText);
+        section.getChildren().add(sectionHeader("WHAT'S NEW"));
+        section.getChildren().add(buildPatchNotes(server.changelog));
         return section;
+    }
+
+    private static VBox buildPatchNotes(String changelog) {
+        VBox notes = new VBox(0);
+
+        for (String raw : changelog.split("\n")) {
+            String line = raw.stripTrailing();
+
+            if (line.isEmpty()) {
+                // Spacer between versions
+                Region spacer = new Region();
+                spacer.setPrefHeight(10);
+                notes.getChildren().add(spacer);
+                continue;
+            }
+
+            boolean isVersion = line.matches("(?i)^v\\d.*") || line.startsWith("[");
+            boolean isBullet  = line.startsWith("-") || line.startsWith("•");
+
+            if (isVersion) {
+                // Version header row with a pill badge
+                String[] parts = line.split("—", 2);
+                String ver  = parts[0].trim();
+                String date = parts.length > 1 ? parts[1].trim() : "";
+
+                Label verLabel = new Label(ver);
+                verLabel.setStyle(
+                    "-fx-text-fill: " + LauncherEngine.accentColor + ";" +
+                    "-fx-font-size: 13px; -fx-font-weight: bold;" +
+                    "-fx-background-color: rgba(255,152,31,0.12);" +
+                    "-fx-background-radius: 6; -fx-padding: 3 10;"
+                );
+
+                HBox row = new HBox(10, verLabel);
+                row.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+                row.setPadding(new Insets(12, 0, 6, 0));
+
+                if (!date.isEmpty()) {
+                    Label dateLabel = new Label(date);
+                    dateLabel.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 12px;");
+                    row.getChildren().add(dateLabel);
+                }
+
+                notes.getChildren().add(row);
+
+            } else if (isBullet) {
+                String text = line.substring(1).trim();
+                HBox row = new HBox(8);
+                row.setPadding(new Insets(2, 0, 2, 12));
+                row.setAlignment(javafx.geometry.Pos.TOP_LEFT);
+
+                Label dot = new Label("•");
+                dot.setStyle("-fx-text-fill: " + LauncherEngine.accentColor + "; -fx-font-size: 13px;");
+                dot.setMinWidth(14);
+
+                Label content = new Label(text);
+                content.setStyle("-fx-text-fill: #c8cdd8; -fx-font-size: 13px;");
+                content.setWrapText(true);
+                HBox.setHgrow(content, Priority.ALWAYS);
+
+                row.getChildren().addAll(dot, content);
+                notes.getChildren().add(row);
+
+            } else {
+                // Plain text line
+                Label lbl = new Label(line);
+                lbl.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 12px;");
+                lbl.setWrapText(true);
+                lbl.setPadding(new Insets(2, 0, 2, 0));
+                notes.getChildren().add(lbl);
+            }
+        }
+
+        return notes;
     }
 
     // ── REVIEWS ──────────────────────────────────────────────────────────────

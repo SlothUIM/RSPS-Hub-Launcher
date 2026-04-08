@@ -39,9 +39,11 @@ public class RSPSHub extends Application {
     // UI state
     private String activeTag        = "All";
     private String searchText       = "";
-    private boolean showingLibrary  = false;
-    private boolean showingFriends  = false;
-    private boolean showingMessaging = false;
+    private boolean showingLibrary     = false;
+    private boolean showingFriends     = false;
+    private boolean showingMessaging   = false;
+    private boolean showingStats       = false;
+    private boolean showingLeaderboard = false;
     private String  activeConversation = null;
     private boolean isGroupConversation = false;
 
@@ -180,18 +182,32 @@ public class RSPSHub extends Application {
     // ── HUB SCENE ────────────────────────────────────────────────────────────
 
     private void showHub(Stage stage) {
-        showingLibrary   = false;
-        showingFriends   = false;
-        showingMessaging = false;
-        activeTag        = "All";
-        searchText       = "";
+        showingLibrary     = false;
+        showingFriends     = false;
+        showingMessaging   = false;
+        showingStats       = false;
+        showingLeaderboard = false;
+        activeTag          = "All";
+        searchText         = "";
 
         if (allServers == null) {
             LauncherEngine.init();
             allServers = LauncherEngine.fetchServers();
             // Demo: seed visual test data so badges are visible
-            if (allServers.size() > 0) { allServers.get(0).isNew = true; StreakStore.seedDemo(allServers.get(0).name, 7); }
-            if (allServers.size() > 1) { allServers.get(1).isNew = true; StreakStore.seedDemo(allServers.get(1).name, 3); }
+            if (allServers.size() > 0) {
+                allServers.get(0).isNew = true;
+                StreakStore.seedDemo(allServers.get(0).name, 7);
+                PlaytimeStore.seedDemo(allServers.get(0).name, 4200); // ~70 hours → Lv 51
+                if (allServers.get(0).changelog == null || allServers.get(0).changelog.isEmpty())
+                    allServers.get(0).changelog = "v1.3.0 — April 2025\n- Added new wilderness boss\n- PvP balancing updates\n- Fixed client crash on login\n- New donator zone added\n\nv1.2.5 — March 2025\n- Economy rebalance\n- New skilling area: Zeah\n- Performance improvements\n\nv1.2.0 — February 2025\n- Launch";
+            }
+            if (allServers.size() > 1) {
+                allServers.get(1).isNew = true;
+                StreakStore.seedDemo(allServers.get(1).name, 3);
+                PlaytimeStore.seedDemo(allServers.get(1).name, 900);  // ~15 hours → Lv 18
+            }
+            SessionHistoryStore.seedDemo();
+            DiscordRPC.connectAsync();
         }
 
         hubRoot = new BorderPane();
@@ -213,25 +229,35 @@ public class RSPSHub extends Application {
         leaderboardTab = navTab("LEADERBOARD", false);
 
         storeTab.setOnAction(e -> {
-            showingLibrary = false; showingFriends = false; showingMessaging = false;
-            if (showingMessaging) hubRoot.setCenter(hubScrollPane);
+            showingLibrary = false; showingFriends = false; showingStats = false; showingLeaderboard = false;
+            if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
             setActiveTab(storeTab);
             updateDisplay();
         });
         libraryTab.setOnAction(e -> {
-            showingLibrary = true; showingFriends = false; showingMessaging = false;
-            if (showingMessaging) hubRoot.setCenter(hubScrollPane);
+            showingLibrary = true; showingFriends = false; showingStats = false; showingLeaderboard = false;
+            if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
             setActiveTab(libraryTab);
             updateDisplay();
         });
         friendsTab.setOnAction(e -> {
-            showingFriends = true; showingLibrary = false;
+            showingFriends = true; showingLibrary = false; showingStats = false; showingLeaderboard = false;
             if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
             setActiveTab(friendsTab);
             updateDisplay();
         });
-        statsTab.setOnAction(e -> showStats(stage));
-        leaderboardTab.setOnAction(e -> showLeaderboard(stage));
+        statsTab.setOnAction(e -> {
+            showingStats = true; showingLibrary = false; showingFriends = false; showingLeaderboard = false;
+            if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
+            setActiveTab(statsTab);
+            updateDisplay();
+        });
+        leaderboardTab.setOnAction(e -> {
+            showingLeaderboard = true; showingLibrary = false; showingFriends = false; showingStats = false;
+            if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
+            setActiveTab(leaderboardTab);
+            updateDisplay();
+        });
 
         // Account widget
         String initial = LauncherEngine.currentUsername.isEmpty() ? "?"
@@ -392,18 +418,17 @@ public class RSPSHub extends Application {
             downloadBadge.setManaged(dlCount > 0);
         }
 
-        // Hide search/sort/tags in friends; hide tags in library
-        boolean showSearch = !showingFriends;
+        // Hide search/sort/tags in friends, stats, leaderboard
+        boolean showSearch = !showingFriends && !showingStats && !showingLeaderboard;
         sortRow.setVisible(showSearch);
         sortRow.setManaged(showSearch);
-        boolean showFilters = !showingFriends && !showingLibrary;
+        boolean showFilters = showSearch && !showingLibrary;
         filterBar.setVisible(showFilters);
         filterBar.setManaged(showFilters);
 
-        if (showingFriends) {
-            buildFriendsContent();
-            return;
-        }
+        if (showingFriends) { buildFriendsContent(); return; }
+        if (showingStats)       { buildStatsContent();       return; }
+        if (showingLeaderboard) { buildLeaderboardContent(); return; }
 
         List<ServerProfile> filtered = allServers.stream()
             .filter(s -> s.name.toLowerCase().contains(searchText.toLowerCase()))
@@ -1014,7 +1039,11 @@ public class RSPSHub extends Application {
 
     // ── SERVER CARD ──────────────────────────────────────────────────────────
 
-    private HBox createServerCard(ServerProfile server) {
+    private VBox createServerCard(ServerProfile server) {
+        int    skillLevel    = ServerSkillSystem.getLevel(server.name);
+        double skillProgress = ServerSkillSystem.getLevelProgress(server.name);
+        String skillTooltip  = ServerSkillSystem.getTooltip(server.name);
+
         HBox card = new HBox(20);
         card.getStyleClass().add("server-card");
         card.setPadding(new Insets(15));
@@ -1128,6 +1157,11 @@ public class RSPSHub extends Application {
         HBox cardTools = new HBox(4, starBtn, noteBtn);
         cardTools.setAlignment(Pos.CENTER_RIGHT);
 
+        // Skill level badge
+        Label levelBadge = new Label("Lv. " + skillLevel);
+        levelBadge.getStyleClass().add("skill-level-badge");
+        Tooltip.install(levelBadge, new Tooltip(skillTooltip));
+
         Label players = new Label("\uD83D\uDFE2 " + server.players_online + " Online");
         players.getStyleClass().add("player-count");
 
@@ -1140,7 +1174,7 @@ public class RSPSHub extends Application {
             handlePlayAction(server, (Stage) card.getScene().getWindow(), playBtn, () -> { if (showingLibrary) updateDisplay(); });
         });
 
-        actions.getChildren().addAll(cardTools, players, playBtn);
+        actions.getChildren().addAll(levelBadge, cardTools, players, playBtn);
 
         // Uninstall button shown only in library
         if (showingLibrary && downloaded) {
@@ -1160,7 +1194,215 @@ public class RSPSHub extends Application {
 
         card.getChildren().addAll(bannerPane, info, actions);
         card.setOnMouseClicked(e -> showServerDetail((Stage) card.getScene().getWindow(), server));
-        return card;
+
+        // XP bar at the bottom of the card
+        Region xpFill = new Region();
+        xpFill.getStyleClass().add("xp-bar-fill");
+        xpFill.setPrefHeight(4);
+        xpFill.setMaxWidth(Double.MAX_VALUE);
+
+        StackPane xpTrack = new StackPane();
+        xpTrack.getStyleClass().add("xp-bar-track");
+        xpTrack.setPrefHeight(4);
+        xpTrack.setAlignment(Pos.CENTER_LEFT);
+
+        // Bind fill width to track width * progress
+        xpTrack.widthProperty().addListener((obs, old, w) ->
+            xpFill.setPrefWidth(w.doubleValue() * skillProgress));
+        xpTrack.getChildren().add(xpFill);
+
+        VBox wrapper = new VBox(card, xpTrack);
+        wrapper.getStyleClass().add("server-card-wrapper");
+        Tooltip.install(xpTrack, new Tooltip(skillTooltip));
+        return wrapper;
+    }
+
+    // ── STATS CONTENT ────────────────────────────────────────────────────────
+
+    private void buildStatsContent() {
+        serverGrid.setSpacing(20);
+        serverGrid.setPadding(new Insets(30, 40, 40, 40));
+
+        long totalMins   = PlaytimeStore.getTotalMinutes();
+        int  serversPlayed = PlaytimeStore.getTotalServersPlayed();
+        String mostPlayed  = PlaytimeStore.getMostPlayed();
+
+        // Stat boxes row
+        HBox statBoxes = new HBox(16);
+        statBoxes.getChildren().addAll(
+            statBox(formatMinutes(totalMins), "Total Playtime"),
+            statBox(String.valueOf(serversPlayed), "Servers Played"),
+            statBox(mostPlayed != null ? mostPlayed : "—", "Most Played")
+        );
+        serverGrid.getChildren().add(statBoxes);
+
+        // Per-server bars
+        Map<String, Long> all = PlaytimeStore.getAllMinutes();
+        if (!all.isEmpty()) {
+            Label hdr = new Label("PER SERVER");
+            hdr.getStyleClass().add("friends-section-header");
+            hdr.setPadding(new Insets(10, 0, 4, 0));
+            serverGrid.getChildren().add(hdr);
+
+            long max = all.values().stream().mapToLong(Long::longValue).max().orElse(1);
+            all.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .forEach(e -> {
+                    Label name = new Label(e.getKey());
+                    name.getStyleClass().add("stats-server-name");
+                    name.setMinWidth(160);
+
+                    Region fill = new Region();
+                    fill.getStyleClass().add("play-button");
+                    fill.setPrefHeight(8);
+                    double ratio = (double) e.getValue() / max;
+                    fill.prefWidthProperty().bind(serverGrid.widthProperty().multiply(ratio * 0.5));
+
+                    Label time = new Label(formatMinutes(e.getValue()));
+                    time.getStyleClass().add("stats-time-label");
+
+                    StackPane track = new StackPane(fill);
+                    track.getStyleClass().add("stats-bar-track");
+                    track.setAlignment(Pos.CENTER_LEFT);
+                    HBox.setHgrow(track, Priority.ALWAYS);
+
+                    HBox row = new HBox(12, name, track, time);
+                    row.setAlignment(Pos.CENTER_LEFT);
+                    serverGrid.getChildren().add(row);
+                });
+        }
+
+        // Session history
+        List<SessionHistoryStore.SessionRecord> sessions = SessionHistoryStore.getHistory();
+        if (!sessions.isEmpty()) {
+            Label hdr2 = new Label("RECENT SESSIONS");
+            hdr2.getStyleClass().add("friends-section-header");
+            hdr2.setPadding(new Insets(14, 0, 4, 0));
+            serverGrid.getChildren().add(hdr2);
+
+            for (SessionHistoryStore.SessionRecord rec : sessions) {
+                HBox row = new HBox(16);
+                row.setAlignment(Pos.CENTER_LEFT);
+                row.setPadding(new Insets(10, 16, 10, 16));
+                row.setStyle("-fx-background-color: #1a1d24; -fx-background-radius: 8;");
+
+                // Colour dot
+                Label dot = new Label("▶");
+                dot.setStyle("-fx-text-fill: " + LauncherEngine.accentColor + "; -fx-font-size: 11px;");
+
+                Label serverName = new Label(rec.serverName);
+                serverName.setStyle("-fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold;");
+                HBox.setHgrow(serverName, Priority.ALWAYS);
+
+                Label duration = new Label(formatMinutes(rec.minutes));
+                duration.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 12px;");
+
+                Label date = new Label(rec.date);
+                date.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 11px; -fx-min-width: 90;");
+                date.setAlignment(Pos.CENTER_RIGHT);
+
+                row.getChildren().addAll(dot, serverName, duration, date);
+                serverGrid.getChildren().add(row);
+            }
+        }
+    }
+
+    private VBox statBox(String value, String label) {
+        Label val = new Label(value);
+        val.getStyleClass().add("profile-stat-value");
+        val.setWrapText(true);
+        Label lbl = new Label(label);
+        lbl.getStyleClass().add("profile-stat-label");
+        VBox box = new VBox(4, val, lbl);
+        box.getStyleClass().add("profile-stat-box");
+        box.setPadding(new Insets(16, 20, 16, 20));
+        box.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(box, Priority.ALWAYS);
+        return box;
+    }
+
+    private String formatMinutes(long mins) {
+        if (mins < 60) return mins + "m";
+        return (mins / 60) + "h " + (mins % 60) + "m";
+    }
+
+    // ── LEADERBOARD CONTENT ──────────────────────────────────────────────────
+
+    private void buildLeaderboardContent() {
+        serverGrid.setSpacing(10);
+        serverGrid.setPadding(new Insets(30, 40, 40, 40));
+
+        Label sub = new Label("Top players by total playtime across all RSPS Hub servers");
+        sub.getStyleClass().add("settings-about-sub");
+        sub.setWrapText(true);
+        serverGrid.getChildren().add(sub);
+
+        Separator sep = new Separator();
+        sep.setStyle("-fx-background-color: #2a2e39;");
+        serverGrid.getChildren().add(sep);
+
+        String yourName = LauncherEngine.currentUsername.isEmpty() ? "You" : LauncherEngine.currentUsername;
+        long yourMinutes = PlaytimeStore.getTotalMinutes();
+        String yourTop   = PlaytimeStore.getMostPlayed();
+
+        record LeaderEntry(int rank, String username, String topServer, long minutes, boolean isYou) {}
+
+        List<LeaderEntry> entries = new ArrayList<>(List.of(
+            new LeaderEntry(1, "PKMaster99",  "SlothLite",   2840, false),
+            new LeaderEntry(2, "IronmanJoe",  "MythicPS",    1920, false),
+            new LeaderEntry(3, "ZulrahGrind", "SlothLite",    980, false),
+            new LeaderEntry(4, "Sasqu",       "NightmarePS",  720, false)
+        ));
+
+        entries.add(new LeaderEntry(0, yourName, yourTop != null ? yourTop : "—", yourMinutes, true));
+        entries.sort(java.util.Comparator.comparingLong(LeaderEntry::minutes).reversed());
+        for (int i = 0; i < entries.size(); i++) {
+            var e = entries.get(i);
+            entries.set(i, new LeaderEntry(i + 1, e.username(), e.topServer(), e.minutes(), e.isYou()));
+        }
+
+        for (var entry : entries) {
+            HBox row = new HBox(16);
+            row.setAlignment(Pos.CENTER_LEFT);
+            row.setPadding(new Insets(14, 18, 14, 18));
+
+            String rankColor = switch (entry.rank()) {
+                case 1 -> "#ffd700"; case 2 -> "#c0c0c0"; case 3 -> "#cd7f32"; default -> "#8b92a5";
+            };
+            Label rankLbl = new Label("#" + entry.rank());
+            rankLbl.setStyle("-fx-text-fill: " + rankColor + "; -fx-font-size: 18px; -fx-font-weight: bold; -fx-min-width: 44;");
+
+            String initial = entry.username().isEmpty() ? "?" : String.valueOf(entry.username().charAt(0)).toUpperCase();
+            Label avatar = new Label(initial);
+            avatar.setStyle(
+                "-fx-background-color: " + (entry.isYou() ? LauncherEngine.accentColor : "#2a2e39") + ";" +
+                "-fx-text-fill: white; -fx-font-weight: bold; -fx-alignment: center;" +
+                "-fx-min-width: 38; -fx-min-height: 38; -fx-max-width: 38; -fx-max-height: 38;" +
+                "-fx-background-radius: 20;"
+            );
+            avatar.setAlignment(Pos.CENTER);
+
+            Label name = new Label(entry.username() + (entry.isYou() ? "  (you)" : ""));
+            name.setStyle("-fx-text-fill: " + (entry.isYou() ? LauncherEngine.accentColor : "white") +
+                "; -fx-font-size: 14px; -fx-font-weight: bold;");
+
+            Label server = new Label(entry.topServer().equals("—") ? "No games played" : "Top: " + entry.topServer());
+            server.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 12px;");
+
+            VBox nameBox = new VBox(2, name, server);
+            HBox.setHgrow(nameBox, Priority.ALWAYS);
+
+            long h = entry.minutes() / 60, m = entry.minutes() % 60;
+            Label time = new Label(h > 0 ? h + "h " + m + "m" : m + "m");
+            time.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 13px; -fx-font-weight: bold;");
+
+            row.getChildren().addAll(rankLbl, avatar, nameBox, time);
+            row.setStyle(entry.isYou()
+                ? "-fx-background-color: rgba(255,152,31,0.08); -fx-background-radius: 8; -fx-border-color: rgba(255,152,31,0.25); -fx-border-radius: 8;"
+                : "-fx-background-color: #1a1d24; -fx-background-radius: 8;");
+
+            serverGrid.getChildren().add(row);
+        }
     }
 
     // ── NOTIFICATION POPUP ───────────────────────────────────────────────────
@@ -1297,6 +1539,8 @@ public class RSPSHub extends Application {
         Process proc = LauncherEngine.launchGame(server);
         if (proc != null) {
             long start = System.currentTimeMillis();
+            long startEpoch = start / 1000;
+            DiscordRPC.setActivity(server.name, startEpoch);
 
             // Start session timer in navbar
             if (sessionTimerLabel != null) {
@@ -1319,9 +1563,11 @@ public class RSPSHub extends Application {
                 try { proc.waitFor(); } catch (InterruptedException ignored) {}
                 long mins = (System.currentTimeMillis() - start) / 60000;
                 PlaytimeStore.recordSession(server.name, mins);
+                SessionHistoryStore.add(server.name, mins);
                 StreakStore.recordPlay(server.name);
                 Platform.runLater(() -> {
                     LauncherEngine.activeServer = null;
+                    DiscordRPC.clearActivity();
                     if (sessionTimeline != null) { sessionTimeline.stop(); sessionTimeline = null; }
                     if (sessionTimerLabel != null) {
                         sessionTimerLabel.setVisible(false);
