@@ -1,6 +1,14 @@
+import javafx.animation.FadeTransition;
 import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.ParallelTransition;
 import javafx.animation.PauseTransition;
 import javafx.animation.Timeline;
+import javafx.animation.TranslateTransition;
+import javafx.geometry.Bounds;
+import javafx.scene.effect.DropShadow;
+import javafx.scene.paint.Color;
+import javafx.stage.Popup;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -49,6 +57,7 @@ public class RSPSHub extends Application {
 
     // Hub layout refs (needed to swap center content for chat)
     private BorderPane hubRoot;
+    private VBox       hubTopVBox;   // outer VBox holding titleBar+navbar+topControls
     private ScrollPane hubScrollPane;
     private VBox serverGrid;
 
@@ -357,7 +366,8 @@ public class RSPSHub extends Application {
         }
         topControls.getChildren().addAll(sortRow, filterBar);
 
-        hubRoot.setTop(new VBox(TitleBar.create(stage), navbar, topControls));
+        hubTopVBox = new VBox(TitleBar.create(stage), navbar, topControls);
+        hubRoot.setTop(hubTopVBox);
 
         // --- CONTENT ---
         serverGrid = new VBox(20);
@@ -419,11 +429,11 @@ public class RSPSHub extends Application {
             downloadBadge.setManaged(dlCount > 0);
         }
 
-        // Show/hide search section — collapse padding too so height goes to 0
+        // Add/remove topControls from parent VBox — guaranteed layout recalc
         boolean showSearch = !showingFriends && !showingStats && !showingLeaderboard;
-        topControls.setPadding(showSearch ? new Insets(20, 40, 0, 40) : Insets.EMPTY);
-        sortRow.setVisible(showSearch);
-        sortRow.setManaged(showSearch);
+        boolean hasControls = hubTopVBox.getChildren().contains(topControls);
+        if (showSearch && !hasControls) hubTopVBox.getChildren().add(topControls);
+        else if (!showSearch && hasControls) hubTopVBox.getChildren().remove(topControls);
         boolean showFilters = showSearch && !showingLibrary;
         filterBar.setVisible(showFilters);
         filterBar.setManaged(showFilters);
@@ -456,18 +466,27 @@ public class RSPSHub extends Application {
         List<ServerProfile> pinned   = filtered.stream().filter(s -> LauncherEngine.favouriteServers.contains(s.name)).collect(Collectors.toList());
         List<ServerProfile> unpinned = filtered.stream().filter(s -> !LauncherEngine.favouriteServers.contains(s.name)).collect(Collectors.toList());
 
+        int cardIndex = 0;
         if (!pinned.isEmpty()) {
-            Label pinnedHdr = new Label("★  FAVOURITES");
+            Label pinnedHdr = new Label("\u2605  FAVOURITES");
             pinnedHdr.getStyleClass().add("pinned-header");
             serverGrid.getChildren().add(pinnedHdr);
-            for (ServerProfile s : pinned) serverGrid.getChildren().add(createServerCard(s));
+            for (ServerProfile s : pinned) {
+                VBox card = createServerCard(s);
+                serverGrid.getChildren().add(card);
+                animateCard(card, cardIndex++);
+            }
             if (!unpinned.isEmpty()) {
                 Label allHdr = new Label("ALL SERVERS");
                 allHdr.getStyleClass().add("pinned-header");
                 serverGrid.getChildren().add(allHdr);
             }
         }
-        for (ServerProfile s : unpinned) serverGrid.getChildren().add(createServerCard(s));
+        for (ServerProfile s : unpinned) {
+            VBox card = createServerCard(s);
+            serverGrid.getChildren().add(card);
+            animateCard(card, cardIndex++);
+        }
     }
 
     // ── FRIENDS CONTENT ──────────────────────────────────────────────────────
@@ -1159,12 +1178,44 @@ public class RSPSHub extends Application {
         HBox cardTools = new HBox(4, starBtn, noteBtn);
         cardTools.setAlignment(Pos.CENTER_RIGHT);
 
-        // Skill level badge
+        // Skill level badge — color and glow based on milestone
+        String milestoneColor = ServerSkillSystem.getMilestoneColor(skillLevel);
         Label levelBadge = new Label("Lv. " + skillLevel);
-        levelBadge.getStyleClass().add("skill-level-badge");
-        Tooltip tip = new Tooltip(skillTooltip);
-        tip.setShowDelay(javafx.util.Duration.millis(300));
-        Tooltip.install(levelBadge, tip);
+        levelBadge.setStyle(
+            "-fx-background-color: rgba(0,0,0,0.4);" +
+            "-fx-text-fill: " + milestoneColor + ";" +
+            "-fx-font-size: 11px; -fx-font-weight: bold;" +
+            "-fx-padding: 3 9; -fx-background-radius: 10; -fx-cursor: hand;"
+        );
+
+        if (ServerSkillSystem.hasMilestoneGlow(skillLevel)) {
+            DropShadow glow = new DropShadow();
+            glow.setColor(Color.web(milestoneColor));
+            glow.setRadius(skillLevel >= 99 ? 20 : 8);
+            glow.setSpread(0.15);
+            levelBadge.setEffect(glow);
+            double maxR = skillLevel >= 99 ? 24 : 14;
+            double speed = skillLevel >= 99 ? 0.8 : 2.0;
+            Timeline glowAnim = new Timeline(
+                new KeyFrame(Duration.ZERO,           new KeyValue(glow.radiusProperty(), 4)),
+                new KeyFrame(Duration.seconds(speed), new KeyValue(glow.radiusProperty(), maxR)),
+                new KeyFrame(Duration.seconds(speed * 2), new KeyValue(glow.radiusProperty(), 4))
+            );
+            glowAnim.setCycleCount(Timeline.INDEFINITE);
+            glowAnim.play();
+        }
+
+        // Hover popup for level details
+        Popup[] popupRef = {null};
+        levelBadge.setOnMouseEntered(e -> {
+            if (popupRef[0] != null) popupRef[0].hide();
+            popupRef[0] = buildLevelPopup(server.name, skillLevel, skillProgress, milestoneColor);
+            Bounds b = levelBadge.localToScreen(levelBadge.getBoundsInLocal());
+            popupRef[0].show(levelBadge, b.getMinX() - 80, b.getMinY() - 160);
+        });
+        levelBadge.setOnMouseExited(e -> {
+            if (popupRef[0] != null) { popupRef[0].hide(); popupRef[0] = null; }
+        });
 
         Label players = new Label("\uD83D\uDFE2 " + server.players_online + " Online");
         players.getStyleClass().add("player-count");
@@ -1218,6 +1269,99 @@ public class RSPSHub extends Application {
         VBox wrapper = new VBox(card, xpTrack);
         wrapper.getStyleClass().add("server-card-wrapper");
         return wrapper;
+    }
+
+    // ── LEVEL POPUP ──────────────────────────────────────────────────────────
+
+    private Popup buildLevelPopup(String serverName, int level, double progress, String color) {
+        Popup popup = new Popup();
+        popup.setAutoHide(true);
+
+        VBox box = new VBox(10);
+        box.setStyle(
+            "-fx-background-color: #1a1d24;" +
+            "-fx-border-color: #2a2e39;" +
+            "-fx-border-width: 1; -fx-border-radius: 10; -fx-background-radius: 10;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 20, 0, 0, 4);"
+        );
+        box.setPadding(new Insets(16, 20, 16, 20));
+        box.setPrefWidth(260);
+
+        // Header row: server name + level
+        Label nameLbl = new Label(serverName);
+        nameLbl.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 11px;");
+        Label lvlLbl = new Label("Lv. " + level);
+        lvlLbl.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 11px; -fx-font-weight: bold;");
+        Region hSpacer = new Region(); HBox.setHgrow(hSpacer, Priority.ALWAYS);
+        HBox headerRow = new HBox(nameLbl, hSpacer, lvlLbl);
+        headerRow.setAlignment(Pos.CENTER_LEFT);
+
+        // Rank title
+        String rank = ServerSkillSystem.getRankName(level);
+        Label rankLbl = new Label(rank);
+        rankLbl.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 22px; -fx-font-weight: bold;");
+
+        // Big level number
+        Label bigLvl = new Label(String.valueOf(level));
+        bigLvl.setStyle("-fx-text-fill: white; -fx-font-size: 48px; -fx-font-weight: bold;");
+
+        HBox levelRow = new HBox(16, bigLvl, new VBox(4, rankLbl));
+        levelRow.setAlignment(Pos.CENTER_LEFT);
+        ((VBox) levelRow.getChildren().get(1)).setAlignment(Pos.BOTTOM_LEFT);
+
+        // XP bar track
+        StackPane track = new StackPane();
+        track.setStyle("-fx-background-color: #0f1115; -fx-background-radius: 4;");
+        track.setPrefHeight(8);
+        track.setMaxWidth(Double.MAX_VALUE);
+        track.setAlignment(Pos.CENTER_LEFT);
+
+        Region fill = new Region();
+        fill.setStyle("-fx-background-color: " + color + "; -fx-background-radius: 4;");
+        fill.setPrefHeight(8);
+        fill.setPrefWidth(0);
+        track.getChildren().add(fill);
+
+        // XP numbers
+        long played = PlaytimeStore.getMinutes(serverName);
+        long toNext = ServerSkillSystem.minutesToNextLevel(serverName);
+        String playedStr = played < 60 ? played + "m" : (played / 60) + "h " + (played % 60) + "m";
+        String nextStr   = level >= 99 ? "MAX" : (toNext < 60 ? toNext + "m" : (toNext / 60) + "h " + (toNext % 60) + "m to next");
+        Label xpLbl = new Label(playedStr + " played");
+        xpLbl.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 11px;");
+        Label nextLbl = new Label(level >= 99 ? "MAX LEVEL" : nextStr);
+        nextLbl.setStyle("-fx-text-fill: " + (level >= 99 ? color : "#c8cdd8") + "; -fx-font-size: 11px; -fx-font-weight: bold;");
+        Region xpSpacer = new Region(); HBox.setHgrow(xpSpacer, Priority.ALWAYS);
+        HBox xpRow = new HBox(xpLbl, xpSpacer, nextLbl);
+
+        box.getChildren().addAll(headerRow, levelRow, track, xpRow);
+        popup.getContent().add(box);
+
+        // Animate XP bar fill after popup shows
+        popup.setOnShown(e -> {
+            double targetW = 220.0 * Math.min(1.0, progress);
+            Timeline barAnim = new Timeline(
+                new KeyFrame(Duration.ZERO,       new KeyValue(fill.prefWidthProperty(), 0)),
+                new KeyFrame(Duration.millis(500), new KeyValue(fill.prefWidthProperty(), targetW))
+            );
+            barAnim.play();
+        });
+
+        return popup;
+    }
+
+    // ── CARD ANIMATION ───────────────────────────────────────────────────────
+
+    private void animateCard(VBox card, int index) {
+        card.setOpacity(0);
+        card.setTranslateY(18);
+        FadeTransition fade = new FadeTransition(Duration.millis(250), card);
+        fade.setFromValue(0); fade.setToValue(1);
+        TranslateTransition slide = new TranslateTransition(Duration.millis(250), card);
+        slide.setFromY(18); slide.setToY(0);
+        ParallelTransition anim = new ParallelTransition(fade, slide);
+        anim.setDelay(Duration.millis(Math.min(index, 6) * 55L));
+        anim.play();
     }
 
     // ── STATS CONTENT ────────────────────────────────────────────────────────

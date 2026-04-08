@@ -47,6 +47,32 @@ public class ServerSkillSystem {
         return "Level " + level + " — " + time + " to next level";
     }
 
+    public static String getRankName(int level) {
+        if (level >= 99) return "LEGENDARY";
+        if (level >= 90) return "GRANDMASTER";
+        if (level >= 75) return "MASTER";
+        if (level >= 60) return "ELITE";
+        if (level >= 50) return "VETERAN";
+        if (level >= 40) return "EXPERT";
+        if (level >= 30) return "SKILLED";
+        if (level >= 20) return "ADEPT";
+        if (level >= 10) return "JOURNEYMAN";
+        if (level >= 5)  return "APPRENTICE";
+        return "NOVICE";
+    }
+
+    /** Accent color for the level badge based on milestone bracket. */
+    public static String getMilestoneColor(int level) {
+        if (level >= 99) return "#ffd700"; // gold
+        if (level >= 75) return "#9b5de5"; // purple
+        if (level >= 50) return "#ff981f"; // orange
+        if (level >= 25) return "#4caf50"; // green
+        if (level >= 10) return "#4a9eff"; // blue
+        return "#8b92a5";                  // grey — no glow
+    }
+
+    public static boolean hasMilestoneGlow(int level) { return level >= 10; }
+
     // ── MATH ─────────────────────────────────────────────────────────────────
 
     static int minutesToLevel(long minutes) {

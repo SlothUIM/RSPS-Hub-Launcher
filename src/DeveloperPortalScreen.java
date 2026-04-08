@@ -269,18 +269,9 @@ public class DeveloperPortalScreen {
             "-fx-prompt-text-fill: #8b92a5;"
         );
 
-        // Game Mode dropdown
-        ComboBox<String> gameMode = new ComboBox<>();
-        gameMode.getItems().addAll("Economy", "PvP", "Ironman", "Group Ironman", "Hardcore Ironman",
-            "Leagues / Seasonal", "Skilling", "OSRS Replica", "Custom");
-        gameMode.setValue("Custom");
-        gameMode.setMaxWidth(Double.MAX_VALUE);
-        gameMode.setStyle(xpRate.getStyle());
-
         return devSection("SERVER DETAILS",
             devRow("JAR Download URL *", jarField),
             devRow("XP Rate",            xpRate),
-            devRow("Game Mode",          gameMode),
             devRow("Website",            websiteField),
             devRow("Discord",            discordField)
         );
@@ -299,6 +290,29 @@ public class DeveloperPortalScreen {
             tagBoxes.add(cb);
             tagPane.getChildren().add(cb);
         }
+
+        // Custom tag input
+        TextField customTagField = styledField("Add custom tag...");
+        customTagField.setPrefWidth(180);
+        customTagField.setMaxWidth(180);
+        Button addTagBtn = new Button("+ Add");
+        addTagBtn.getStyleClass().add("settings-secondary-btn");
+        Runnable addCustomTag = () -> {
+            String t = customTagField.getText().trim();
+            if (t.isEmpty() || t.length() > 20) return;
+            CheckBox cb = new CheckBox(t);
+            cb.getStyleClass().add("dev-tag-check");
+            cb.setSelected(true);
+            tagBoxes.add(cb);
+            // Insert before the custom tag row
+            tagPane.getChildren().add(cb);
+            customTagField.clear();
+        };
+        addTagBtn.setOnAction(e -> addCustomTag.run());
+        customTagField.setOnAction(e -> addCustomTag.run());
+        HBox customTagRow = new HBox(8, customTagField, addTagBtn);
+        customTagRow.setAlignment(Pos.CENTER_LEFT);
+        customTagRow.setPadding(new Insets(6, 0, 0, 0));
 
         CheckBox visibleCheck = new CheckBox("Visible in store immediately");
         visibleCheck.getStyleClass().add("settings-checkbox");
@@ -332,7 +346,7 @@ public class DeveloperPortalScreen {
         });
 
         return devSection("TAGS & SUBMISSION",
-            devRow("Tags",        tagPane),
+            devRow("Tags",        new VBox(8, tagPane, customTagRow)),
             devRow("Visibility",  new VBox(6, visibleCheck, visHint)),
             devRow("Featured",    new VBox(6, featuredCheck, featHint)),
             errorLabel,
