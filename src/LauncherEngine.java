@@ -24,7 +24,6 @@ public class LauncherEngine {
     public static String downloadPath = System.getProperty("user.home") + "/.rsps_hub/";
     public static boolean minimizeOnLaunch = false;
     public static boolean autoUpdateClients = false;
-    public static String javaPath = "java";
 
     /**
      * Initializes the Hub directory on the user's PC.
@@ -93,7 +92,7 @@ public class LauncherEngine {
             Path serverFolder = Paths.get(downloadPath, server.name.replaceAll(" ", "_"));
             // Note: We use the serverFolder as the working directory so the game 
             // saves its own cache/settings in the right spot!
-            ProcessBuilder pb = new ProcessBuilder(javaPath, "-jar", "SlothLite.jar");
+            ProcessBuilder pb = new ProcessBuilder("java", "-jar", "SlothLite.jar");
             pb.directory(serverFolder.toFile());
             pb.start(); 
         } catch (Exception e) {

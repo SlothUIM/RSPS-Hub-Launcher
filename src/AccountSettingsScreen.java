@@ -5,7 +5,6 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.DirectoryChooser;
-import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import java.io.File;
 
@@ -136,33 +135,10 @@ public class AccountSettingsScreen {
         autoUpdateCheck.setSelected(LauncherEngine.autoUpdateClients);
         autoUpdateCheck.selectedProperty().addListener((obs, old, val) -> LauncherEngine.autoUpdateClients = val);
 
-        // Java path
-        TextField javaField = new TextField(LauncherEngine.javaPath);
-        javaField.getStyleClass().add("auth-field");
-        javaField.setPrefWidth(260);
-        javaField.textProperty().addListener((obs, old, val) -> LauncherEngine.javaPath = val);
-
-        Button browseJava = new Button("Browse");
-        browseJava.getStyleClass().add("settings-secondary-btn");
-        browseJava.setOnAction(e -> {
-            FileChooser fc = new FileChooser();
-            fc.setTitle("Select Java Executable");
-            File file = fc.showOpenDialog(stage);
-            if (file != null) {
-                LauncherEngine.javaPath = file.getAbsolutePath();
-                javaField.setText(LauncherEngine.javaPath);
-            }
-        });
-
-        HBox javaRow = new HBox(10, javaField, browseJava);
-        javaRow.setAlignment(Pos.CENTER_LEFT);
-        HBox.setHgrow(javaField, Priority.ALWAYS);
-
         return section("LAUNCHER SETTINGS",
             settingRow("Download Location", downloadRow),
             settingRow("Minimize on Launch", minimizeCheck),
-            settingRow("Auto-update Clients", autoUpdateCheck),
-            settingRow("Java Path", javaRow)
+            settingRow("Auto-update Clients", autoUpdateCheck)
         );
     }
 
