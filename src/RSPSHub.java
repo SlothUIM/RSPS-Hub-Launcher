@@ -7,11 +7,13 @@ import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +52,6 @@ public class RSPSHub extends Application {
     private String friendsSubTab = "ONLINE";
     private List<FriendRequest> friendRequests = new ArrayList<>();
     private List<String> blockedUsers = new ArrayList<>();
-    private Party currentParty = null;
 
     // ── LIFECYCLE ────────────────────────────────────────────────────────────
 
@@ -340,9 +341,6 @@ public class RSPSHub extends Application {
     }
 
     private void buildOnlineFriendsContent() {
-        // Party panel
-        if (currentParty != null) serverGrid.getChildren().add(buildPartyPanel());
-
         // Add friend → sends request instead of adding directly
         TextField addField = new TextField();
         addField.setPromptText("Add friend by username...");
@@ -498,52 +496,6 @@ public class RSPSHub extends Application {
         }
     }
 
-    private VBox buildPartyPanel() {
-        VBox panel = new VBox(10);
-        panel.getStyleClass().add("party-panel");
-        panel.setPadding(new Insets(14, 16, 14, 16));
-
-        HBox headerRow = new HBox(10);
-        headerRow.setAlignment(Pos.CENTER_LEFT);
-        Label partyTitle = new Label("PARTY");
-        partyTitle.getStyleClass().add("party-title");
-        HBox.setHgrow(partyTitle, Priority.ALWAYS);
-
-        Button disbandBtn = new Button("Disband");
-        disbandBtn.getStyleClass().add("settings-secondary-btn");
-        disbandBtn.setOnAction(e -> { currentParty = null; updateDisplay(); });
-
-        Button launchBtn = new Button("Launch Together");
-        launchBtn.getStyleClass().add("play-button");
-        launchBtn.setPadding(new Insets(8, 16, 8, 16));
-        launchBtn.setOnAction(e -> {
-            if (allServers == null || allServers.isEmpty()) return;
-            List<String> names = allServers.stream().map(s -> s.name).collect(Collectors.toList());
-            ChoiceDialog<String> dialog = new ChoiceDialog<>(names.get(0), names);
-            dialog.setTitle("Launch Together");
-            dialog.setHeaderText("Pick a server for your party");
-            dialog.setContentText("Server:");
-            dialog.showAndWait().ifPresent(chosen -> {
-                allServers.stream().filter(s -> s.name.equals(chosen)).findFirst().ifPresent(server -> {
-                    Stage st = (Stage) panel.getScene().getWindow();
-                    handlePlayAction(server, st, launchBtn, null);
-                });
-            });
-        });
-
-        headerRow.getChildren().addAll(partyTitle, disbandBtn, launchBtn);
-
-        FlowPane membersPane = new FlowPane(8, 8);
-        for (String member : currentParty.members) {
-            Label chip = new Label(member);
-            chip.getStyleClass().add("party-member-chip");
-            membersPane.getChildren().add(chip);
-        }
-
-        panel.getChildren().addAll(headerRow, membersPane);
-        return panel;
-    }
-
     private Label friendsGroupHeader(String text) {
         Label lbl = new Label(text);
         lbl.getStyleClass().add("friends-section-header");
@@ -565,10 +517,18 @@ public class RSPSHub extends Application {
         VBox info = new VBox(2);
         HBox.setHgrow(info, Priority.ALWAYS);
 
-        Label name = new Label(friend.username);
+        boolean hasNick = friend.nickname != null && !friend.nickname.isEmpty();
+        Label name = new Label(hasNick ? friend.nickname : friend.username);
         name.getStyleClass().add("friend-name");
         name.setCursor(Cursor.HAND);
         name.setOnMouseClicked(e -> showProfile((Stage) row.getScene().getWindow(), friend.username));
+        info.getChildren().add(name);
+
+        if (hasNick) {
+            Label realName = new Label(friend.username);
+            realName.getStyleClass().add("friend-status-offline");
+            info.getChildren().add(realName);
+        }
 
         Label status;
         if (friend.online && friend.playingServer != null) {
@@ -578,24 +538,13 @@ public class RSPSHub extends Application {
             status = new Label(friend.online ? "Online" : "Offline");
             status.getStyleClass().add(friend.online ? "friend-status-online" : "friend-status-offline");
         }
-        info.getChildren().addAll(name, status);
+        info.getChildren().add(status);
 
         if (friend.statusMessage != null && !friend.statusMessage.isEmpty()) {
             Label statusMsg = new Label("\"" + friend.statusMessage + "\"");
             statusMsg.getStyleClass().add("friend-status-msg");
             info.getChildren().add(statusMsg);
         }
-
-        // Party button
-        boolean inParty = currentParty != null && currentParty.members.contains(friend.username);
-        Button partyBtn = new Button(currentParty == null ? "Party Up" : (inParty ? "In Party" : "Invite"));
-        partyBtn.getStyleClass().add("settings-secondary-btn");
-        partyBtn.setDisable(inParty);
-        partyBtn.setOnAction(e -> {
-            if (currentParty == null) currentParty = new Party(LauncherEngine.currentUsername);
-            currentParty.addMember(friend.username);
-            updateDisplay();
-        });
 
         Button msgBtn = new Button("Message");
         msgBtn.getStyleClass().add("settings-secondary-btn");
@@ -605,11 +554,32 @@ public class RSPSHub extends Application {
         discordBtn.getStyleClass().add("friend-discord-btn");
         discordBtn.setTooltip(new Tooltip("Call on Discord"));
 
-        Button blockBtn = new Button("Block");
-        blockBtn.getStyleClass().add("friend-block-btn");
-        blockBtn.setOnAction(e -> { blockedUsers.add(friend.username); updateDisplay(); });
+        // ··· more menu
+        MenuItem setNickname = new MenuItem("Set Nickname");
+        setNickname.setOnAction(e -> {
+            Stage owner = (Stage) row.getScene().getWindow();
+            DarkDialog.showInput(owner, "Nickname for " + friend.username + ":",
+                friend.nickname != null ? friend.nickname : "",
+                nick -> { friend.nickname = nick.trim().isEmpty() ? null : nick.trim(); updateDisplay(); });
+        });
 
-        row.getChildren().addAll(avatar, info, partyBtn, msgBtn, discordBtn, blockBtn);
+        MenuItem removeFriend = new MenuItem("Remove Friend");
+        removeFriend.setOnAction(e -> { friends.remove(friend); updateDisplay(); });
+
+        MenuItem reportItem = new MenuItem("Report");
+        reportItem.setOnAction(e -> {
+            Stage owner = (Stage) row.getScene().getWindow();
+            DarkDialog.showAlert(owner, "Report submitted for " + friend.username + ". Our team will review it.");
+        });
+
+        MenuItem blockItem = new MenuItem("Block");
+        blockItem.setOnAction(e -> { blockedUsers.add(friend.username); updateDisplay(); });
+
+        MenuButton moreBtn = new MenuButton("···");
+        moreBtn.getStyleClass().add("friend-more-btn");
+        moreBtn.getItems().addAll(setNickname, removeFriend, reportItem, blockItem);
+
+        row.getChildren().addAll(avatar, info, msgBtn, discordBtn, moreBtn);
         return row;
     }
 
@@ -643,47 +613,116 @@ public class RSPSHub extends Application {
     }
 
     private VBox buildNewGroupForm() {
+        Button createBtn = new Button("+ Create Group");
+        createBtn.getStyleClass().add("settings-secondary-btn");
+        createBtn.setOnAction(e -> openCreateGroupDialog((Stage) serverGrid.getScene().getWindow()));
+
         VBox form = new VBox(10);
         form.setPadding(new Insets(10, 0, 0, 0));
+        form.getChildren().add(createBtn);
+        return form;
+    }
 
-        // Group name field
+    private void openCreateGroupDialog(Stage parentStage) {
+        Stage dialog = new Stage();
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        dialog.initOwner(parentStage);
+        dialog.initStyle(StageStyle.TRANSPARENT);
+        dialog.setWidth(440);
+        dialog.setHeight(540);
+
+        BorderPane root = new BorderPane();
+        root.getStyleClass().add("root-pane");
+        root.setTop(TitleBar.create(dialog));
+
+        VBox content = new VBox(14);
+        content.setPadding(new Insets(24, 24, 24, 24));
+
+        Label title = new Label("CREATE GROUP CHAT");
+        title.getStyleClass().add("settings-page-title");
+
         TextField groupNameField = new TextField();
         groupNameField.setPromptText("Group name...");
-        groupNameField.getStyleClass().add("search-field");
+        groupNameField.getStyleClass().add("auth-field");
         groupNameField.setMaxWidth(Double.MAX_VALUE);
 
-        // Friend checkboxes
-        Label membersLabel = new Label("ADD MEMBERS");
-        membersLabel.getStyleClass().add("auth-label");
+        TextField searchField = new TextField();
+        searchField.setPromptText("Search friends...");
+        searchField.getStyleClass().add("search-field");
 
-        FlowPane checkboxPane = new FlowPane(10, 8);
-        List<CheckBox> memberBoxes = new ArrayList<>();
-        for (Friend f : friends) {
-            CheckBox cb = new CheckBox(f.username);
+        // Friends listed newest first (reverse of insertion order)
+        List<Friend> ordered = new ArrayList<>(friends);
+        Collections.reverse(ordered);
+
+        VBox friendsList = new VBox(6);
+        List<CheckBox> checkBoxes = new ArrayList<>();
+        List<HBox> rows = new ArrayList<>();
+
+        for (Friend f : ordered) {
+            Label avatar = new Label(f.username.substring(0, 1).toUpperCase());
+            avatar.getStyleClass().add(f.online ? "friend-avatar-online" : "friend-avatar-offline");
+
+            String displayName = (f.nickname != null && !f.nickname.isEmpty())
+                ? f.nickname + "  (" + f.username + ")"
+                : f.username;
+
+            CheckBox cb = new CheckBox(displayName);
             cb.getStyleClass().add("settings-checkbox");
-            memberBoxes.add(cb);
-            checkboxPane.getChildren().add(cb);
+            cb.setUserData(f.username);
+            cb.setMaxWidth(Double.MAX_VALUE);
+            HBox.setHgrow(cb, Priority.ALWAYS);
+            checkBoxes.add(cb);
+
+            HBox row = new HBox(12, avatar, cb);
+            row.setAlignment(Pos.CENTER_LEFT);
+            rows.add(row);
+            friendsList.getChildren().add(row);
         }
 
-        Button createBtn = new Button("Create Group");
-        createBtn.getStyleClass().add("settings-secondary-btn");
-        createBtn.setOnAction(e -> {
+        // Filter by search
+        searchField.textProperty().addListener((obs, old, val) -> {
+            String q = val.toLowerCase();
+            for (int i = 0; i < ordered.size(); i++) {
+                Friend f = ordered.get(i);
+                boolean match = f.username.toLowerCase().contains(q)
+                    || (f.nickname != null && f.nickname.toLowerCase().contains(q));
+                rows.get(i).setVisible(match);
+                rows.get(i).setManaged(match);
+            }
+        });
+
+        ScrollPane scroll = new ScrollPane(friendsList);
+        scroll.setFitToWidth(true);
+        scroll.getStyleClass().add("main-scroll");
+        scroll.setPrefHeight(260);
+        scroll.setMaxHeight(260);
+        VBox.setVgrow(scroll, Priority.ALWAYS);
+
+        Button createGroupBtn = new Button("Create Group");
+        createGroupBtn.getStyleClass().add("auth-btn");
+        createGroupBtn.setMaxWidth(Double.MAX_VALUE);
+        createGroupBtn.setOnAction(e -> {
             String name = groupNameField.getText().trim();
             if (name.isEmpty()) return;
-            List<String> selected = memberBoxes.stream()
+            List<String> selected = checkBoxes.stream()
                 .filter(CheckBox::isSelected)
-                .map(CheckBox::getText)
+                .map(cb -> (String) cb.getUserData())
                 .collect(Collectors.toList());
             groups.add(name);
             groupMembers.put(name, selected);
             MessageStore.getMessages(name);
-            groupNameField.clear();
-            memberBoxes.forEach(cb -> cb.setSelected(false));
+            dialog.close();
             updateDisplay();
         });
 
-        form.getChildren().addAll(groupNameField, membersLabel, checkboxPane, createBtn);
-        return form;
+        content.getChildren().addAll(title, groupNameField, searchField, scroll, createGroupBtn);
+        root.setCenter(content);
+
+        Scene scene = new Scene(root);
+        scene.getStylesheets().add(getClass().getResource("style.css").toExternalForm());
+        SceneUtils.applyRoundedCorners(scene, root);
+        dialog.setScene(scene);
+        dialog.show();
     }
 
     // ── CHAT VIEW ────────────────────────────────────────────────────────────

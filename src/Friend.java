@@ -3,6 +3,7 @@ public class Friend {
     public boolean online;
     public String playingServer;
     public String statusMessage;
+    public String nickname;
 
     public Friend(String username, boolean online, String playingServer) {
         this.username = username;
