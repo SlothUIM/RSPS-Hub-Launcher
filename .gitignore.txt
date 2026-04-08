@@ -1,0 +1,13 @@
+# Ignore compiled Java files
+*.class
+bin/
+build/
+
+# Ignore JavaFX libs (People should download their own version)
+lib/
+*.jar
+
+# Ignore IDE specific files
+.project
+.classpath
+.settings/

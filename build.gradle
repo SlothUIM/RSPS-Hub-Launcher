@@ -1,0 +1,50 @@
+plugins {
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.1.0'
+}
+
+group = 'com.rspshub'
+version = '1.0-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+javafx {
+    version = '17.0.18'
+    modules = ['javafx.controls', 'javafx.fxml', 'javafx.media', 'javafx.web', 'javafx.swing']
+}
+
+application {
+    mainClass = 'main'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'com.google.code.gson:gson:2.2.4'
+    implementation 'org.apache.commons:commons-lang3:3.14.0'
+    implementation 'com.google.guava:guava:33.2.0-jre'
+    implementation 'net.java.dev.jna:jna:5.14.0'
+    implementation 'net.java.dev.jna:jna-platform:5.14.0'
+    implementation 'org.json:json:20250517'
+    implementation 'org.jsoup:jsoup:1.22.1'
+    compileOnly 'org.projectlombok:lombok:1.18.32'
+    annotationProcessor 'org.projectlombok:lombok:1.18.32'
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src']
+        }
+        resources {
+            srcDirs = ['src']
+            exclude '**/*.java'
+        }
+    }
+}

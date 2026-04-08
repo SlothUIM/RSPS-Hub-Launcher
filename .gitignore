@@ -1,0 +1,22 @@
+# Compiled output
+*.class
+bin/
+build/
+out/
+
+# Gradle
+.gradle/
+gradle/wrapper/gradle-wrapper.jar
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Eclipse (no longer needed but keeping for reference)
+.project
+.classpath
+.settings/
+
+# Jars (Gradle handles these automatically)
+lib/
+*.jar

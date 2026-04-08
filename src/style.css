@@ -1,0 +1,391 @@
+/* --- GLOBAL STYLES --- */
+.root-pane {
+    -fx-background-color: #0f1115;
+}
+
+.main-scroll {
+    /* Makes the scroll area transparent so we see the root background */
+    -fx-background: transparent;
+    -fx-background-color: transparent;
+}
+
+/* --- NAVBAR & TABS --- */
+.navbar {
+    -fx-background-color: #1a1d24;
+    -fx-border-color: #2a2e39;
+    -fx-border-width: 0 0 1 0;
+}
+
+.nav-brand {
+    -fx-text-fill: white;
+    -fx-font-size: 22px;
+    -fx-font-weight: 800;
+}
+
+.nav-tab, .nav-tab-active {
+    -fx-background-color: transparent;
+    -fx-text-fill: #8b92a5;
+    -fx-font-weight: bold;
+    -fx-font-size: 14px;
+    -fx-cursor: hand;
+    -fx-border-width: 0 0 2 0;
+    -fx-border-color: transparent;
+}
+
+.nav-tab-active {
+    -fx-text-fill: #ff981f;
+    -fx-border-color: #ff981f;
+}
+
+/* --- SEARCH & FILTERS --- */
+.search-field {
+    -fx-background-color: #1a1d24;
+    -fx-text-fill: white;
+    -fx-border-color: #2a2e39;
+    -fx-prompt-text-fill: #444;
+    -fx-padding: 12;
+    -fx-font-size: 14px;
+}
+
+.search-field:focused {
+    -fx-border-color: #ff981f;
+}
+
+.filter-btn, .filter-btn-active {
+    -fx-background-color: #1a1d24;
+    -fx-text-fill: #8b92a5;
+    -fx-border-color: #2a2e39;
+    -fx-border-radius: 20;
+    -fx-background-radius: 20;
+    -fx-padding: 6 18;
+    -fx-cursor: hand;
+    -fx-font-weight: bold;
+}
+
+.filter-btn-active {
+    -fx-text-fill: white;
+    -fx-background-color: #2a2e39;
+    -fx-border-color: #ff981f;
+}
+
+/* --- SERVER CARDS --- */
+.server-card {
+    -fx-background-color: #1a1d24;
+    -fx-border-color: #2a2e39;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.server-card:hover {
+    -fx-border-color: #3a3e4a;
+}
+
+.card-banner {
+    -fx-background-color: #0f1115;
+    -fx-border-color: #2a2e39;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.card-banner .label {
+    -fx-text-fill: #444;
+    -fx-font-weight: bold;
+}
+
+.card-title {
+    -fx-text-fill: white;
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+}
+
+.card-desc {
+    -fx-text-fill: #8b92a5;
+    -fx-font-size: 13px;
+}
+
+.tag-pill {
+    -fx-background-color: #252933;
+    -fx-text-fill: #dcdcdc;
+    -fx-font-size: 10px;
+    -fx-padding: 3 10;
+    -fx-background-radius: 4;
+    -fx-font-weight: bold;
+}
+
+/* --- ACTIONS & STATS --- */
+.player-count {
+    -fx-text-fill: #4CAF50;
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+}
+
+.play-button {
+    -fx-background-color: #ff981f;
+    -fx-text-fill: black;
+    -fx-font-weight: 800;
+    -fx-padding: 12 25;
+    -fx-min-width: 130px;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+}
+
+.play-button:hover {
+    -fx-background-color: #e68a1c;
+}
+
+.play-button:disabled {
+    -fx-background-color: #333;
+    -fx-text-fill: #777;
+}
+
+.empty-label {
+    -fx-text-fill: #555;
+    -fx-font-size: 18px;
+    -fx-font-style: italic;
+}
+
+/* --- NAVBAR ACCOUNT WIDGET --- */
+.nav-avatar {
+    -fx-background-color: #ff981f;
+    -fx-text-fill: #0f1115;
+    -fx-font-weight: 800;
+    -fx-font-size: 14px;
+    -fx-min-width: 34px;
+    -fx-min-height: 34px;
+    -fx-max-width: 34px;
+    -fx-max-height: 34px;
+    -fx-background-radius: 17px;
+    -fx-alignment: center;
+}
+
+.nav-username {
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+.nav-account-widget:hover .nav-username {
+    -fx-text-fill: #ff981f;
+}
+
+/* --- SETTINGS PAGE --- */
+.settings-topbar {
+    -fx-background-color: #1a1d24;
+    -fx-border-color: #2a2e39;
+    -fx-border-width: 0 0 1 0;
+}
+
+.settings-back-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: #8b92a5;
+    -fx-font-size: 14px;
+    -fx-cursor: hand;
+    -fx-padding: 8 16;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.settings-back-btn:hover {
+    -fx-background-color: #2a2e39;
+    -fx-text-fill: white;
+}
+
+.settings-page-title {
+    -fx-text-fill: white;
+    -fx-font-size: 16px;
+    -fx-font-weight: 800;
+}
+
+.settings-section-header {
+    -fx-text-fill: #ff981f;
+    -fx-font-size: 11px;
+    -fx-font-weight: 800;
+}
+
+.settings-row-label {
+    -fx-text-fill: #8b92a5;
+    -fx-font-size: 14px;
+}
+
+.settings-secondary-btn {
+    -fx-background-color: #2a2e39;
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+    -fx-cursor: hand;
+    -fx-padding: 10 16;
+    -fx-background-radius: 4;
+}
+
+.settings-secondary-btn:hover {
+    -fx-background-color: #3a3e4a;
+}
+
+.settings-checkbox {
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+}
+
+.settings-checkbox .box {
+    -fx-background-color: #2a2e39;
+    -fx-border-color: #3a3e4a;
+    -fx-border-radius: 3;
+    -fx-background-radius: 3;
+}
+
+.settings-checkbox:selected .box {
+    -fx-background-color: #ff981f;
+    -fx-border-color: #ff981f;
+}
+
+.settings-checkbox:selected .mark {
+    -fx-background-color: black;
+}
+
+.settings-avatar {
+    -fx-background-color: #ff981f;
+    -fx-text-fill: #0f1115;
+    -fx-font-weight: 800;
+    -fx-font-size: 32px;
+    -fx-min-width: 80px;
+    -fx-min-height: 80px;
+    -fx-max-width: 80px;
+    -fx-max-height: 80px;
+    -fx-background-radius: 40px;
+    -fx-alignment: center;
+}
+
+.settings-about-text {
+    -fx-text-fill: white;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+
+.settings-about-sub {
+    -fx-text-fill: #8b92a5;
+    -fx-font-size: 13px;
+}
+
+.settings-logout-btn {
+    -fx-background-color: #2a1515;
+    -fx-text-fill: #e05252;
+    -fx-font-weight: 800;
+    -fx-font-size: 14px;
+    -fx-padding: 12 30;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+    -fx-border-color: #4a2020;
+    -fx-border-radius: 4;
+}
+
+.settings-logout-btn:hover {
+    -fx-background-color: #e05252;
+    -fx-text-fill: white;
+    -fx-border-color: #e05252;
+}
+
+.color-dot {
+    -fx-min-width: 28px;
+    -fx-min-height: 28px;
+    -fx-max-width: 28px;
+    -fx-max-height: 28px;
+    -fx-background-radius: 14px;
+    -fx-cursor: hand;
+}
+
+.color-dot:hover {
+    -fx-scale-x: 1.2;
+    -fx-scale-y: 1.2;
+}
+
+.settings-color-selected {
+    -fx-text-fill: #8b92a5;
+    -fx-font-size: 12px;
+    -fx-font-style: italic;
+    -fx-padding: 0 0 0 220;
+}
+
+/* --- AUTH SCREENS (Login / Register) --- */
+.auth-root {
+    -fx-background-color: #0f1115;
+    -fx-alignment: center;
+}
+
+.auth-card {
+    -fx-background-color: #1a1d24;
+    -fx-border-color: #2a2e39;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+    -fx-padding: 40;
+}
+
+.auth-brand {
+    -fx-text-fill: white;
+    -fx-font-size: 28px;
+    -fx-font-weight: 800;
+}
+
+.auth-subtitle {
+    -fx-text-fill: #8b92a5;
+    -fx-font-size: 14px;
+}
+
+.auth-sep {
+    -fx-border-color: #2a2e39;
+    -fx-opacity: 0.5;
+}
+
+.auth-label {
+    -fx-text-fill: #8b92a5;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+}
+
+.auth-field {
+    -fx-background-color: #0f1115;
+    -fx-text-fill: white;
+    -fx-border-color: #2a2e39;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-prompt-text-fill: #3a3e4a;
+    -fx-padding: 12;
+    -fx-font-size: 14px;
+}
+
+.auth-field:focused {
+    -fx-border-color: #ff981f;
+}
+
+.auth-btn {
+    -fx-background-color: #ff981f;
+    -fx-text-fill: black;
+    -fx-font-weight: 800;
+    -fx-font-size: 14px;
+    -fx-padding: 14 0;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+}
+
+.auth-btn:hover {
+    -fx-background-color: #e68a1c;
+}
+
+.auth-muted {
+    -fx-text-fill: #8b92a5;
+    -fx-font-size: 13px;
+}
+
+.auth-link {
+    -fx-text-fill: #ff981f;
+    -fx-font-size: 13px;
+    -fx-cursor: hand;
+    -fx-font-weight: bold;
+}
+
+.auth-link:hover {
+    -fx-text-fill: #e68a1c;
+}
+
+.auth-error {
+    -fx-text-fill: #e05252;
+    -fx-font-size: 13px;
+}
