@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-17">
+		<attributes>
+			<attribute name="module" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Sasqu/Downloads/gson-2.2.4.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Sasqu/OneDrive/Desktop/client_lib/commons-lang3-3.14.0.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Sasqu/OneDrive/Desktop/client_lib/guava-33.2.0-jre.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Sasqu/OneDrive/Desktop/client_lib/jna-5.14.0.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Sasqu/OneDrive/Desktop/client_lib/jna-platform-5.14.0.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Sasqu/OneDrive/Desktop/client_lib/json-20250517.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Sasqu/OneDrive/Desktop/client_lib/jsoup-1.22.1.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Sasqu/OneDrive/Desktop/client_lib/lombok.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Sasqu/OneDrive/Desktop/client_lib/lwjgl.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Sasqu/Downloads/openjfx-17.0.18_windows-x64_bin-sdk/javafx-sdk-17.0.18/lib/javafx.base.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Sasqu/Downloads/openjfx-17.0.18_windows-x64_bin-sdk/javafx-sdk-17.0.18/lib/javafx.controls.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Sasqu/Downloads/openjfx-17.0.18_windows-x64_bin-sdk/javafx-sdk-17.0.18/lib/javafx.fxml.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Sasqu/Downloads/openjfx-17.0.18_windows-x64_bin-sdk/javafx-sdk-17.0.18/lib/javafx.graphics.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Sasqu/Downloads/openjfx-17.0.18_windows-x64_bin-sdk/javafx-sdk-17.0.18/lib/javafx.media.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Sasqu/Downloads/openjfx-17.0.18_windows-x64_bin-sdk/javafx-sdk-17.0.18/lib/javafx.swing.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Sasqu/Downloads/openjfx-17.0.18_windows-x64_bin-sdk/javafx-sdk-17.0.18/lib/javafx.web.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Sasqu/Downloads/openjfx-17.0.18_windows-x64_bin-sdk/javafx-sdk-17.0.18/lib/javafx-swt.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
