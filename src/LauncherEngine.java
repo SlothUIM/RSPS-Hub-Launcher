@@ -27,10 +27,48 @@ public class LauncherEngine {
     public static boolean minimizeOnLaunch = false;
     public static boolean autoUpdateClients = false;
 
+    private static final Path SETTINGS_PATH =
+        Paths.get(System.getProperty("user.home"), ".rsps_hub", "settings.json");
+
+    private static class SettingsData {
+        String downloadPath;
+        String statusMessage;
+        boolean minimizeOnLaunch;
+        boolean autoUpdateClients;
+    }
+
+    public static void saveSettings() {
+        try {
+            SettingsData d = new SettingsData();
+            d.downloadPath     = downloadPath;
+            d.statusMessage    = statusMessage;
+            d.minimizeOnLaunch = minimizeOnLaunch;
+            d.autoUpdateClients = autoUpdateClients;
+            Files.createDirectories(SETTINGS_PATH.getParent());
+            Files.writeString(SETTINGS_PATH, new Gson().toJson(d));
+        } catch (Exception e) {
+            System.err.println("Failed to save settings: " + e.getMessage());
+        }
+    }
+
+    public static void loadSettings() {
+        try {
+            if (!Files.exists(SETTINGS_PATH)) return;
+            SettingsData d = new Gson().fromJson(Files.readString(SETTINGS_PATH), SettingsData.class);
+            if (d.downloadPath  != null) downloadPath  = d.downloadPath;
+            if (d.statusMessage != null) statusMessage = d.statusMessage;
+            minimizeOnLaunch  = d.minimizeOnLaunch;
+            autoUpdateClients = d.autoUpdateClients;
+        } catch (Exception e) {
+            System.err.println("Failed to load settings: " + e.getMessage());
+        }
+    }
+
     /**
      * Initializes the Hub directory on the user's PC.
      */
     public static void init() {
+        loadSettings();
         try {
             Files.createDirectories(Paths.get(downloadPath));
             System.out.println("Hub initialized at: " + downloadPath);

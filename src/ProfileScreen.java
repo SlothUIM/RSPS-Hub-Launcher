@@ -120,7 +120,7 @@ public class ProfileScreen {
 
         Scene scene = new Scene(root);
         scene.getStylesheets().add(ProfileScreen.class.getResource("style.css").toExternalForm());
-        SceneUtils.applyRoundedCorners(scene, root);
+        SceneUtils.applyRoundedCorners(scene, root, stage);
         return scene;
     }
 

@@ -66,7 +66,7 @@ public class ServerDetailScreen {
 
         Scene scene = new Scene(root);
         scene.getStylesheets().add(ServerDetailScreen.class.getResource("style.css").toExternalForm());
-        SceneUtils.applyRoundedCorners(scene, root);
+        SceneUtils.applyRoundedCorners(scene, root, stage);
         return scene;
     }
 

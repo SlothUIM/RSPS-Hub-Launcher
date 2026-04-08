@@ -76,6 +76,11 @@ public class RSPSHub extends Application {
         friendRequests.add(new FriendRequest("Slayer_King",     true,  "2h ago"));
         friendRequests.add(new FriendRequest("CosmicRSPS",      false, "10m ago"));
 
+        // Attach resize support and maximize corner fix to every new scene
+        primaryStage.sceneProperty().addListener((obs, old, scene) -> {
+            if (scene != null) ResizeHelper.addTo(primaryStage, scene);
+        });
+
         SplashScreen.show(primaryStage, () -> showLoginScreen(primaryStage));
         primaryStage.show();
     }
@@ -257,7 +262,7 @@ public class RSPSHub extends Application {
 
         Scene scene = new Scene(hubRoot);
         scene.getStylesheets().add(getClass().getResource("style.css").toExternalForm());
-        SceneUtils.applyRoundedCorners(scene, hubRoot);
+        SceneUtils.applyRoundedCorners(scene, hubRoot, stage);
         stage.setScene(scene);
     }
 

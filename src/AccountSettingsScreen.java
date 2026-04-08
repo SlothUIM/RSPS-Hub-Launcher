@@ -61,7 +61,7 @@ public class AccountSettingsScreen {
 
         Scene scene = new Scene(root);
         scene.getStylesheets().add(AccountSettingsScreen.class.getResource("style.css").toExternalForm());
-        SceneUtils.applyRoundedCorners(scene, root);
+        SceneUtils.applyRoundedCorners(scene, root, stage);
         return scene;
     }
 
@@ -91,7 +91,7 @@ public class AccountSettingsScreen {
         TextField nameField = new TextField(LauncherEngine.currentUsername);
         nameField.getStyleClass().add("auth-field");
         nameField.setMaxWidth(Double.MAX_VALUE);
-        nameField.textProperty().addListener((obs, old, val) -> LauncherEngine.currentUsername = val);
+        nameField.textProperty().addListener((obs, old, val) -> { LauncherEngine.currentUsername = val; LauncherEngine.saveSettings(); });
 
         TextField emailField = new TextField("Connect backend to save email");
         emailField.getStyleClass().add("auth-field");
@@ -103,7 +103,7 @@ public class AccountSettingsScreen {
         statusField.getStyleClass().add("auth-field");
         statusField.setMaxWidth(Double.MAX_VALUE);
         statusField.setPromptText("e.g. Grinding slayer, AFK...");
-        statusField.textProperty().addListener((obs, old, val) -> LauncherEngine.statusMessage = val);
+        statusField.textProperty().addListener((obs, old, val) -> { LauncherEngine.statusMessage = val; LauncherEngine.saveSettings(); });
 
         return section("PROFILE", avatarBox,
             settingRow("Display Name", nameField),
@@ -116,7 +116,7 @@ public class AccountSettingsScreen {
         TextField downloadField = new TextField(LauncherEngine.downloadPath);
         downloadField.getStyleClass().add("auth-field");
         downloadField.setPrefWidth(260);
-        downloadField.textProperty().addListener((obs, old, val) -> LauncherEngine.downloadPath = val);
+        downloadField.textProperty().addListener((obs, old, val) -> { LauncherEngine.downloadPath = val; LauncherEngine.saveSettings(); });
 
         Button browseDownload = new Button("Browse");
         browseDownload.getStyleClass().add("settings-secondary-btn");
@@ -127,6 +127,7 @@ public class AccountSettingsScreen {
             if (dir != null) {
                 LauncherEngine.downloadPath = dir.getAbsolutePath() + "/";
                 downloadField.setText(LauncherEngine.downloadPath);
+                LauncherEngine.saveSettings();
             }
         });
 
@@ -138,13 +139,13 @@ public class AccountSettingsScreen {
         CheckBox minimizeCheck = new CheckBox("Minimize launcher when a game starts");
         minimizeCheck.getStyleClass().add("settings-checkbox");
         minimizeCheck.setSelected(LauncherEngine.minimizeOnLaunch);
-        minimizeCheck.selectedProperty().addListener((obs, old, val) -> LauncherEngine.minimizeOnLaunch = val);
+        minimizeCheck.selectedProperty().addListener((obs, old, val) -> { LauncherEngine.minimizeOnLaunch = val; LauncherEngine.saveSettings(); });
 
         // Auto-update
         CheckBox autoUpdateCheck = new CheckBox("Re-download client if a newer version is available");
         autoUpdateCheck.getStyleClass().add("settings-checkbox");
         autoUpdateCheck.setSelected(LauncherEngine.autoUpdateClients);
-        autoUpdateCheck.selectedProperty().addListener((obs, old, val) -> LauncherEngine.autoUpdateClients = val);
+        autoUpdateCheck.selectedProperty().addListener((obs, old, val) -> { LauncherEngine.autoUpdateClients = val; LauncherEngine.saveSettings(); });
 
         return section("LAUNCHER SETTINGS",
             settingRow("Download Location", downloadRow),

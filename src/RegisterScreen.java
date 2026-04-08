@@ -91,7 +91,7 @@ public class RegisterScreen {
 
         Scene scene = new Scene(root);
         scene.getStylesheets().add(RegisterScreen.class.getResource("style.css").toExternalForm());
-        SceneUtils.applyRoundedCorners(scene, root);
+        SceneUtils.applyRoundedCorners(scene, root, stage);
         return scene;
     }
 

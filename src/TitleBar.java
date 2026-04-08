@@ -1,7 +1,9 @@
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.*;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 
 public class TitleBar {
@@ -24,7 +26,19 @@ public class TitleBar {
         closeBtn.getStyleClass().add("title-bar-close");
 
         minimizeBtn.setOnAction(e -> stage.setIconified(true));
-        maximizeBtn.setOnAction(e -> stage.setMaximized(!stage.isMaximized()));
+        maximizeBtn.setOnAction(e -> {
+            if (stage.isMaximized()) {
+                stage.setMaximized(false);
+            } else {
+                // Use visual bounds so the taskbar stays visible
+                Rectangle2D bounds = Screen.getPrimary().getVisualBounds();
+                stage.setX(bounds.getMinX());
+                stage.setY(bounds.getMinY());
+                stage.setWidth(bounds.getWidth());
+                stage.setHeight(bounds.getHeight());
+                stage.setMaximized(true);
+            }
+        });
         closeBtn.setOnAction(e -> stage.close());
 
         HBox buttons = new HBox(minimizeBtn, maximizeBtn, closeBtn);

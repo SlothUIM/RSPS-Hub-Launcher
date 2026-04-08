@@ -82,7 +82,7 @@ public class LoginScreen {
 
         Scene scene = new Scene(root);
         scene.getStylesheets().add(LoginScreen.class.getResource("style.css").toExternalForm());
-        SceneUtils.applyRoundedCorners(scene, root);
+        SceneUtils.applyRoundedCorners(scene, root, stage);
         return scene;
     }
 

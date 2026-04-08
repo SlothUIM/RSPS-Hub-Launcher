@@ -51,7 +51,7 @@ public class SplashScreen {
         // Progress fills over 3.5s
         Timeline progress = new Timeline(
             new KeyFrame(Duration.ZERO,        new KeyValue(progressBar.progressProperty(), 0)),
-            new KeyFrame(Duration.millis(3500), new KeyValue(progressBar.progressProperty(), 1))
+            new KeyFrame(Duration.millis(2500), new KeyValue(progressBar.progressProperty(), 1))
         );
 
         // Fade out everything before switching
