@@ -643,3 +643,10 @@
     -fx-background-color: #e0e3ea;
     -fx-border-color: #d0d5e0;
 }
+
+/* ---------- Session Timer (light mode keeps green) ---------- */
+.session-timer-label {
+    -fx-text-fill: #2e7d32;
+    -fx-background-color: rgba(46,125,50,0.08);
+    -fx-border-color: rgba(46,125,50,0.25);
+}

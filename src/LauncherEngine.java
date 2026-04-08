@@ -36,6 +36,7 @@ public class LauncherEngine {
     public static String accentColor = "#ff981f";
     public static Set<String> favouriteServers = new LinkedHashSet<>();
     public static Map<String, String> serverNotes = new HashMap<>();
+    public static boolean friendActivityNotifications = true;
 
     private static final Path SETTINGS_PATH =
         Paths.get(System.getProperty("user.home"), ".rsps_hub", "settings.json");
@@ -53,6 +54,7 @@ public class LauncherEngine {
         String accentColor;
         List<String> favouriteServers;
         Map<String, String> serverNotes;
+        Boolean friendActivityNotifications; // nullable so absent = use default true
     }
 
     public static void saveSettings() {
@@ -65,8 +67,9 @@ public class LauncherEngine {
             d.lightMode         = lightMode;
             d.autoLaunch        = autoLaunch;
             d.accentColor       = accentColor;
-            d.favouriteServers  = new ArrayList<>(favouriteServers);
-            d.serverNotes       = serverNotes;
+            d.favouriteServers              = new ArrayList<>(favouriteServers);
+            d.serverNotes                  = serverNotes;
+            d.friendActivityNotifications  = friendActivityNotifications;
             Files.createDirectories(SETTINGS_PATH.getParent());
             Files.writeString(SETTINGS_PATH, new Gson().toJson(d));
         } catch (Exception e) {
@@ -82,7 +85,8 @@ public class LauncherEngine {
             if (d.statusMessage      != null) statusMessage     = d.statusMessage;
             if (d.accentColor        != null) accentColor       = d.accentColor;
             if (d.favouriteServers   != null) favouriteServers  = new LinkedHashSet<>(d.favouriteServers);
-            if (d.serverNotes        != null) serverNotes       = d.serverNotes;
+            if (d.serverNotes                 != null) serverNotes                  = d.serverNotes;
+            if (d.friendActivityNotifications != null) friendActivityNotifications   = d.friendActivityNotifications;
             minimizeOnLaunch  = d.minimizeOnLaunch;
             autoUpdateClients = d.autoUpdateClients;
             lightMode         = d.lightMode;

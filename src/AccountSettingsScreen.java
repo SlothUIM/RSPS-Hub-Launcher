@@ -107,10 +107,36 @@ public class AccountSettingsScreen {
         statusField.setPromptText("e.g. Grinding slayer, AFK...");
         statusField.textProperty().addListener((obs, old, val) -> { LauncherEngine.statusMessage = val; LauncherEngine.saveSettings(); });
 
+        // Status presets
+        String[] presets    = { "\uD83C\uDFAE Grinding", "\uD83D\uDCA4 AFK", "\uD83D\uDD0D LFG", "\u2705 Free to play" };
+        HBox presetRow = new HBox(8);
+        presetRow.setAlignment(Pos.CENTER_LEFT);
+        for (String preset : presets) {
+            Button pb = new Button(preset);
+            pb.getStyleClass().add("filter-btn");
+            pb.setOnAction(e -> {
+                statusField.setText(preset);
+                LauncherEngine.statusMessage = preset;
+                LauncherEngine.saveSettings();
+            });
+            presetRow.getChildren().add(pb);
+        }
+
+        // Friend activity notifications toggle
+        CheckBox notifCheck = new CheckBox("Friend activity notifications");
+        notifCheck.getStyleClass().add("settings-checkbox");
+        notifCheck.setSelected(LauncherEngine.friendActivityNotifications);
+        notifCheck.selectedProperty().addListener((obs, old, val) -> {
+            LauncherEngine.friendActivityNotifications = val;
+            LauncherEngine.saveSettings();
+        });
+
         return section("PROFILE", avatarBox,
             settingRow("Display Name", nameField),
             settingRow("Email", emailField),
-            settingRow("Status", statusField));
+            settingRow("Status", statusField),
+            presetRow,
+            settingRow("Notifications", notifCheck));
     }
 
     private static VBox buildLauncherSection(Stage stage) {
@@ -218,19 +244,18 @@ public class AccountSettingsScreen {
         lightCheck.getStyleClass().add("settings-checkbox");
         lightCheck.setSelected(LauncherEngine.lightMode);
 
-        Label restartHint = new Label("Restart the launcher to apply theme changes.");
-        restartHint.getStyleClass().add("auth-muted");
-        restartHint.setVisible(false);
-        restartHint.setManaged(false);
-
         lightCheck.selectedProperty().addListener((obs, old, val) -> {
             LauncherEngine.lightMode = val;
             LauncherEngine.saveSettings();
-            restartHint.setVisible(true);
-            restartHint.setManaged(true);
+            // Live reload — clear and re-add all stylesheets
+            javafx.scene.Scene scene = lightCheck.getScene();
+            if (scene != null) {
+                scene.getStylesheets().clear();
+                scene.getStylesheets().addAll(LauncherEngine.getStylesheets(AccountSettingsScreen.class));
+            }
         });
 
-        return section("APPEARANCE", settingRow("Accent Color", colorRow), selectedLabel, settingRow("Theme", lightCheck), restartHint);
+        return section("APPEARANCE", settingRow("Accent Color", colorRow), selectedLabel, settingRow("Theme", lightCheck));
     }
 
     private static VBox buildDeveloperSection(Runnable onDevPortal) {

@@ -15,6 +15,7 @@ public class ServerProfile {
     public int players_online;
     public List<String> tags;
     public List<String> screenshots;
+    public boolean isNew;
 
     @Override
     public String toString() {

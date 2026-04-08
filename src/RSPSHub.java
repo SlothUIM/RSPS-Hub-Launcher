@@ -1,3 +1,6 @@
+import javafx.animation.KeyFrame;
+import javafx.animation.PauseTransition;
+import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -14,6 +17,7 @@ import javafx.scene.layout.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
+import javafx.util.Duration;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -47,7 +51,11 @@ public class RSPSHub extends Application {
     private VBox serverGrid;
 
     // Navbar tab refs
-    private Button storeTab, libraryTab, friendsTab, statsTab;
+    private Button storeTab, libraryTab, friendsTab, statsTab, leaderboardTab;
+
+    // Session timer
+    private Label    sessionTimerLabel;
+    private Timeline sessionTimeline;
 
     // Top control refs (toggled per tab)
     private HBox filterBar;
@@ -181,6 +189,9 @@ public class RSPSHub extends Application {
         if (allServers == null) {
             LauncherEngine.init();
             allServers = LauncherEngine.fetchServers();
+            // Demo: seed visual test data so badges are visible
+            if (allServers.size() > 0) { allServers.get(0).isNew = true; StreakStore.seedDemo(allServers.get(0).name, 7); }
+            if (allServers.size() > 1) { allServers.get(1).isNew = true; StreakStore.seedDemo(allServers.get(1).name, 3); }
         }
 
         hubRoot = new BorderPane();
@@ -195,10 +206,11 @@ public class RSPSHub extends Application {
         Label brand = new Label("RSPS HUB");
         brand.getStyleClass().add("nav-brand");
 
-        storeTab   = navTab("STORE",   true);
-        libraryTab = navTab("LIBRARY", false);
-        friendsTab = navTab("FRIENDS", false);
-        statsTab   = navTab("STATS",   false);
+        storeTab       = navTab("STORE",       true);
+        libraryTab     = navTab("LIBRARY",     false);
+        friendsTab     = navTab("FRIENDS",     false);
+        statsTab       = navTab("STATS",       false);
+        leaderboardTab = navTab("LEADERBOARD", false);
 
         storeTab.setOnAction(e -> {
             showingLibrary = false; showingFriends = false; showingMessaging = false;
@@ -219,6 +231,7 @@ public class RSPSHub extends Application {
             updateDisplay();
         });
         statsTab.setOnAction(e -> showStats(stage));
+        leaderboardTab.setOnAction(e -> showLeaderboard(stage));
 
         // Account widget
         String initial = LauncherEngine.currentUsername.isEmpty() ? "?"
@@ -268,9 +281,16 @@ public class RSPSHub extends Application {
         StackPane.setAlignment(downloadBadge, Pos.TOP_RIGHT);
         downloadBtn.setOnAction(e -> showDownloadsPopup(downloadBtn));
 
+        // Session timer (shown while a game is running)
+        sessionTimerLabel = new Label();
+        sessionTimerLabel.getStyleClass().add("session-timer-label");
+        sessionTimerLabel.setVisible(false);
+        sessionTimerLabel.setManaged(false);
+
         Region navSpacer = new Region();
         HBox.setHgrow(navSpacer, Priority.ALWAYS);
-        navbar.getChildren().addAll(brand, storeTab, libraryTab, friendsTab, statsTab, navSpacer, downloadPane, bellPane, accountWidget);
+        navbar.getChildren().addAll(brand, storeTab, libraryTab, friendsTab, statsTab, leaderboardTab,
+            navSpacer, sessionTimerLabel, downloadPane, bellPane, accountWidget);
 
         // --- SEARCH & FILTERS ---
         VBox topControls = new VBox(15);
@@ -326,6 +346,11 @@ public class RSPSHub extends Application {
         scene.getStylesheets().addAll(LauncherEngine.getStylesheets(getClass()));
         SceneUtils.applyRoundedCorners(scene, hubRoot, stage);
         stage.setScene(scene);
+
+        // Mock friend activity toast on hub load
+        PauseTransition toastDelay = new PauseTransition(Duration.seconds(1.5));
+        toastDelay.setOnFinished(e -> ToastManager.show(stage, "PKMaster99 is online", "Playing SlothLite \u2022 Grinding slayer"));
+        toastDelay.play();
     }
 
     private Button navTab(String text, boolean active) {
@@ -335,9 +360,13 @@ public class RSPSHub extends Application {
     }
 
     private void setActiveTab(Button active) {
-        for (Button b : new Button[]{storeTab, libraryTab, friendsTab, statsTab})
+        for (Button b : new Button[]{storeTab, libraryTab, friendsTab, statsTab, leaderboardTab})
             b.getStyleClass().setAll("nav-tab");
         active.getStyleClass().setAll("nav-tab-active");
+    }
+
+    private void showLeaderboard(Stage stage) {
+        stage.setScene(LeaderboardScreen.create(stage, () -> showHub(stage)));
     }
 
     // ── DISPLAY ROUTING ──────────────────────────────────────────────────────
@@ -1012,6 +1041,32 @@ public class RSPSHub extends Application {
             bannerPane.getChildren().add(iv);
         }
 
+        // NEW badge overlay on banner (top-right corner)
+        if (server.isNew) {
+            Label newBadge = new Label("NEW");
+            newBadge.getStyleClass().add("new-badge");
+            StackPane.setAlignment(newBadge, Pos.TOP_RIGHT);
+            StackPane.setMargin(newBadge, new Insets(6));
+            bannerPane.getChildren().add(newBadge);
+        }
+
+        // Streak badge overlay on banner (bottom-left corner)
+        int streakVal = StreakStore.getStreak(server.name);
+        if (streakVal >= 1) {
+            Label streakOverlay = new Label("\uD83D\uDD25 " + streakVal);
+            streakOverlay.setStyle(
+                "-fx-text-fill: #e05252;" +
+                "-fx-font-size: 11px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-color: rgba(0,0,0,0.65);" +
+                "-fx-background-radius: 6;" +
+                "-fx-padding: 2 7;"
+            );
+            StackPane.setAlignment(streakOverlay, Pos.BOTTOM_LEFT);
+            StackPane.setMargin(streakOverlay, new Insets(6));
+            bannerPane.getChildren().add(streakOverlay);
+        }
+
         VBox info = new VBox(5);
         Label title = new Label(server.name);
         title.getStyleClass().add("card-title");
@@ -1073,8 +1128,9 @@ public class RSPSHub extends Application {
         HBox cardTools = new HBox(4, starBtn, noteBtn);
         cardTools.setAlignment(Pos.CENTER_RIGHT);
 
-        Label players = new Label("🟢 " + server.players_online + " Online");
+        Label players = new Label("\uD83D\uDFE2 " + server.players_online + " Online");
         players.getStyleClass().add("player-count");
+
 
         boolean downloaded = LauncherEngine.isDownloaded(server);
         Button playBtn = new Button(downloaded ? "PLAY" : "INSTALL");
@@ -1241,10 +1297,38 @@ public class RSPSHub extends Application {
         Process proc = LauncherEngine.launchGame(server);
         if (proc != null) {
             long start = System.currentTimeMillis();
+
+            // Start session timer in navbar
+            if (sessionTimerLabel != null) {
+                sessionTimerLabel.setText("\u25B6 0:00:00");
+                sessionTimerLabel.setVisible(true);
+                sessionTimerLabel.setManaged(true);
+                final long[] elapsed = {0};
+                sessionTimeline = new Timeline(new KeyFrame(Duration.seconds(1), ev -> {
+                    elapsed[0]++;
+                    long h = elapsed[0] / 3600;
+                    long m = (elapsed[0] % 3600) / 60;
+                    long s = elapsed[0] % 60;
+                    sessionTimerLabel.setText(String.format("\u25B6 %d:%02d:%02d", h, m, s));
+                }));
+                sessionTimeline.setCycleCount(Timeline.INDEFINITE);
+                sessionTimeline.play();
+            }
+
             new Thread(() -> {
                 try { proc.waitFor(); } catch (InterruptedException ignored) {}
                 long mins = (System.currentTimeMillis() - start) / 60000;
                 PlaytimeStore.recordSession(server.name, mins);
+                StreakStore.recordPlay(server.name);
+                Platform.runLater(() -> {
+                    LauncherEngine.activeServer = null;
+                    if (sessionTimeline != null) { sessionTimeline.stop(); sessionTimeline = null; }
+                    if (sessionTimerLabel != null) {
+                        sessionTimerLabel.setVisible(false);
+                        sessionTimerLabel.setManaged(false);
+                    }
+                    if (LauncherEngine.minimizeOnLaunch) stage.setIconified(false);
+                });
             }, "playtime-tracker").start();
         }
     }
