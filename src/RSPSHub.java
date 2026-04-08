@@ -54,7 +54,15 @@ public class RSPSHub extends Application {
                 LauncherEngine.currentUsername = "";
                 LauncherEngine.avatarImagePath = null;
                 showLoginScreen(stage);
-            }
+            },
+            () -> showDevPortal(stage)
+        ));
+    }
+
+    private void showDevPortal(Stage stage) {
+        stage.setScene(DeveloperPortalScreen.create(
+            stage,
+            () -> showSettings(stage)
         ));
     }
 
@@ -135,7 +143,7 @@ public class RSPSHub extends Application {
         });
 
         HBox filterBar = new HBox(10);
-        String[] tags = {"All", "Custom", "PvP", "Economy", "OSRS", "Hardcore"};
+        String[] tags = {"All", "Custom", "PvP", "Economy", "OSRS", "Hardcore", "Leagues", "Vanilla", "Ironman", "Skilling"};
         for (String tag : tags) {
             Button tagBtn = new Button(tag);
             tagBtn.getStyleClass().add(tag.equals("All") ? "filter-btn-active" : "filter-btn");

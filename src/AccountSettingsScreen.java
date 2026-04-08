@@ -11,7 +11,7 @@ import java.io.File;
 
 public class AccountSettingsScreen {
 
-    public static Scene create(Stage stage, Runnable onBack, Runnable onLogout) {
+    public static Scene create(Stage stage, Runnable onBack, Runnable onLogout, Runnable onDevPortal) {
         BorderPane root = new BorderPane();
         root.getStyleClass().add("root-pane");
 
@@ -45,6 +45,7 @@ public class AccountSettingsScreen {
             buildProfileSection(stage),
             buildLauncherSection(stage),
             buildAppearanceSection(),
+            buildDeveloperSection(onDevPortal),
             buildAboutSection(),
             buildSessionSection(onLogout)
         );
@@ -185,6 +186,18 @@ public class AccountSettingsScreen {
         }
 
         return section("APPEARANCE", settingRow("Accent Color", colorRow), selectedLabel);
+    }
+
+    private static VBox buildDeveloperSection(Runnable onDevPortal) {
+        Label desc = new Label("Are you an RSPS server owner? Submit your server to be listed in the RSPS Hub store.");
+        desc.getStyleClass().add("settings-about-sub");
+        desc.setWrapText(true);
+
+        Button portalBtn = new Button("Open Developer Portal →");
+        portalBtn.getStyleClass().add("settings-secondary-btn");
+        portalBtn.setOnAction(e -> onDevPortal.run());
+
+        return section("DEVELOPER", desc, portalBtn);
     }
 
     private static VBox buildAboutSection() {
