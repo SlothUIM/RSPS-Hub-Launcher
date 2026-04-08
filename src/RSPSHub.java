@@ -60,6 +60,7 @@ public class RSPSHub extends Application {
     private Timeline sessionTimeline;
 
     // Top control refs (toggled per tab)
+    private VBox topControls;
     private HBox filterBar;
     private HBox sortRow;
     private TextField searchBar;
@@ -319,7 +320,7 @@ public class RSPSHub extends Application {
             navSpacer, sessionTimerLabel, downloadPane, bellPane, accountWidget);
 
         // --- SEARCH & FILTERS ---
-        VBox topControls = new VBox(15);
+        topControls = new VBox(15);
         topControls.setPadding(new Insets(20, 40, 0, 40));
 
         searchBar = new TextField();
@@ -418,8 +419,9 @@ public class RSPSHub extends Application {
             downloadBadge.setManaged(dlCount > 0);
         }
 
-        // Hide search/sort/tags in friends, stats, leaderboard
+        // Show/hide search section — collapse padding too so height goes to 0
         boolean showSearch = !showingFriends && !showingStats && !showingLeaderboard;
+        topControls.setPadding(showSearch ? new Insets(20, 40, 0, 40) : Insets.EMPTY);
         sortRow.setVisible(showSearch);
         sortRow.setManaged(showSearch);
         boolean showFilters = showSearch && !showingLibrary;
@@ -1160,7 +1162,9 @@ public class RSPSHub extends Application {
         // Skill level badge
         Label levelBadge = new Label("Lv. " + skillLevel);
         levelBadge.getStyleClass().add("skill-level-badge");
-        Tooltip.install(levelBadge, new Tooltip(skillTooltip));
+        Tooltip tip = new Tooltip(skillTooltip);
+        tip.setShowDelay(javafx.util.Duration.millis(300));
+        Tooltip.install(levelBadge, tip);
 
         Label players = new Label("\uD83D\uDFE2 " + server.players_online + " Online");
         players.getStyleClass().add("player-count");
@@ -1213,7 +1217,6 @@ public class RSPSHub extends Application {
 
         VBox wrapper = new VBox(card, xpTrack);
         wrapper.getStyleClass().add("server-card-wrapper");
-        Tooltip.install(xpTrack, new Tooltip(skillTooltip));
         return wrapper;
     }
 

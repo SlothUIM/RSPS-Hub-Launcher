@@ -180,8 +180,12 @@ public class ServerDetailScreen {
         Label players = new Label("🟢 " + server.players_online + " Online");
         players.getStyleClass().add("player-count");
 
+        String accent = (server.accent_color != null && !server.accent_color.isEmpty())
+            ? server.accent_color : LauncherEngine.accentColor;
+
         Button playBtn = new Button(LauncherEngine.isDownloaded(server) ? "PLAY" : "INSTALL");
         playBtn.getStyleClass().add("play-button");
+        playBtn.setStyle("-fx-background-color: " + accent + ";");
         playBtn.setPrefWidth(160);
         playBtn.setOnAction(e -> {
             if (!LauncherEngine.isDownloaded(server)) {

@@ -1191,9 +1191,10 @@
 
 /* --- SERVER NOTE TEXT --- */
 .server-note-text {
-    -fx-text-fill: #8b92a5;
-    -fx-font-size: 12px;
+    -fx-text-fill: #ff981f;
+    -fx-font-size: 13px;
     -fx-font-style: italic;
+    -fx-font-weight: bold;
 }
 
 /* --- PINNED SECTION HEADER --- */
