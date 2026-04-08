@@ -4,7 +4,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.concurrent.CompletableFuture;
 
-public class ApiClient { 
+public class ApiClient {
     // CHANGE THIS to your actual DuckDNS domain!
     private static final String BASE_URL = "https://slothscape.duckdns.org/api/";
     private static final HttpClient client = HttpClient.newHttpClient();
