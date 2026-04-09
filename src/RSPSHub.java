@@ -82,6 +82,18 @@ public class RSPSHub extends Application {
     // Notification badge (updated in updateDisplay)
     private Label notifBadge;
 
+    // Notification store
+    enum NotifType { FRIEND_REQUEST, FRIEND_ONLINE, SERVER_UPDATE, SYSTEM }
+    static class AppNotif {
+        NotifType type; String title; String body; String time; boolean read;
+        String friendUsername; // for FRIEND_REQUEST actions
+        AppNotif(NotifType t, String title, String body, String time) {
+            this.type = t; this.title = title; this.body = body; this.time = time;
+        }
+    }
+    private final List<AppNotif> notifications = new ArrayList<>();
+    private Popup notifPopup = null;
+
     // Download badge
     private Label downloadBadge;
 
@@ -121,6 +133,24 @@ public class RSPSHub extends Application {
         friendRequests.add(new FriendRequest("Slayer_King",     true,  "2h ago"));
         friendRequests.add(new FriendRequest("CosmicRSPS",      false, "10m ago"));
 
+        // Seed notifications (respect user toggles)
+        if (LauncherEngine.notifFriendRequests) {
+            AppNotif n1 = new AppNotif(NotifType.FRIEND_REQUEST, "Friend Request", "NightmarePS_Dev wants to be your friend", "5m ago");
+            n1.friendUsername = "NightmarePS_Dev";
+            AppNotif n2 = new AppNotif(NotifType.FRIEND_REQUEST, "Friend Request", "Slayer_King wants to be your friend", "2h ago");
+            n2.friendUsername = "Slayer_King";
+            notifications.addAll(List.of(n1, n2));
+        }
+        if (LauncherEngine.notifFriendOnline) {
+            notifications.add(new AppNotif(NotifType.FRIEND_ONLINE, "Friend Online", "PKMaster99 is now online — playing SlothLite", "10m ago"));
+        }
+        if (LauncherEngine.notifServerUpdates) {
+            notifications.add(new AppNotif(NotifType.SERVER_UPDATE, "Server Updated", "SlothScape pushed a new update — check the changelog", "1h ago"));
+        }
+        if (LauncherEngine.notifSystem) {
+            notifications.add(new AppNotif(NotifType.SYSTEM, "Welcome to RSPS Hub", "Browse servers, track your playtime and level up!", "Today"));
+        }
+
         // Attach resize support and maximize corner fix to every new scene
         primaryStage.sceneProperty().addListener((obs, old, scene) -> {
             if (scene != null) ResizeHelper.addTo(primaryStage, scene);
@@ -137,7 +167,14 @@ public class RSPSHub extends Application {
     private void showLoginScreen(Stage stage) {
         transitionTo(stage, () -> LoginScreen.create(
             stage,
-            username -> { LauncherEngine.currentUsername = username; showHub(stage); },
+            username -> {
+                LauncherEngine.currentUsername = username;
+                if (!LauncherEngine.hasCompletedOnboarding) {
+                    stage.setScene(OnboardingScreen.create(stage, () -> showHub(stage)));
+                } else {
+                    showHub(stage);
+                }
+            },
             () -> showRegisterScreen(stage)
         ));
     }
@@ -353,7 +390,7 @@ public class RSPSHub extends Application {
         sortLabel.getStyleClass().add("auth-muted");
         MenuButton sortBtn = new MenuButton(sortOrder);
         sortBtn.getStyleClass().add("dark-menu-btn");
-        for (String opt : new String[]{"Players (High → Low)", "Name A–Z", "Name Z–A"}) {
+        for (String opt : new String[]{"Players (High → Low)", "Name A–Z", "Name Z–A", "Most Played (You)"}) {
             MenuItem sortItem = new MenuItem(opt);
             sortItem.setOnAction(e -> { sortOrder = opt; sortBtn.setText(opt); updateDisplay(); });
             sortBtn.getItems().add(sortItem);
@@ -524,11 +561,11 @@ public class RSPSHub extends Application {
         serverGrid.setPadding(new Insets(30));
 
         // Update notification badge
-        long pending = friendRequests.stream().filter(r -> r.incoming).count();
+        long unread = notifications.stream().filter(n -> !n.read).count();
         if (notifBadge != null) {
-            notifBadge.setText(String.valueOf(pending));
-            notifBadge.setVisible(pending > 0);
-            notifBadge.setManaged(pending > 0);
+            notifBadge.setText(String.valueOf(unread));
+            notifBadge.setVisible(unread > 0);
+            notifBadge.setManaged(unread > 0);
         }
 
         // Update download badge
@@ -576,9 +613,10 @@ public class RSPSHub extends Application {
 
         // Apply sort
         switch (sortOrder) {
-            case "Name A–Z" -> filtered.sort(Comparator.comparing(s -> s.name));
-            case "Name Z–A" -> filtered.sort(Comparator.comparing((ServerProfile s) -> s.name).reversed());
-            default         -> filtered.sort(Comparator.comparingInt((ServerProfile s) -> s.players_online).reversed());
+            case "Name A–Z"       -> filtered.sort(Comparator.comparing(s -> s.name));
+            case "Name Z–A"       -> filtered.sort(Comparator.comparing((ServerProfile s) -> s.name).reversed());
+            case "Most Played (You)" -> filtered.sort(Comparator.comparingLong((ServerProfile s) -> PlaytimeStore.getMinutes(s.name)).reversed());
+            default               -> filtered.sort(Comparator.comparingInt((ServerProfile s) -> s.players_online).reversed());
         }
 
         if (filtered.isEmpty()) {
@@ -1698,78 +1736,159 @@ public class RSPSHub extends Application {
     // ── NOTIFICATION POPUP ───────────────────────────────────────────────────
 
     private void showNotificationPopup(Button anchor) {
-        ContextMenu menu = new ContextMenu();
+        // Toggle off if already showing
+        if (notifPopup != null && notifPopup.isShowing()) { notifPopup.hide(); notifPopup = null; return; }
 
-        List<FriendRequest> incoming = friendRequests.stream()
-            .filter(r -> r.incoming).collect(Collectors.toList());
+        Popup popup = new Popup();
+        popup.setAutoHide(true);
+        notifPopup = popup;
+        popup.setOnHidden(e -> notifPopup = null);
 
-        String popupText = LauncherEngine.lightMode ? "-fx-text-fill: #1a1a2e;" : "";
+        VBox box = new VBox(0);
+        box.setStyle(
+            "-fx-background-color: #1a1d24; -fx-border-color: #2a2e39; -fx-border-width: 1;" +
+            "-fx-border-radius: 10; -fx-background-radius: 10;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 20, 0, 0, 6);"
+        );
+        box.setPrefWidth(340);
 
-        if (incoming.isEmpty()) {
-            Label none = new Label("No new notifications");
-            none.getStyleClass().add("auth-muted");
-            none.setPadding(new Insets(8, 16, 8, 16));
-            if (LauncherEngine.lightMode) none.setStyle("-fx-text-fill: #5a6070;");
-            menu.getItems().add(new CustomMenuItem(none, false));
+        // Header
+        Label title = new Label("NOTIFICATIONS");
+        title.setStyle("-fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
+
+        String btnStyle = "-fx-background-color: transparent; -fx-font-size: 11px; -fx-cursor: hand; -fx-padding: 0;";
+        Button markRead = new Button("Mark all read");
+        markRead.setStyle(btnStyle + "-fx-text-fill: #ff981f;");
+        markRead.setOnAction(e -> { notifications.forEach(n -> n.read = true); popup.hide(); updateDisplay(); });
+
+        Label sep = new Label("·");
+        sep.setStyle("-fx-text-fill: #3a3e4a;");
+
+        Button clearAll = new Button("Clear all");
+        clearAll.setStyle(btnStyle + "-fx-text-fill: #8b92a5;");
+        clearAll.setOnAction(e -> { notifications.clear(); popup.hide(); updateDisplay(); });
+
+        Region hSp = new Region(); HBox.setHgrow(hSp, Priority.ALWAYS);
+        HBox header = new HBox(6, title, hSp, markRead, sep, clearAll);
+        header.setAlignment(Pos.CENTER_LEFT);
+        header.setPadding(new Insets(14, 16, 12, 16));
+        header.setStyle("-fx-border-color: #2a2e39; -fx-border-width: 0 0 1 0;");
+        box.getChildren().add(header);
+
+        if (notifications.isEmpty()) {
+            Label none = new Label("No notifications");
+            none.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 13px;");
+            VBox empty = new VBox(none);
+            empty.setAlignment(Pos.CENTER);
+            empty.setPadding(new Insets(28, 0, 28, 0));
+            box.getChildren().add(empty);
         } else {
-            for (FriendRequest req : new ArrayList<>(incoming)) {
-                HBox row = new HBox(10);
-                row.setAlignment(Pos.CENTER_LEFT);
-                row.setPadding(new Insets(8, 14, 8, 14));
-                row.setPrefWidth(300);
-                if (LauncherEngine.lightMode) row.setStyle("-fx-background-color: #ffffff;");
+            ScrollPane scroll = new ScrollPane();
+            scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+            scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+            scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+            scroll.setMaxHeight(420);
 
-                Label avatar = new Label(req.username.substring(0, 1).toUpperCase());
-                avatar.getStyleClass().add("friend-avatar-offline");
-
-                Label msg = new Label(req.username + " sent you a friend request");
-                msg.getStyleClass().add("friend-name");
-                msg.setWrapText(true);
-                msg.setMaxWidth(160);
-                msg.setStyle(popupText);
-                HBox.setHgrow(msg, Priority.ALWAYS);
-
-                Button acceptBtn = new Button("✓");
-                acceptBtn.getStyleClass().add("auth-btn");
-                acceptBtn.setPrefSize(32, 28);
-                acceptBtn.setOnAction(e -> {
-                    friends.add(new Friend(req.username, true, null));
-                    friendRequests.remove(req);
-                    ActivityStore.add(new ActivityItem(req.username, "joined as your friend", "", "Just now"));
-                    menu.hide();
-                    updateDisplay();
-                });
-
-                Button declineBtn = new Button("✕");
-                declineBtn.getStyleClass().add("settings-secondary-btn");
-                declineBtn.setPrefSize(32, 28);
-                declineBtn.setOnAction(e -> {
-                    friendRequests.remove(req);
-                    menu.hide();
-                    updateDisplay();
-                });
-
-                row.getChildren().addAll(avatar, msg, acceptBtn, declineBtn);
-                menu.getItems().add(new CustomMenuItem(row, false));
+            VBox list = new VBox(0);
+            for (int i = 0; i < notifications.size(); i++) {
+                AppNotif n = notifications.get(i);
+                list.getChildren().add(buildNotifRow(n, popup));
+                if (i < notifications.size() - 1) {
+                    Region div = new Region();
+                    div.setPrefHeight(1);
+                    div.setStyle("-fx-background-color: #22252e;");
+                    list.getChildren().add(div);
+                }
             }
-
-            menu.getItems().add(new SeparatorMenuItem());
-
-            Label viewAll = new Label("View all in Friends → Requests");
-            viewAll.getStyleClass().add("auth-muted");
-            viewAll.setPadding(new Insets(6, 14, 6, 14));
-            if (LauncherEngine.lightMode) viewAll.setStyle("-fx-text-fill: #5a6070;");
-            MenuItem viewAllItem = new CustomMenuItem(viewAll, true);
-            viewAllItem.setOnAction(e -> {
-                friendsSubTab = "REQUESTS";
-                showingFriends = true;
-                setActiveTab(friendsTab);
-                updateDisplay();
-            });
-            menu.getItems().add(viewAllItem);
+            scroll.setContent(list);
+            box.getChildren().add(scroll);
         }
 
-        menu.show(anchor, Side.BOTTOM, 0, 4);
+        popup.getContent().add(box);
+
+        // Position below the bell button
+        Bounds b = anchor.localToScreen(anchor.getBoundsInLocal());
+        popup.show(anchor, b.getMaxX() - 340, b.getMaxY() + 8);
+    }
+
+    private VBox buildNotifRow(AppNotif n, Popup popup) {
+        String icon = switch (n.type) {
+            case FRIEND_REQUEST -> "👤";
+            case FRIEND_ONLINE  -> "🟢";
+            case SERVER_UPDATE  -> "🎮";
+            case SYSTEM         -> "🔔";
+        };
+        String iconColor = switch (n.type) {
+            case FRIEND_REQUEST -> "#ff981f";
+            case FRIEND_ONLINE  -> "#4caf50";
+            case SERVER_UPDATE  -> "#4a9eff";
+            case SYSTEM         -> "#8b92a5";
+        };
+
+        Label iconLbl = new Label(icon);
+        iconLbl.setStyle(
+            "-fx-background-color: " + iconColor + "22; -fx-text-fill: " + iconColor + ";" +
+            "-fx-font-size: 16px; -fx-background-radius: 50; -fx-padding: 6;" +
+            "-fx-min-width: 36; -fx-min-height: 36; -fx-alignment: center;"
+        );
+
+        Label titleLbl = new Label(n.title);
+        titleLbl.setStyle("-fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold;");
+
+        Label bodyLbl = new Label(n.body);
+        bodyLbl.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 12px;");
+        bodyLbl.setWrapText(true);
+        bodyLbl.setMaxWidth(220);
+
+        Label timeLbl = new Label(n.time);
+        timeLbl.setStyle("-fx-text-fill: #555b6e; -fx-font-size: 11px;");
+
+        VBox textCol = new VBox(2, titleLbl, bodyLbl, timeLbl);
+        textCol.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(textCol, Priority.ALWAYS);
+
+        HBox row = new HBox(12, iconLbl, textCol);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(12, 16, 12, 16));
+        String baseBg = n.read ? "transparent" : "#1e2333";
+        row.setStyle("-fx-background-color: " + baseBg + "; -fx-cursor: hand;");
+        row.setOnMouseEntered(e -> row.setStyle("-fx-background-color: #22252e; -fx-cursor: hand;"));
+        row.setOnMouseExited(e -> row.setStyle("-fx-background-color: " + baseBg + "; -fx-cursor: hand;"));
+
+        // For friend requests: add accept/decline buttons
+        if (n.type == NotifType.FRIEND_REQUEST && n.friendUsername != null) {
+            Button acceptBtn = new Button("Accept");
+            acceptBtn.setStyle(
+                "-fx-background-color: #ff981f; -fx-text-fill: white; -fx-font-size: 11px;" +
+                "-fx-background-radius: 6; -fx-padding: 4 10; -fx-cursor: hand;"
+            );
+            Button declineBtn = new Button("Decline");
+            declineBtn.setStyle(
+                "-fx-background-color: #2a2e39; -fx-text-fill: #8b92a5; -fx-font-size: 11px;" +
+                "-fx-background-radius: 6; -fx-padding: 4 10; -fx-cursor: hand;"
+            );
+            final String uname = n.friendUsername;
+            acceptBtn.setOnAction(e -> {
+                friends.add(new Friend(uname, true, null));
+                friendRequests.removeIf(r -> r.username.equals(uname));
+                notifications.remove(n);
+                ActivityStore.add(new ActivityItem(uname, "joined as your friend", "", "Just now"));
+                popup.hide();
+                updateDisplay();
+            });
+            declineBtn.setOnAction(e -> {
+                friendRequests.removeIf(r -> r.username.equals(uname));
+                notifications.remove(n);
+                popup.hide();
+                updateDisplay();
+            });
+            HBox actions = new HBox(6, acceptBtn, declineBtn);
+            actions.setPadding(new Insets(6, 0, 0, 0));
+            textCol.getChildren().add(actions);
+        }
+
+        VBox wrapper = new VBox(row);
+        return wrapper;
     }
 
     // ── DOWNLOADS POPUP ──────────────────────────────────────────────────────

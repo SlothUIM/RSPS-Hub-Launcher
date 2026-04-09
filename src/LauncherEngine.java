@@ -37,6 +37,14 @@ public class LauncherEngine {
     public static Set<String> favouriteServers = new LinkedHashSet<>();
     public static Map<String, String> serverNotes = new HashMap<>();
     public static boolean friendActivityNotifications = true;
+    // Granular notification toggles
+    public static boolean notifFriendRequests = true;
+    public static boolean notifFriendOnline   = true;
+    public static boolean notifServerUpdates  = true;
+    public static boolean notifSystem         = true;
+    public static boolean notifStreakReminder = true;
+    public static boolean hasCompletedOnboarding = false;
+    public static List<String> preferredTags = new ArrayList<>();
 
     private static final Path SETTINGS_PATH =
         Paths.get(System.getProperty("user.home"), ".rsps_hub", "settings.json");
@@ -54,7 +62,14 @@ public class LauncherEngine {
         String accentColor;
         List<String> favouriteServers;
         Map<String, String> serverNotes;
-        Boolean friendActivityNotifications; // nullable so absent = use default true
+        Boolean friendActivityNotifications;
+        Boolean notifFriendRequests;
+        Boolean notifFriendOnline;
+        Boolean notifServerUpdates;
+        Boolean notifSystem;
+        Boolean notifStreakReminder;
+        Boolean hasCompletedOnboarding;
+        List<String> preferredTags;
     }
 
     public static void saveSettings() {
@@ -70,6 +85,13 @@ public class LauncherEngine {
             d.favouriteServers              = new ArrayList<>(favouriteServers);
             d.serverNotes                  = serverNotes;
             d.friendActivityNotifications  = friendActivityNotifications;
+            d.notifFriendRequests          = notifFriendRequests;
+            d.notifFriendOnline            = notifFriendOnline;
+            d.notifServerUpdates           = notifServerUpdates;
+            d.notifSystem                  = notifSystem;
+            d.notifStreakReminder          = notifStreakReminder;
+            d.hasCompletedOnboarding       = hasCompletedOnboarding;
+            d.preferredTags                = new ArrayList<>(preferredTags);
             Files.createDirectories(SETTINGS_PATH.getParent());
             Files.writeString(SETTINGS_PATH, new Gson().toJson(d));
         } catch (Exception e) {
@@ -86,7 +108,14 @@ public class LauncherEngine {
             if (d.accentColor        != null) accentColor       = d.accentColor;
             if (d.favouriteServers   != null) favouriteServers  = new LinkedHashSet<>(d.favouriteServers);
             if (d.serverNotes                 != null) serverNotes                  = d.serverNotes;
-            if (d.friendActivityNotifications != null) friendActivityNotifications   = d.friendActivityNotifications;
+            if (d.friendActivityNotifications != null) friendActivityNotifications = d.friendActivityNotifications;
+            if (d.notifFriendRequests  != null) notifFriendRequests  = d.notifFriendRequests;
+            if (d.notifFriendOnline    != null) notifFriendOnline    = d.notifFriendOnline;
+            if (d.notifServerUpdates   != null) notifServerUpdates   = d.notifServerUpdates;
+            if (d.notifSystem          != null) notifSystem          = d.notifSystem;
+            if (d.notifStreakReminder      != null) notifStreakReminder      = d.notifStreakReminder;
+            if (d.hasCompletedOnboarding  != null) hasCompletedOnboarding  = d.hasCompletedOnboarding;
+            if (d.preferredTags           != null) preferredTags           = d.preferredTags;
             minimizeOnLaunch  = d.minimizeOnLaunch;
             autoUpdateClients = d.autoUpdateClients;
             lightMode         = d.lightMode;

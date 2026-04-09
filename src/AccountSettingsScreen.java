@@ -47,6 +47,7 @@ public class AccountSettingsScreen {
             buildProfileSection(stage),
             buildLauncherSection(stage),
             buildAppearanceSection(),
+            buildNotificationsSection(),
             buildDeveloperSection(onDevPortal),
             buildAboutSection(),
             buildSessionSection(onLogout)
@@ -122,21 +123,11 @@ public class AccountSettingsScreen {
             presetRow.getChildren().add(pb);
         }
 
-        // Friend activity notifications toggle
-        CheckBox notifCheck = new CheckBox("Friend activity notifications");
-        notifCheck.getStyleClass().add("settings-checkbox");
-        notifCheck.setSelected(LauncherEngine.friendActivityNotifications);
-        notifCheck.selectedProperty().addListener((obs, old, val) -> {
-            LauncherEngine.friendActivityNotifications = val;
-            LauncherEngine.saveSettings();
-        });
-
         return section("PROFILE", avatarBox,
             settingRow("Display Name", nameField),
             settingRow("Email", emailField),
             settingRow("Status", statusField),
-            presetRow,
-            settingRow("Notifications", notifCheck));
+            presetRow);
     }
 
     private static VBox buildLauncherSection(Stage stage) {
@@ -256,6 +247,42 @@ public class AccountSettingsScreen {
         });
 
         return section("APPEARANCE", settingRow("Accent Color", colorRow), selectedLabel, settingRow("Theme", lightCheck));
+    }
+
+    private static VBox buildNotificationsSection() {
+        record NotifToggle(String label, String desc, boolean current, java.util.function.Consumer<Boolean> setter) {}
+
+        List<NotifToggle> toggles = List.of(
+            new NotifToggle("Friend Requests",    "Notify when someone sends you a friend request",    LauncherEngine.notifFriendRequests,  v -> { LauncherEngine.notifFriendRequests  = v; LauncherEngine.saveSettings(); }),
+            new NotifToggle("Friends Online",     "Notify when a friend comes online",                  LauncherEngine.notifFriendOnline,    v -> { LauncherEngine.notifFriendOnline    = v; LauncherEngine.saveSettings(); }),
+            new NotifToggle("Server Updates",     "Notify when a server you play pushes an update",    LauncherEngine.notifServerUpdates,   v -> { LauncherEngine.notifServerUpdates   = v; LauncherEngine.saveSettings(); }),
+            new NotifToggle("Streak Reminders",   "Remind you to play before your daily streak resets", LauncherEngine.notifStreakReminder, v -> { LauncherEngine.notifStreakReminder   = v; LauncherEngine.saveSettings(); }),
+            new NotifToggle("System Messages",    "Hub announcements and important updates",            LauncherEngine.notifSystem,          v -> { LauncherEngine.notifSystem          = v; LauncherEngine.saveSettings(); })
+        );
+
+        VBox rows = new VBox(0);
+        for (NotifToggle t : toggles) {
+            Label nameLbl = new Label(t.label());
+            nameLbl.setStyle("-fx-text-fill: white; -fx-font-size: 13px;");
+            Label descLbl = new Label(t.desc());
+            descLbl.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 11px;");
+            VBox textCol = new VBox(2, nameLbl, descLbl);
+            HBox.setHgrow(textCol, Priority.ALWAYS);
+
+            CheckBox cb = new CheckBox();
+            cb.getStyleClass().add("settings-checkbox");
+            cb.setSelected(t.current());
+            cb.selectedProperty().addListener((obs, old, val) -> t.setter().accept(val));
+
+            HBox row = new HBox(textCol, cb);
+            row.setAlignment(Pos.CENTER_LEFT);
+            row.setPadding(new Insets(14, 24, 14, 0));
+            row.setMaxWidth(Double.MAX_VALUE);
+            row.setStyle("-fx-border-color: #22252e; -fx-border-width: 0 0 1 0;");
+            rows.getChildren().add(row);
+        }
+
+        return section("NOTIFICATIONS", rows);
     }
 
     private static VBox buildDeveloperSection(Runnable onDevPortal) {
