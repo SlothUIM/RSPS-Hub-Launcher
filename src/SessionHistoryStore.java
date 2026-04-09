@@ -30,17 +30,6 @@ public class SessionHistoryStore {
         save();
     }
 
-    /** Adds a demo record only if history is empty (for visual testing). */
-    public static void seedDemo() {
-        if (!history.isEmpty()) return;
-        history.add(new SessionRecord("SlothLite",  LocalDate.now().toString(),             142));
-        history.add(new SessionRecord("MythicPS",   LocalDate.now().minusDays(1).toString(), 67));
-        history.add(new SessionRecord("SlothLite",  LocalDate.now().minusDays(1).toString(), 30));
-        history.add(new SessionRecord("NightmarePS",LocalDate.now().minusDays(3).toString(), 95));
-        history.add(new SessionRecord("SlothLite",  LocalDate.now().minusDays(5).toString(), 210));
-        save();
-    }
-
     public static List<SessionRecord> getHistory() {
         return Collections.unmodifiableList(history);
     }

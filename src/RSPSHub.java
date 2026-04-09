@@ -43,10 +43,6 @@ public class RSPSHub extends Application {
     private List<Friend> friends = new ArrayList<>();
     private List<String> groups  = new ArrayList<>();
     private Map<String, List<String>> groupMembers = new HashMap<>(); // groupName -> member usernames
-    // Simulated privacy settings for other users ("public", "friends", "private")
-    private final Map<String, String> mockUserPrivacy = new HashMap<>(Map.of(
-        "NightmarePS_Dev", "private"
-    ));
 
     // UI state
     private String activeTag                   = "All";
@@ -120,34 +116,6 @@ public class RSPSHub extends Application {
         primaryStage.setMinWidth(1050);
         primaryStage.setMinHeight(600);
 
-        Friend pk  = new Friend("PKMaster99",  true,  "SlothLite");  pk.statusMessage  = "Grinding slayer";
-        Friend joe = new Friend("IronmanJoe",  true,  "MythicPS");   joe.statusMessage = "AFK - brb";
-        friends.add(pk);
-        friends.add(joe);
-        friends.add(new Friend("ZulrahGrind", false, null));
-        friends.add(new Friend("Sasqu",       false, null));
-
-        groups.add("RSPS Gang");
-        groupMembers.put("RSPS Gang", new ArrayList<>(List.of("PKMaster99", "IronmanJoe")));
-
-        friendRequests.add(new FriendRequest("NightmarePS_Dev", true,  "5m ago"));
-        friendRequests.add(new FriendRequest("Slayer_King",     true,  "2h ago"));
-        friendRequests.add(new FriendRequest("CosmicRSPS",      false, "10m ago"));
-
-        // Seed notifications (respect user toggles)
-        if (LauncherEngine.notifFriendRequests) {
-            AppNotif n1 = new AppNotif(NotifType.FRIEND_REQUEST, "Friend Request", "NightmarePS_Dev wants to be your friend", "5m ago");
-            n1.friendUsername = "NightmarePS_Dev";
-            AppNotif n2 = new AppNotif(NotifType.FRIEND_REQUEST, "Friend Request", "Slayer_King wants to be your friend", "2h ago");
-            n2.friendUsername = "Slayer_King";
-            notifications.addAll(List.of(n1, n2));
-        }
-        if (LauncherEngine.notifFriendOnline) {
-            notifications.add(new AppNotif(NotifType.FRIEND_ONLINE, "Friend Online", "PKMaster99 is now online — playing SlothLite", "10m ago"));
-        }
-        if (LauncherEngine.notifServerUpdates) {
-            notifications.add(new AppNotif(NotifType.SERVER_UPDATE, "Server Updated", "SlothScape pushed a new update — check the changelog", "1h ago"));
-        }
         if (LauncherEngine.notifSystem) {
             notifications.add(new AppNotif(NotifType.SYSTEM, "Welcome to RSPS Hub", "Browse servers, track your playtime and level up!", "Today"));
         }
@@ -237,7 +205,7 @@ public class RSPSHub extends Application {
         boolean online    = friend != null && friend.online;
         String  status    = friend != null && friend.statusMessage != null ? friend.statusMessage : "";
         boolean isFriend  = friend != null;
-        String  privacy   = mockUserPrivacy.getOrDefault(username, "public");
+        String  privacy   = "public";
         stage.setScene(ProfileScreen.create(stage, username, online, status, blockedUsers,
             privacy, isFriend,
             () -> { showHub(stage); showingFriends = true; setActiveTab(friendsTab); updateDisplay(); },
@@ -280,20 +248,6 @@ public class RSPSHub extends Application {
         if (allServers == null) {
             LauncherEngine.init();
             allServers = LauncherEngine.fetchServers();
-            // Demo: seed visual test data so badges are visible
-            if (allServers.size() > 0) {
-                allServers.get(0).isNew = true;
-                StreakStore.seedDemo(allServers.get(0).name, 7);
-                PlaytimeStore.seedDemo(allServers.get(0).name, 4200); // ~70 hours → Lv 51
-                if (allServers.get(0).changelog == null || allServers.get(0).changelog.isEmpty())
-                    allServers.get(0).changelog = "v1.3.0 — April 2025\n- Added new wilderness boss\n- PvP balancing updates\n- Fixed client crash on login\n- New donator zone added\n\nv1.2.5 — March 2025\n- Economy rebalance\n- New skilling area: Zeah\n- Performance improvements\n\nv1.2.0 — February 2025\n- Launch";
-            }
-            if (allServers.size() > 1) {
-                allServers.get(1).isNew = true;
-                StreakStore.seedDemo(allServers.get(1).name, 3);
-                PlaytimeStore.seedDemo(allServers.get(1).name, 900);  // ~15 hours → Lv 18
-            }
-            SessionHistoryStore.seedDemo();
             DiscordRPC.connectAsync();
         }
 
@@ -464,10 +418,6 @@ public class RSPSHub extends Application {
         SceneUtils.applyRoundedCorners(scene, hubRoot, stage);
         stage.setScene(scene);
 
-        // Mock friend activity toast on hub load
-        PauseTransition toastDelay = new PauseTransition(Duration.seconds(1.5));
-        toastDelay.setOnFinished(e -> ToastManager.show(stage, "PKMaster99 is online", "Playing SlothLite \u2022 Grinding slayer"));
-        toastDelay.play();
     }
 
     private Button navTab(String text, boolean active) {
@@ -1688,31 +1638,12 @@ public class RSPSHub extends Application {
 
         record LeaderEntry(int rank, String username, String topServer, long minutes, boolean isYou) {}
 
-        // Mock per-server minutes: map of server → list of (username, minutes)
         List<LeaderEntry> entries = new ArrayList<>();
         if (filterAll) {
-            entries.addAll(List.of(
-                new LeaderEntry(0, "PKMaster99",  "SlothLite",   2840, false),
-                new LeaderEntry(0, "IronmanJoe",  "MythicPS",    1920, false),
-                new LeaderEntry(0, "ZulrahGrind", "SlothLite",    980, false),
-                new LeaderEntry(0, "Sasqu",       "NightmarePS",  720, false)
-            ));
             long yourMin = PlaytimeStore.getTotalMinutes();
             String yourTop = PlaytimeStore.getMostPlayed();
             entries.add(new LeaderEntry(0, yourName, yourTop != null ? yourTop : "—", yourMin, true));
         } else {
-            // Per-server mock data
-            Map<String, Long> mockServerMinutes = new HashMap<>();
-            mockServerMinutes.put("PKMaster99:SlothLite",   2100L);
-            mockServerMinutes.put("PKMaster99:MythicPS",     400L);
-            mockServerMinutes.put("IronmanJoe:MythicPS",    1920L);
-            mockServerMinutes.put("ZulrahGrind:SlothLite",   980L);
-            mockServerMinutes.put("Sasqu:NightmarePS",       720L);
-            String[] mockUsers = {"PKMaster99", "IronmanJoe", "ZulrahGrind", "Sasqu"};
-            for (String u : mockUsers) {
-                long min = mockServerMinutes.getOrDefault(u + ":" + leaderboardServer, 0L);
-                if (min > 0) entries.add(new LeaderEntry(0, u, leaderboardServer, min, false));
-            }
             long yourMin = PlaytimeStore.getMinutes(leaderboardServer);
             entries.add(new LeaderEntry(0, yourName, leaderboardServer, yourMin, true));
         }

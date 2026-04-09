@@ -149,19 +149,9 @@ public class ProfileScreen {
                 }
             }
         } else {
-            // Mock data for other profiles
-            String[][] mockServers = {
-                {"SlothLite", "32", "0.4"},
-                {"MythicPS",  "18", "0.7"},
-                {"NightmarePS", "9", "0.2"}
-            };
-            int rank = 1;
-            for (String[] mock : mockServers) {
-                serverLevelsSection.getChildren().add(
-                    buildMockServerLevelRow(rank, mock[0], Integer.parseInt(mock[1]), Double.parseDouble(mock[2]))
-                );
-                rank++;
-            }
+            Label noData = new Label("Stats are not available for other players yet.");
+            noData.setStyle("-fx-text-fill: #555d6e; -fx-font-size: 13px; -fx-font-style: italic;");
+            serverLevelsSection.getChildren().add(noData);
         }
 
         // ── Favourite Servers section ────────────────────────────────────────
@@ -326,11 +316,6 @@ public class ProfileScreen {
     private static HBox buildServerLevelRow(int rank, String serverName, boolean isReal) {
         int level = ServerSkillSystem.getLevel(serverName);
         double progress = ServerSkillSystem.getLevelProgress(serverName);
-        return buildServerLevelRowRaw(rank, serverName, level, progress);
-    }
-
-    // ── Helper: build a server-level row from mock data ──────────────────────
-    private static HBox buildMockServerLevelRow(int rank, String serverName, int level, double progress) {
         return buildServerLevelRowRaw(rank, serverName, level, progress);
     }
 
