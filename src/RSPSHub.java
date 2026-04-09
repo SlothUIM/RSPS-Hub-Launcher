@@ -97,8 +97,10 @@ public class RSPSHub extends Application {
     public void start(Stage primaryStage) {
         primaryStage.initStyle(StageStyle.TRANSPARENT);
         primaryStage.setTitle("RSPS Hub Launcher");
-        primaryStage.setWidth(1000);
+        primaryStage.setWidth(1200);
         primaryStage.setHeight(800);
+        primaryStage.setMinWidth(1050);
+        primaryStage.setMinHeight(600);
 
         Friend pk  = new Friend("PKMaster99",  true,  "SlothLite");  pk.statusMessage  = "Grinding slayer";
         Friend joe = new Friend("IronmanJoe",  true,  "MythicPS");   joe.statusMessage = "AFK - brb";
@@ -126,7 +128,7 @@ public class RSPSHub extends Application {
     // ── SCREEN NAVIGATION ────────────────────────────────────────────────────
 
     private void showLoginScreen(Stage stage) {
-        stage.setScene(LoginScreen.create(
+        transitionTo(stage, () -> LoginScreen.create(
             stage,
             username -> { LauncherEngine.currentUsername = username; showHub(stage); },
             () -> showRegisterScreen(stage)
@@ -134,7 +136,7 @@ public class RSPSHub extends Application {
     }
 
     private void showRegisterScreen(Stage stage) {
-        stage.setScene(RegisterScreen.create(
+        transitionTo(stage, () -> RegisterScreen.create(
             stage,
             () -> showLoginScreen(stage),
             () -> showLoginScreen(stage)
@@ -142,7 +144,7 @@ public class RSPSHub extends Application {
     }
 
     private void showSettings(Stage stage) {
-        stage.setScene(AccountSettingsScreen.create(
+        transitionTo(stage, () -> AccountSettingsScreen.create(
             stage,
             () -> showHub(stage),
             () -> { allServers = null; LauncherEngine.currentUsername = ""; LauncherEngine.avatarImagePath = null; showLoginScreen(stage); },
@@ -151,22 +153,22 @@ public class RSPSHub extends Application {
     }
 
     private void showDevPortal(Stage stage) {
-        stage.setScene(DeveloperPortalScreen.create(stage, () -> showSettings(stage)));
+        transitionTo(stage, () -> DeveloperPortalScreen.create(stage, () -> showSettings(stage)));
     }
 
     private void showServerDetail(Stage stage, ServerProfile server) {
-        stage.setScene(ServerDetailScreen.create(stage, server, () -> showHub(stage)));
+        transitionTo(stage, () -> ServerDetailScreen.create(stage, server, () -> showHub(stage)));
     }
 
     private void showStats(Stage stage) {
-        stage.setScene(PlaytimeScreen.create(stage, () -> showHub(stage)));
+        transitionTo(stage, () -> PlaytimeScreen.create(stage, () -> showHub(stage)));
     }
 
     private void showProfile(Stage stage, String username) {
         Friend friend = friends.stream().filter(f -> f.username.equals(username)).findFirst().orElse(null);
         boolean online = friend != null && friend.online;
         String status  = friend != null && friend.statusMessage != null ? friend.statusMessage : "";
-        stage.setScene(ProfileScreen.create(stage, username, online, status, blockedUsers,
+        transitionTo(stage, () -> ProfileScreen.create(stage, username, online, status, blockedUsers,
             () -> { showHub(stage); showingFriends = true; setActiveTab(friendsTab); updateDisplay(); },
             () -> { showHub(stage); openConversation(username, false); }
         ));
@@ -382,7 +384,7 @@ public class RSPSHub extends Application {
         Scene scene = new Scene(hubRoot);
         scene.getStylesheets().addAll(LauncherEngine.getStylesheets(getClass()));
         SceneUtils.applyRoundedCorners(scene, hubRoot, stage);
-        stage.setScene(scene);
+        transitionTo(stage, () -> scene);
 
         // Mock friend activity toast on hub load
         PauseTransition toastDelay = new PauseTransition(Duration.seconds(1.5));
@@ -402,13 +404,52 @@ public class RSPSHub extends Application {
         active.getStyleClass().setAll("nav-tab-active");
     }
 
+    // ── SCREEN TRANSITION ─────────────────────────────────────────────────────
+
+    private void transitionTo(Stage stage, java.util.function.Supplier<Scene> sceneBuilder) {
+        Scene current = stage.getScene();
+        if (current == null) {
+            Scene next = sceneBuilder.get();
+            stage.setScene(next);
+            return;
+        }
+        FadeTransition fadeOut = new FadeTransition(Duration.millis(200), current.getRoot());
+        fadeOut.setFromValue(1.0);
+        fadeOut.setToValue(0.0);
+        fadeOut.setOnFinished(e -> {
+            Scene next = sceneBuilder.get();
+            next.getRoot().setOpacity(0.0);
+            stage.setScene(next);
+            FadeTransition fadeIn = new FadeTransition(Duration.millis(220), next.getRoot());
+            fadeIn.setFromValue(0.0);
+            fadeIn.setToValue(1.0);
+            fadeIn.play();
+        });
+        fadeOut.play();
+    }
+
     private void showLeaderboard(Stage stage) {
-        stage.setScene(LeaderboardScreen.create(stage, () -> showHub(stage)));
+        transitionTo(stage, () -> LeaderboardScreen.create(stage, () -> showHub(stage)));
     }
 
     // ── DISPLAY ROUTING ──────────────────────────────────────────────────────
 
     private void updateDisplay() {
+        // Fade out content, rebuild, fade back in
+        FadeTransition contentOut = new FadeTransition(Duration.millis(80), hubScrollPane);
+        contentOut.setFromValue(hubScrollPane.getOpacity());
+        contentOut.setToValue(0.0);
+        contentOut.setOnFinished(ev -> {
+            rebuildDisplay();
+            FadeTransition contentIn = new FadeTransition(Duration.millis(160), hubScrollPane);
+            contentIn.setFromValue(0.0);
+            contentIn.setToValue(1.0);
+            contentIn.play();
+        });
+        contentOut.play();
+    }
+
+    private void rebuildDisplay() {
         serverGrid.getChildren().clear();
         serverGrid.setSpacing(20);
         serverGrid.setPadding(new Insets(30));
