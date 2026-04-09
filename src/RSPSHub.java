@@ -175,13 +175,18 @@ public class RSPSHub extends Application {
             stage,
             username -> {
                 LauncherEngine.currentUsername = username;
-                if (!LauncherEngine.hasCompletedOnboarding) {
+                
+                // Check if they've already done onboarding
+                if (LauncherEngine.hasCompletedOnboarding) {
+                    showHub(stage);
+                } else {
+                    // If not, show it, but make sure the finish button SAVES the state
                     stage.setScene(OnboardingScreen.create(stage, () -> {
+                        LauncherEngine.hasCompletedOnboarding = true; // Set to true
+                        LauncherEngine.saveSettings();                // CRITICAL: This writes to your PC
                         applyPreferredTagsOnNextLoad = true;
                         showHub(stage);
                     }));
-                } else {
-                    showHub(stage);
                 }
             },
             () -> showRegisterScreen(stage)
@@ -595,7 +600,6 @@ public class RSPSHub extends Application {
             downloadBadge.setManaged(dlCount > 0);
         }
 
-        // Rebuild topControls content to keep consistent height across all tabs
         topControls.getChildren().clear();
         boolean showSearch = !showingFriends && !showingStats && !showingLeaderboard;
         if (showSearch) {
@@ -632,12 +636,12 @@ public class RSPSHub extends Application {
             .filter(s -> !showingLibrary || LauncherEngine.isDownloaded(s))
             .collect(Collectors.toList());
 
-        // Apply sort
+        // Apply sort (Updated to use playersOnline)
         switch (sortOrder) {
             case "Name A–Z"       -> filtered.sort(Comparator.comparing(s -> s.name));
             case "Name Z–A"       -> filtered.sort(Comparator.comparing((ServerProfile s) -> s.name).reversed());
             case "Most Played (You)" -> filtered.sort(Comparator.comparingLong((ServerProfile s) -> PlaytimeStore.getMinutes(s.name)).reversed());
-            default               -> filtered.sort(Comparator.comparingInt((ServerProfile s) -> s.players_online).reversed());
+            default               -> filtered.sort(Comparator.comparingInt((ServerProfile s) -> s.playersOnline).reversed());
         }
 
         if (filtered.isEmpty()) {
@@ -647,7 +651,6 @@ public class RSPSHub extends Application {
             return;
         }
 
-        // Pinned first
         List<ServerProfile> pinned   = filtered.stream().filter(s -> LauncherEngine.favouriteServers.contains(s.name)).collect(Collectors.toList());
         List<ServerProfile> unpinned = filtered.stream().filter(s -> !LauncherEngine.favouriteServers.contains(s.name)).collect(Collectors.toList());
 
@@ -1317,7 +1320,6 @@ public class RSPSHub extends Application {
     private VBox createServerCard(ServerProfile server) {
         int    skillLevel    = ServerSkillSystem.getLevel(server.name);
         double skillProgress = ServerSkillSystem.getLevelProgress(server.name);
-        String skillTooltip  = ServerSkillSystem.getTooltip(server.name);
 
         HBox card = new HBox(20);
         card.getStyleClass().add("server-card");
@@ -1333,19 +1335,19 @@ public class RSPSHub extends Application {
         bannerLabel.getStyleClass().add("card-banner-placeholder");
         bannerPane.getChildren().add(bannerLabel);
 
-        if (server.banner_url != null && !server.banner_url.isEmpty()) {
+        // Updated to bannerUrl
+        if (server.bannerUrl != null && !server.bannerUrl.isEmpty()) {
             ImageView iv = new ImageView();
             iv.setFitWidth(200); iv.setFitHeight(100);
             iv.setPreserveRatio(false);
             iv.setManaged(false); iv.setVisible(false);
-            Image img = new Image(server.banner_url, true);
+            Image img = new Image(server.bannerUrl, true);
             img.progressProperty().addListener((obs, old, p) -> {
                 if (p.doubleValue() >= 1.0 && !img.isError()) { iv.setImage(img); iv.setVisible(true); bannerLabel.setVisible(false); }
             });
             bannerPane.getChildren().add(iv);
         }
 
-        // NEW badge overlay on banner (top-right corner)
         if (server.isNew) {
             Label newBadge = new Label("NEW");
             newBadge.getStyleClass().add("new-badge");
@@ -1354,18 +1356,10 @@ public class RSPSHub extends Application {
             bannerPane.getChildren().add(newBadge);
         }
 
-        // Streak badge overlay on banner (bottom-left corner)
         int streakVal = StreakStore.getStreak(server.name);
         if (streakVal >= 1) {
             Label streakOverlay = new Label("\uD83D\uDD25 " + streakVal);
-            streakOverlay.setStyle(
-                "-fx-text-fill: #e05252;" +
-                "-fx-font-size: 11px;" +
-                "-fx-font-weight: bold;" +
-                "-fx-background-color: rgba(0,0,0,0.65);" +
-                "-fx-background-radius: 6;" +
-                "-fx-padding: 2 7;"
-            );
+            streakOverlay.setStyle("-fx-text-fill: #e05252; -fx-font-size: 11px; -fx-font-weight: bold; -fx-background-color: rgba(0,0,0,0.65); -fx-background-radius: 6; -fx-padding: 2 7;");
             StackPane.setAlignment(streakOverlay, Pos.BOTTOM_LEFT);
             StackPane.setMargin(streakOverlay, new Insets(6));
             bannerPane.getChildren().add(streakOverlay);
@@ -1387,7 +1381,6 @@ public class RSPSHub extends Application {
         info.getChildren().addAll(title, desc, tagBox);
         HBox.setHgrow(info, Priority.ALWAYS);
 
-        // Note text below description
         String existingNote = LauncherEngine.serverNotes.get(server.name);
         if (existingNote != null && !existingNote.isEmpty()) {
             Label noteLbl = new Label("📝  " + existingNote);
@@ -1398,16 +1391,13 @@ public class RSPSHub extends Application {
         VBox actions = new VBox(10);
         actions.setAlignment(Pos.CENTER_RIGHT);
 
-        // Star (favourite) + Note buttons
         boolean isFav = LauncherEngine.favouriteServers.contains(server.name);
         Button starBtn = new Button(isFav ? "★" : "☆");
         starBtn.getStyleClass().add(isFav ? "fav-btn-active" : "fav-btn");
         starBtn.setOnAction(e -> {
             e.consume();
-            if (LauncherEngine.favouriteServers.contains(server.name))
-                LauncherEngine.favouriteServers.remove(server.name);
-            else
-                LauncherEngine.favouriteServers.add(server.name);
+            if (LauncherEngine.favouriteServers.contains(server.name)) LauncherEngine.favouriteServers.remove(server.name);
+            else LauncherEngine.favouriteServers.add(server.name);
             LauncherEngine.saveSettings();
             updateDisplay();
         });
@@ -1432,53 +1422,13 @@ public class RSPSHub extends Application {
         HBox cardTools = new HBox(4, starBtn, noteBtn);
         cardTools.setAlignment(Pos.CENTER_RIGHT);
 
-        // Skill level badge — color and glow based on milestone
         String milestoneColor = ServerSkillSystem.getMilestoneColor(skillLevel);
         Label levelBadge = new Label("Lv. " + skillLevel);
-        levelBadge.setStyle(
-            "-fx-background-color: rgba(0,0,0,0.4);" +
-            "-fx-text-fill: " + milestoneColor + ";" +
-            "-fx-font-size: 11px; -fx-font-weight: bold;" +
-            "-fx-padding: 3 9; -fx-background-radius: 10; -fx-cursor: hand;"
-        );
+        levelBadge.setStyle("-fx-background-color: rgba(0,0,0,0.4); -fx-text-fill: " + milestoneColor + "; -fx-font-size: 11px; -fx-font-weight: bold; -fx-padding: 3 9; -fx-background-radius: 10; -fx-cursor: hand;");
 
-        if (ServerSkillSystem.hasMilestoneGlow(skillLevel)) {
-            DropShadow glow = new DropShadow();
-            glow.setColor(Color.web(milestoneColor));
-            glow.setRadius(skillLevel >= 99 ? 20 : 8);
-            glow.setSpread(0.15);
-            levelBadge.setEffect(glow);
-            double maxR = skillLevel >= 99 ? 24 : 14;
-            double speed = skillLevel >= 99 ? 0.8 : 2.0;
-            Timeline glowAnim = new Timeline(
-                new KeyFrame(Duration.ZERO,           new KeyValue(glow.radiusProperty(), 4)),
-                new KeyFrame(Duration.seconds(speed), new KeyValue(glow.radiusProperty(), maxR)),
-                new KeyFrame(Duration.seconds(speed * 2), new KeyValue(glow.radiusProperty(), 4))
-            );
-            glowAnim.setCycleCount(Timeline.INDEFINITE);
-            glowAnim.play();
-        }
-
-        // Hover popup for level details
-        Popup[] popupRef = {null};
-        boolean[] overPopup = {false};
-        PauseTransition hoverDelay = new PauseTransition(Duration.millis(220));
-        hoverDelay.setOnFinished(e -> {
-            if (popupRef[0] != null && popupRef[0].isShowing()) return;
-            Popup p = buildLevelPopup(server.name, skillLevel, skillProgress, milestoneColor, overPopup, popupRef);
-            popupRef[0] = p;
-            Bounds b = levelBadge.localToScreen(levelBadge.getBoundsInLocal());
-            p.show(levelBadge, b.getMinX() - 90, b.getMinY() - 185);
-        });
-        levelBadge.setOnMouseEntered(e -> hoverDelay.playFromStart());
-        levelBadge.setOnMouseExited(e -> {
-            hoverDelay.stop();
-            if (!overPopup[0] && popupRef[0] != null) { popupRef[0].hide(); popupRef[0] = null; }
-        });
-
-        Label players = new Label("\uD83D\uDFE2 " + server.players_online + " Online");
+        // Updated to use playersOnline
+        Label players = new Label("\uD83D\uDFE2 " + server.playersOnline + " Online");
         players.getStyleClass().add("player-count");
-
 
         boolean downloaded = LauncherEngine.isDownloaded(server);
         Button playBtn = new Button(downloaded ? "PLAY" : "INSTALL");
@@ -1490,7 +1440,6 @@ public class RSPSHub extends Application {
 
         actions.getChildren().addAll(levelBadge, cardTools, players, playBtn);
 
-        // Uninstall button shown only in library
         if (showingLibrary && downloaded) {
             Button uninstallBtn = new Button("Uninstall");
             uninstallBtn.getStyleClass().add("settings-logout-btn");
@@ -1509,7 +1458,6 @@ public class RSPSHub extends Application {
         card.getChildren().addAll(bannerPane, info, actions);
         card.setOnMouseClicked(e -> showServerDetail((Stage) card.getScene().getWindow(), server));
 
-        // XP bar at the bottom of the card
         Region xpFill = new Region();
         xpFill.getStyleClass().add("xp-bar-fill");
         xpFill.setPrefHeight(4);
@@ -1519,10 +1467,7 @@ public class RSPSHub extends Application {
         xpTrack.getStyleClass().add("xp-bar-track");
         xpTrack.setPrefHeight(4);
         xpTrack.setAlignment(Pos.CENTER_LEFT);
-
-        // Bind fill width to track width * progress
-        xpTrack.widthProperty().addListener((obs, old, w) ->
-            xpFill.setPrefWidth(w.doubleValue() * skillProgress));
+        xpTrack.widthProperty().addListener((obs, old, w) -> xpFill.setPrefWidth(w.doubleValue() * skillProgress));
         xpTrack.getChildren().add(xpFill);
 
         VBox wrapper = new VBox(card, xpTrack);

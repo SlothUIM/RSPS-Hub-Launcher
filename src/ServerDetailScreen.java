@@ -84,14 +84,14 @@ public class ServerDetailScreen {
         hero.setPrefHeight(220);
         hero.getStyleClass().add("detail-hero");
 
-        // Banner image
-        if (server.banner_url != null && !server.banner_url.isEmpty()) {
+        // Banner image (Updated to bannerUrl)
+        if (server.bannerUrl != null && !server.bannerUrl.isEmpty()) {
             ImageView bannerImg = new ImageView();
             bannerImg.setPreserveRatio(false);
             bannerImg.setFitHeight(220);
             bannerImg.setManaged(false);
             bannerImg.fitWidthProperty().bind(hero.widthProperty());
-            Image img = new Image(server.banner_url, true);
+            Image img = new Image(server.bannerUrl, true);
             img.progressProperty().addListener((obs, old, p) -> {
                 if (p.doubleValue() >= 1.0 && !img.isError()) bannerImg.setImage(img);
             });
@@ -117,13 +117,14 @@ public class ServerDetailScreen {
         Label iconPlaceholder = new Label(server.name.substring(0, 1).toUpperCase());
         iconPlaceholder.getStyleClass().add("detail-icon-placeholder");
 
-        if (server.icon_url != null && !server.icon_url.isEmpty()) {
+        // Updated to iconUrl
+        if (server.iconUrl != null && !server.iconUrl.isEmpty()) {
             ImageView iconImg = new ImageView();
             iconImg.setFitWidth(80);
             iconImg.setFitHeight(80);
             iconImg.setPreserveRatio(false);
             iconImg.setManaged(false);
-            Image img = new Image(server.icon_url, true);
+            Image img = new Image(server.iconUrl, true);
             img.progressProperty().addListener((obs, old, p) -> {
                 if (p.doubleValue() >= 1.0 && !img.isError()) {
                     iconImg.setImage(img);
@@ -182,11 +183,13 @@ public class ServerDetailScreen {
         VBox right = new VBox(10);
         right.setAlignment(Pos.CENTER_RIGHT);
 
-        Label players = new Label("🟢 " + server.players_online + " Online");
+        // Updated to playersOnline
+        Label players = new Label("🟢 " + server.playersOnline + " Online");
         players.getStyleClass().add("player-count");
 
-        String accent = (server.accent_color != null && !server.accent_color.isEmpty())
-            ? server.accent_color : LauncherEngine.accentColor;
+        // Updated to accentColor
+        String accent = (server.accentColor != null && !server.accentColor.isEmpty())
+            ? server.accentColor : LauncherEngine.accentColor;
 
         boolean alreadyInstalled = LauncherEngine.isDownloaded(server);
         Button playBtn = new Button(alreadyInstalled ? "PLAY" : "INSTALL");
@@ -304,12 +307,15 @@ public class ServerDetailScreen {
 
         HBox socialRow = new HBox(8);
         socialRow.setAlignment(Pos.CENTER_RIGHT);
-        if (server.discord_url != null && !server.discord_url.isEmpty()) {
+        
+        // Updated to discordUrl
+        if (server.discordUrl != null && !server.discordUrl.isEmpty()) {
             Button discordBtn = new Button("Discord");
             discordBtn.getStyleClass().add("detail-social-btn");
             socialRow.getChildren().add(discordBtn);
         }
-        if (server.website_url != null && !server.website_url.isEmpty()) {
+        // Updated to websiteUrl
+        if (server.websiteUrl != null && !server.websiteUrl.isEmpty()) {
             Button webBtn = new Button("Website");
             webBtn.getStyleClass().add("detail-social-btn");
             socialRow.getChildren().add(webBtn);

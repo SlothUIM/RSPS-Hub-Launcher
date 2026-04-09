@@ -17,6 +17,12 @@ import java.util.Map;
 
 public class DeveloperPortalScreen {
 
+    // --- Critical Input Fields (Scoped here so the submit button can read them) ---
+    private static TextField nameField;
+    private static TextArea descArea;
+    private static TextField jarField;
+    private static ComboBox<String> xpRate;
+
     public static Scene create(Stage stage, Runnable onBack) {
         BorderPane root = new BorderPane();
         root.getStyleClass().add("root-pane");
@@ -75,13 +81,13 @@ public class DeveloperPortalScreen {
     // ── SECTION 1: BRANDING ──────────────────────────────────────────────────
 
     private static VBox buildBrandingSection() {
-        TextField nameField    = styledField("e.g. SlothScape");
+        // Initializing the class-level variable here
+        nameField = styledField("e.g. SlothScape");
+        
         TextField taglineField = styledField("e.g. The #1 OSRS economy server — 500+ players online");
 
         // Accent color picker
         String[] colors = {"#ff981f", "#4a9eff", "#4caf50", "#e05252", "#9b5de5", "#00bcd4", "#e91e8c", "#ffd700"};
-        String[] labels = {"Orange",  "Blue",    "Green",   "Red",     "Purple",  "Teal",    "Pink",    "Gold"};
-
         final String[] picked = {colors[0]};
 
         // Preview swatch
@@ -179,7 +185,8 @@ public class DeveloperPortalScreen {
     // ── SECTION 2: ABOUT ─────────────────────────────────────────────────────
 
     private static VBox buildAboutSection() {
-        TextArea descArea = new TextArea();
+        // Initializing the class-level variable here
+        descArea = new TextArea();
         descArea.setPromptText("Describe your server — game mode, XP rates, unique features, what makes it special...");
         descArea.getStyleClass().add("dev-textarea");
         descArea.setWrapText(true); descArea.setPrefRowCount(5); descArea.setMaxWidth(Double.MAX_VALUE);
@@ -215,10 +222,7 @@ public class DeveloperPortalScreen {
         rowsBox.getChildren().add(buildScreenshotRow(rowsBox));
         rowsBox.getChildren().add(buildScreenshotRow(rowsBox));
 
-        addBtn.setOnAction(e -> {
-            // Insert before the addBtn row (not needed since addBtn is outside)
-            rowsBox.getChildren().add(buildScreenshotRow(rowsBox));
-        });
+        addBtn.setOnAction(e -> rowsBox.getChildren().add(buildScreenshotRow(rowsBox)));
 
         VBox inner = new VBox(12, hint, rowsBox, addBtn);
         return devSection("SCREENSHOTS", inner);
@@ -228,7 +232,6 @@ public class DeveloperPortalScreen {
         TextField urlField = styledField("https://yourserver.com/screenshot1.png");
         HBox.setHgrow(urlField, Priority.ALWAYS);
 
-        // Thumbnail preview
         StackPane thumb = new StackPane();
         thumb.getStyleClass().add("dev-icon-preview-box");
         thumb.setPrefSize(96, 54); thumb.setMinSize(96, 54); thumb.setMaxSize(96, 54);
@@ -257,12 +260,13 @@ public class DeveloperPortalScreen {
     // ── SECTION 4: SERVER DETAILS ────────────────────────────────────────────
 
     private static VBox buildServerSection() {
-        TextField jarField     = styledField("https://yourserver.com/client.jar");
+        // Initializing the class-level variables here
+        jarField = styledField("https://yourserver.com/client.jar");
+        xpRate = new ComboBox<>();
+        
         TextField websiteField = styledField("https://yourserver.com  (optional)");
         TextField discordField = styledField("https://discord.gg/yourserver  (optional)");
 
-        // XP Rate dropdown
-        ComboBox<String> xpRate = new ComboBox<>();
         xpRate.getItems().addAll("1x (Vanilla)", "5x", "10x", "25x", "50x", "100x", "Custom / Varies");
         xpRate.setValue("Custom / Varies");
         xpRate.setMaxWidth(Double.MAX_VALUE);
@@ -306,7 +310,6 @@ public class DeveloperPortalScreen {
             cb.getStyleClass().add("dev-tag-check");
             cb.setSelected(true);
             tagBoxes.add(cb);
-            // Insert before the custom tag row
             tagPane.getChildren().add(cb);
             customTagField.clear();
         };
@@ -340,11 +343,55 @@ public class DeveloperPortalScreen {
         VBox successPanel = buildSuccessPanel(onBack);
         successPanel.setVisible(false); successPanel.setManaged(false);
 
+        // --- NEW API SUBMISSION LOGIC ---
         submitBtn.setOnAction(e -> {
-            // Validation happens here — hook up to real fields when backend is ready
-            successPanel.setVisible(true); successPanel.setManaged(true);
+            String serverName = nameField.getText().trim();
+            String description = descArea.getText().trim();
+            String jarUrl = jarField.getText().trim();
+            String xp = xpRate.getValue();
+
+            if (serverName.isEmpty() || jarUrl.isEmpty() || description.isEmpty()) {
+                errorLabel.setText("Please fill in all required fields (*).");
+                errorLabel.setVisible(true);
+                errorLabel.setManaged(true);
+                return;
+            }
+
+            submitBtn.setText("SUBMITTING...");
             submitBtn.setDisable(true);
-            errorLabel.setVisible(false); errorLabel.setManaged(false);
+            errorLabel.setVisible(false);
+            errorLabel.setManaged(false);
+
+            String payload = String.format(
+                "{\"name\":\"%s\", \"description\":\"%s\", \"jar_url\":\"%s\", \"xp_rate\":\"%s\"}", 
+                serverName, description, jarUrl, xp
+            );
+
+            ApiClient.postJson("submit_server", payload).thenAccept(response -> {
+                javafx.application.Platform.runLater(() -> {
+                    submitBtn.setText("SUBMIT SERVER");
+                    submitBtn.setDisable(false);
+                    
+                    if (response != null && !response.contains("error")) {
+                        successPanel.setVisible(true); 
+                        successPanel.setManaged(true);
+                        submitBtn.setVisible(false);
+                    } else {
+                        errorLabel.setText("Failed to submit server to backend.");
+                        errorLabel.setVisible(true);
+                        errorLabel.setManaged(true);
+                    }
+                });
+            }).exceptionally(ex -> {
+                javafx.application.Platform.runLater(() -> {
+                    submitBtn.setText("SUBMIT SERVER");
+                    submitBtn.setDisable(false);
+                    errorLabel.setText("Could not connect to the Hub API.");
+                    errorLabel.setVisible(true);
+                    errorLabel.setManaged(true);
+                });
+                return null;
+            });
         });
 
         return devSection("TAGS & SUBMISSION",
@@ -447,7 +494,6 @@ public class DeveloperPortalScreen {
             for (var entry : pending.entrySet()) {
                 int serverId = entry.getKey();
                 for (Review r : new java.util.ArrayList<>(entry.getValue())) {
-                    // Card
                     VBox card = new VBox(6);
                     card.setStyle(
                         "-fx-background-color: #1a1d24; -fx-background-radius: 8;" +
@@ -488,10 +534,9 @@ public class DeveloperPortalScreen {
                     card.getChildren().addAll(author, stars, comment, flaggedNote, btnRow);
                     list.getChildren().add(card);
 
-                    // Wire refresh after reference is set
                     Runnable refreshRef = () -> {
                         list.getChildren().clear();
-                        buildModerationSection(); // triggers re-read but we need inline refresh
+                        buildModerationSection(); 
                     };
                     doRefresh[0] = () -> {
                         Map<Integer, List<Review>> stillPending = ServerDetailScreen.getPendingReviews();
