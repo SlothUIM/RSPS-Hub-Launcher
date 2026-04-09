@@ -707,28 +707,66 @@ public class RSPSHub extends Application {
     }
 
     private void buildOnlineFriendsContent() {
-        // Add friend → sends request instead of adding directly
+        // Add friend row
         TextField addField = new TextField();
-        addField.setPromptText("Add friend by username...");
+        addField.setPromptText("Search by username...");
         addField.getStyleClass().add("search-field");
-        addField.setPrefWidth(260);
+        HBox.setHgrow(addField, Priority.ALWAYS);
 
         Button addBtn = new Button("Send Request");
-        addBtn.getStyleClass().add("settings-secondary-btn");
-        addBtn.setOnAction(e -> {
+        addBtn.getStyleClass().add("auth-btn");
+
+        Label feedbackLbl = new Label();
+        feedbackLbl.setStyle("-fx-font-size: 12px;");
+        feedbackLbl.setVisible(false);
+        feedbackLbl.setManaged(false);
+
+        Runnable sendRequest = () -> {
             String u = addField.getText().trim();
-            if (!u.isEmpty()) {
-                friendRequests.add(new FriendRequest(u, false, "Just now"));
-                addField.clear();
-                updateDisplay();
+            feedbackLbl.setVisible(true);
+            feedbackLbl.setManaged(true);
+
+            if (u.isEmpty()) {
+                feedbackLbl.setText("Enter a username first.");
+                feedbackLbl.setStyle("-fx-text-fill: #e05252; -fx-font-size: 12px;");
+                return;
             }
-        });
-        addField.setOnAction(e -> addBtn.fire());
+            if (u.equalsIgnoreCase(LauncherEngine.currentUsername)) {
+                feedbackLbl.setText("You can't add yourself.");
+                feedbackLbl.setStyle("-fx-text-fill: #e05252; -fx-font-size: 12px;");
+                return;
+            }
+            if (friends.stream().anyMatch(f -> f.username.equalsIgnoreCase(u))) {
+                feedbackLbl.setText("You're already friends with " + u + ".");
+                feedbackLbl.setStyle("-fx-text-fill: #e05252; -fx-font-size: 12px;");
+                return;
+            }
+            if (friendRequests.stream().anyMatch(r -> r.username.equalsIgnoreCase(u) && !r.incoming)) {
+                feedbackLbl.setText("Request already sent to " + u + ".");
+                feedbackLbl.setStyle("-fx-text-fill: #e05252; -fx-font-size: 12px;");
+                return;
+            }
+            if (blockedUsers.contains(u)) {
+                feedbackLbl.setText("Unblock " + u + " before sending a request.");
+                feedbackLbl.setStyle("-fx-text-fill: #e05252; -fx-font-size: 12px;");
+                return;
+            }
+
+            friendRequests.add(new FriendRequest(u, false, "Just now"));
+            addField.clear();
+            feedbackLbl.setText("✓  Friend request sent to " + u + "!");
+            feedbackLbl.setStyle("-fx-text-fill: #4caf50; -fx-font-size: 12px;");
+        };
+
+        addBtn.setOnAction(e -> sendRequest.run());
+        addField.setOnAction(e -> sendRequest.run());
 
         HBox addRow = new HBox(10, addField, addBtn);
         addRow.setAlignment(Pos.CENTER_LEFT);
-        addRow.setPadding(new Insets(0, 0, 16, 0));
-        serverGrid.getChildren().add(addRow);
+
+        VBox addBox = new VBox(6, addRow, feedbackLbl);
+        addBox.setPadding(new Insets(0, 0, 16, 0));
+        serverGrid.getChildren().add(addBox);
 
         List<Friend> visible = friends.stream()
             .filter(f -> !blockedUsers.contains(f.username))
