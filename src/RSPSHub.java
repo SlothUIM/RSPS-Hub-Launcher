@@ -105,6 +105,9 @@ public class RSPSHub extends Application {
     private List<FriendRequest> friendRequests = new ArrayList<>();
     private List<String> blockedUsers = new ArrayList<>();
 
+    // Heartbeat timer
+    private Timeline heartbeatTimeline;
+
     // ── LIFECYCLE ────────────────────────────────────────────────────────────
 
     @Override
@@ -249,6 +252,8 @@ public class RSPSHub extends Application {
             LauncherEngine.init();
             allServers = LauncherEngine.fetchServers();
             DiscordRPC.connectAsync();
+            refreshFriendsFromApi();
+            startHeartbeat();
         }
 
         hubRoot = new BorderPane();
@@ -430,6 +435,32 @@ public class RSPSHub extends Application {
         for (Button b : new Button[]{storeTab, libraryTab, friendsTab, statsTab, leaderboardTab})
             b.getStyleClass().setAll("nav-tab");
         active.getStyleClass().setAll("nav-tab-active");
+    }
+
+    // ── API HELPERS ──────────────────────────────────────────────────────────────
+
+    private void refreshFriendsFromApi() {
+        ApiClient.getFriends().thenAccept(list -> Platform.runLater(() -> {
+            friends.clear();
+            friends.addAll(list);
+        }));
+        ApiClient.getFriendRequests().thenAccept(list -> Platform.runLater(() -> {
+            // Keep outgoing requests (we track those locally until confirmed)
+            List<FriendRequest> outgoing = new ArrayList<>();
+            for (FriendRequest r : friendRequests) if (!r.incoming) outgoing.add(r);
+            friendRequests.clear();
+            friendRequests.addAll(list);
+            friendRequests.addAll(outgoing);
+        }));
+    }
+
+    private void startHeartbeat() {
+        if (heartbeatTimeline != null) heartbeatTimeline.stop();
+        heartbeatTimeline = new Timeline(new KeyFrame(Duration.seconds(60), e -> ApiClient.heartbeat()));
+        heartbeatTimeline.setCycleCount(Timeline.INDEFINITE);
+        heartbeatTimeline.play();
+        // Send one immediately
+        ApiClient.heartbeat();
     }
 
     // ── TRAY ICON ─────────────────────────────────────────────────────────────
@@ -657,10 +688,20 @@ public class RSPSHub extends Application {
                 return;
             }
 
-            friendRequests.add(new FriendRequest(u, false, "Just now"));
-            addField.clear();
-            feedbackLbl.setText("✓  Friend request sent to " + u + "!");
-            feedbackLbl.setStyle("-fx-text-fill: #4caf50; -fx-font-size: 12px;");
+            feedbackLbl.setText("Sending...");
+            feedbackLbl.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 12px;");
+            String uFinal = u;
+            ApiClient.addFriend(uFinal).thenAccept(result -> Platform.runLater(() -> {
+                if ("ok".equals(result)) {
+                    friendRequests.add(new FriendRequest(uFinal, false, "Just now"));
+                    addField.clear();
+                    feedbackLbl.setText("✓  Friend request sent to " + uFinal + "!");
+                    feedbackLbl.setStyle("-fx-text-fill: #4caf50; -fx-font-size: 12px;");
+                } else {
+                    feedbackLbl.setText(result);
+                    feedbackLbl.setStyle("-fx-text-fill: #e05252; -fx-font-size: 12px;");
+                }
+            }));
         };
 
         addBtn.setOnAction(e -> sendRequest.run());
@@ -735,15 +776,23 @@ public class RSPSHub extends Application {
                 acceptBtn.setMinWidth(100);
                 acceptBtn.setPrefHeight(38);
                 acceptBtn.setOnAction(e -> {
-                    friends.add(new Friend(req.username, true, null));
-                    friendRequests.remove(req);
-                    ActivityStore.add(new ActivityItem(req.username, "joined as your friend", "", "Just now"));
-                    updateDisplay();
+                    ApiClient.acceptFriend(req.username).thenAccept(ok -> Platform.runLater(() -> {
+                        if (ok) {
+                            friends.add(new Friend(req.username, false, null));
+                            friendRequests.remove(req);
+                        }
+                        updateDisplay();
+                    }));
                 });
 
                 Button declineBtn = new Button("Decline");
                 declineBtn.getStyleClass().add("settings-secondary-btn");
-                declineBtn.setOnAction(e -> { friendRequests.remove(req); updateDisplay(); });
+                declineBtn.setOnAction(e -> {
+                    ApiClient.declineFriend(req.username).thenAccept(ok -> Platform.runLater(() -> {
+                        friendRequests.remove(req);
+                        updateDisplay();
+                    }));
+                });
 
                 card.getChildren().addAll(avatar, info, viewBtn, acceptBtn, declineBtn);
                 serverGrid.getChildren().add(card);
@@ -772,7 +821,12 @@ public class RSPSHub extends Application {
 
                 Button cancelBtn = new Button("Cancel");
                 cancelBtn.getStyleClass().add("settings-secondary-btn");
-                cancelBtn.setOnAction(e -> { friendRequests.remove(req); updateDisplay(); });
+                cancelBtn.setOnAction(e -> {
+                    ApiClient.declineFriend(req.username).thenAccept(ok -> Platform.runLater(() -> {
+                        friendRequests.remove(req);
+                        updateDisplay();
+                    }));
+                });
 
                 card.getChildren().addAll(avatar, info, viewBtn2, cancelBtn);
                 serverGrid.getChildren().add(card);
@@ -781,38 +835,44 @@ public class RSPSHub extends Application {
     }
 
     private void buildActivityContent() {
-        List<ActivityItem> feed = ActivityStore.getFeed();
-        if (feed.isEmpty()) {
-            Label empty = new Label("No activity yet.");
-            empty.getStyleClass().add("empty-label");
-            serverGrid.getChildren().add(empty);
-            return;
-        }
-        for (ActivityItem item : feed) {
-            HBox row = new HBox(12);
-            row.getStyleClass().add("activity-item");
-            row.setAlignment(Pos.CENTER_LEFT);
-            row.setPadding(new Insets(10, 0, 10, 0));
+        Label loading = new Label("Loading activity...");
+        loading.getStyleClass().add("auth-muted");
+        serverGrid.getChildren().add(loading);
 
-            Label avatar = new Label(item.username.substring(0, 1).toUpperCase());
-            avatar.getStyleClass().add("friend-avatar-offline");
-            avatar.setMinWidth(36); avatar.setMaxWidth(36);
-            avatar.setMinHeight(36); avatar.setMaxHeight(36);
+        ApiClient.getActivityFeed().thenAccept(feed -> Platform.runLater(() -> {
+            serverGrid.getChildren().remove(loading);
+            if (feed.isEmpty()) {
+                Label empty = new Label("No activity yet.");
+                empty.getStyleClass().add("empty-label");
+                serverGrid.getChildren().add(empty);
+                return;
+            }
+            for (ActivityItem item : feed) {
+                HBox row = new HBox(12);
+                row.getStyleClass().add("activity-item");
+                row.setAlignment(Pos.CENTER_LEFT);
+                row.setPadding(new Insets(10, 0, 10, 0));
 
-            String actionText = item.target.isEmpty()
-                ? item.username + " " + item.action
-                : item.username + " " + item.action + " " + item.target;
+                Label avatar = new Label(item.username.substring(0, 1).toUpperCase());
+                avatar.getStyleClass().add("friend-avatar-offline");
+                avatar.setMinWidth(36); avatar.setMaxWidth(36);
+                avatar.setMinHeight(36); avatar.setMaxHeight(36);
 
-            Label action = new Label(actionText);
-            action.getStyleClass().add("activity-action");
-            HBox.setHgrow(action, Priority.ALWAYS);
+                String actionText = item.target.isEmpty()
+                    ? item.username + " " + item.action
+                    : item.username + " " + item.action + " " + item.target;
 
-            Label time = new Label(item.timestamp);
-            time.getStyleClass().add("activity-time");
+                Label action = new Label(actionText);
+                action.getStyleClass().add("activity-action");
+                HBox.setHgrow(action, Priority.ALWAYS);
 
-            row.getChildren().addAll(avatar, action, time);
-            serverGrid.getChildren().add(row);
-        }
+                Label time = new Label(item.timestamp);
+                time.getStyleClass().add("activity-time");
+
+                row.getChildren().addAll(avatar, action, time);
+                serverGrid.getChildren().add(row);
+            }
+        }));
     }
 
     private Label friendsGroupHeader(String text) {
@@ -883,7 +943,12 @@ public class RSPSHub extends Application {
         });
 
         MenuItem removeFriend = new MenuItem("Remove Friend");
-        removeFriend.setOnAction(e -> { friends.remove(friend); updateDisplay(); });
+        removeFriend.setOnAction(e -> {
+            ApiClient.declineFriend(friend.username).thenAccept(ok -> Platform.runLater(() -> {
+                friends.remove(friend);
+                updateDisplay();
+            }));
+        });
 
         MenuItem reportItem = new MenuItem("Report");
         reportItem.setOnAction(e -> {
@@ -1047,7 +1112,10 @@ public class RSPSHub extends Application {
     // ── CHAT VIEW ────────────────────────────────────────────────────────────
 
     private void buildChatView() {
-        List<Message> messages = MessageStore.getMessages(activeConversation);
+        // For group chats we still use local MessageStore; DMs use the API
+        List<Message> messages = isGroupConversation
+            ? MessageStore.getMessages(activeConversation)
+            : new ArrayList<>();
 
         BorderPane chatPane = new BorderPane();
         chatPane.getStyleClass().add("root-pane");
@@ -1142,6 +1210,14 @@ public class RSPSHub extends Application {
         msgScroll.setVvalue(1.0);
         chatPane.setCenter(msgScroll);
 
+        // Load DM history from API
+        if (!isGroupConversation) {
+            ApiClient.getMessages(activeConversation).thenAccept(apiMessages -> Platform.runLater(() -> {
+                messagesBox.getChildren().clear();
+                for (Message msg : apiMessages) messagesBox.getChildren().add(buildBubble(msg));
+            }));
+        }
+
         // Input bar
         HBox inputBar = new HBox(10);
         inputBar.getStyleClass().add("chat-input-bar");
@@ -1157,15 +1233,23 @@ public class RSPSHub extends Application {
         sendBtn.getStyleClass().add("auth-btn");
         sendBtn.setPrefWidth(80);
 
+        String convId = activeConversation;
+        boolean isGroup = isGroupConversation;
         Runnable send = () -> {
             String text = inputField.getText().trim();
             if (text.isEmpty()) return;
             String sender = LauncherEngine.currentUsername.isEmpty() ? "You" : LauncherEngine.currentUsername;
             String time = LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm a"));
             Message msg = new Message(sender, text, time, true);
-            MessageStore.addMessage(activeConversation, msg);
-            messagesBox.getChildren().add(buildBubble(msg));
             inputField.clear();
+            if (isGroup) {
+                MessageStore.addMessage(convId, msg);
+                messagesBox.getChildren().add(buildBubble(msg));
+            } else {
+                // Optimistic UI — add bubble immediately, send async
+                messagesBox.getChildren().add(buildBubble(msg));
+                ApiClient.sendMessage(convId, text);
+            }
         };
 
         inputField.setOnAction(e -> send.run());

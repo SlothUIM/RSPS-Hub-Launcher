@@ -10,4 +10,11 @@ public class Friend {
         this.online = online;
         this.playingServer = playingServer;
     }
+
+    public Friend(String username, boolean online, String playingServer, String statusMessage) {
+        this.username = username;
+        this.online = online;
+        this.playingServer = playingServer;
+        this.statusMessage = statusMessage;
+    }
 }
