@@ -13,7 +13,7 @@ public class HubConnector {
      * * @param serverName The exact name of your server as registered on the Hub.
      * @param apiKey     Your secret API key from the Developer Portal.
      */
-    public static void start(String serverName, String apiKey) {
+    public static void start(String serverName, String apiKey) { 
         System.out.println("[RSPS Hub] Connector initialized for: " + serverName);
 
         Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() -> {
