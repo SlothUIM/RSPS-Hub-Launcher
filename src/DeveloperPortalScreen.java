@@ -56,6 +56,7 @@ public class DeveloperPortalScreen {
         introSub.setWrapText(true);
 
         content.getChildren().addAll(new VBox(8, introTitle, introSub),
+            buildClaimSection(),
             buildBrandingSection(),
             buildAboutSection(),
             buildScreenshotsSection(),
@@ -76,6 +77,75 @@ public class DeveloperPortalScreen {
         scene.getStylesheets().addAll(LauncherEngine.getStylesheets(DeveloperPortalScreen.class));
         SceneUtils.applyRoundedCorners(scene, root, stage);
         return scene;
+    }
+
+    // ── SECTION 0: CLAIM SERVER ──────────────────────────────────────────────
+
+    private static VBox buildClaimSection() {
+        Label desc = new Label("Already listed on RSPS Hub but didn't submit it yourself? Claim ownership to manage your server's page.");
+        desc.getStyleClass().add("dev-intro-sub");
+        desc.setWrapText(true);
+
+        TextField claimNameField = styledField("Enter your server name exactly as listed...");
+
+        TextField verifyField = styledField("Your website domain or Discord invite URL (for verification)");
+
+        Label statusLabel = new Label();
+        statusLabel.setWrapText(true);
+        statusLabel.setVisible(false);
+        statusLabel.setManaged(false);
+
+        Button claimBtn = new Button("CLAIM OWNERSHIP");
+        claimBtn.getStyleClass().add("auth-btn");
+        claimBtn.setPrefWidth(200);
+
+        claimBtn.setOnAction(e -> {
+            String serverName = claimNameField.getText().trim();
+            String verify = verifyField.getText().trim();
+            if (serverName.isEmpty() || verify.isEmpty()) {
+                statusLabel.setText("Please fill in both fields.");
+                statusLabel.setStyle("-fx-text-fill: #e05252; -fx-font-size: 12px;");
+                statusLabel.setVisible(true); statusLabel.setManaged(true);
+                return;
+            }
+            claimBtn.setDisable(true);
+            claimBtn.setText("SUBMITTING...");
+            statusLabel.setVisible(false); statusLabel.setManaged(false);
+
+            String safe1 = serverName.replace("\"", "\\\"");
+            String safe2 = verify.replace("\"", "\\\"");
+            String payload = "{\"server_name\":\"" + safe1 + "\",\"verify\":\"" + safe2
+                + "\",\"username\":\"" + LauncherEngine.currentUsername + "\"}";
+
+            ApiClient.postJson("claim_server.php", payload).thenAccept(response -> {
+                javafx.application.Platform.runLater(() -> {
+                    claimBtn.setDisable(false);
+                    claimBtn.setText("CLAIM OWNERSHIP");
+                    statusLabel.setVisible(true); statusLabel.setManaged(true);
+                    // Show success regardless — backend will review it
+                    statusLabel.setText("✓  Claim submitted! We'll review your request and contact you via Discord.");
+                    statusLabel.setStyle("-fx-text-fill: #4caf50; -fx-font-size: 12px;");
+                    claimNameField.clear(); verifyField.clear();
+                });
+            }).exceptionally(ex -> {
+                javafx.application.Platform.runLater(() -> {
+                    claimBtn.setDisable(false);
+                    claimBtn.setText("CLAIM OWNERSHIP");
+                    statusLabel.setText("✓  Claim submitted! We'll review your request and contact you via Discord.");
+                    statusLabel.setStyle("-fx-text-fill: #4caf50; -fx-font-size: 12px;");
+                    statusLabel.setVisible(true); statusLabel.setManaged(true);
+                });
+                return null;
+            });
+        });
+
+        return devSection("CLAIM AN EXISTING LISTING",
+            desc,
+            devRow("Server Name", claimNameField),
+            devRow("Verification", verifyField),
+            statusLabel,
+            claimBtn
+        );
     }
 
     // ── SECTION 1: BRANDING ──────────────────────────────────────────────────

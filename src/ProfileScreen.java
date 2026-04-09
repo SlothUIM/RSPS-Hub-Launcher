@@ -2,8 +2,12 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
+import javafx.scene.shape.Circle;
 import javafx.stage.Stage;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -44,8 +48,20 @@ public class ProfileScreen {
 
         // ── Avatar + identity ────────────────────────────────────────────────
         String initial = username.isEmpty() ? "?" : String.valueOf(username.charAt(0)).toUpperCase();
-        Label avatar = new Label(initial);
-        avatar.getStyleClass().add("profile-avatar");
+        Label avatarLetter = new Label(initial);
+        avatarLetter.getStyleClass().add("profile-avatar");
+        StackPane avatar = new StackPane(avatarLetter);
+        avatar.setPrefSize(100, 100); avatar.setMinSize(100, 100); avatar.setMaxSize(100, 100);
+        if (isOwnProfile && LauncherEngine.avatarImagePath != null) {
+            File imgFile = new File(LauncherEngine.avatarImagePath);
+            if (imgFile.exists()) {
+                ImageView iv = new ImageView(new Image(imgFile.toURI().toString(), true));
+                iv.setFitWidth(100); iv.setFitHeight(100); iv.setPreserveRatio(false);
+                iv.setClip(new Circle(50, 50, 50));
+                avatarLetter.setVisible(false);
+                avatar.getChildren().add(iv);
+            }
+        }
 
         Label nameLbl = new Label(username);
         nameLbl.getStyleClass().add("profile-username");
@@ -110,9 +126,9 @@ public class ProfileScreen {
             );
         } else {
             stats.getChildren().addAll(
-                statBox("Total Playtime", "84h 20m"),
-                statBox("Servers Played", "6"),
-                statBox("Most Played", "SlothLite")
+                statBox("Total Playtime", "—"),
+                statBox("Servers Played", "—"),
+                statBox("Most Played", "—")
             );
         }
 
@@ -187,12 +203,9 @@ public class ProfileScreen {
                 }
             }
         } else {
-            FlowPane favFlow = new FlowPane(8, 8);
-            favFlow.setAlignment(Pos.CENTER_LEFT);
-            for (String server : new String[]{"SlothLite", "MythicPS", "NightmarePS"}) {
-                favFlow.getChildren().add(buildFavPill(server));
-            }
-            favSection.getChildren().add(favFlow);
+            Label noFavs = new Label("Not available.");
+            noFavs.setStyle("-fx-text-fill: #555d6e; -fx-font-size: 13px; -fx-font-style: italic;");
+            favSection.getChildren().add(noFavs);
         }
 
         // ── Action buttons (other profile only) ─────────────────────────────

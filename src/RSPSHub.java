@@ -252,6 +252,11 @@ public class RSPSHub extends Application {
             LauncherEngine.init();
             allServers = LauncherEngine.fetchServers();
             DiscordRPC.connectAsync();
+            // Set initial presence after a short delay to let IPC connect
+            new Thread(() -> {
+                try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
+                DiscordRPC.setBrowsing("Browsing the store");
+            }, "discord-idle").start();
             refreshFriendsFromApi();
             startHeartbeat();
         }
@@ -278,38 +283,55 @@ public class RSPSHub extends Application {
             showingLibrary = false; showingFriends = false; showingStats = false; showingLeaderboard = false;
             if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
             setActiveTab(storeTab);
+            if (LauncherEngine.activeServer == null) DiscordRPC.setBrowsing("Browsing the store");
             updateDisplay();
         });
         libraryTab.setOnAction(e -> {
             showingLibrary = true; showingFriends = false; showingStats = false; showingLeaderboard = false;
             if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
             setActiveTab(libraryTab);
+            if (LauncherEngine.activeServer == null) DiscordRPC.setBrowsing("Viewing their library");
             updateDisplay();
         });
         friendsTab.setOnAction(e -> {
             showingFriends = true; showingLibrary = false; showingStats = false; showingLeaderboard = false;
             if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
             setActiveTab(friendsTab);
+            if (LauncherEngine.activeServer == null) DiscordRPC.setBrowsing("Hanging out in Friends");
             updateDisplay();
         });
         statsTab.setOnAction(e -> {
             showingStats = true; showingLibrary = false; showingFriends = false; showingLeaderboard = false;
             if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
             setActiveTab(statsTab);
+            if (LauncherEngine.activeServer == null) DiscordRPC.setBrowsing("Checking their stats");
             updateDisplay();
         });
         leaderboardTab.setOnAction(e -> {
             showingLeaderboard = true; showingLibrary = false; showingFriends = false; showingStats = false;
             if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
             setActiveTab(leaderboardTab);
+            if (LauncherEngine.activeServer == null) DiscordRPC.setBrowsing("Checking the leaderboard");
             updateDisplay();
         });
 
         // Account widget
         String initial = LauncherEngine.currentUsername.isEmpty() ? "?"
             : String.valueOf(LauncherEngine.currentUsername.charAt(0)).toUpperCase();
-        Label avatarCircle = new Label(initial);
-        avatarCircle.getStyleClass().add("nav-avatar");
+        Label avatarLetter = new Label(initial);
+        avatarLetter.getStyleClass().add("nav-avatar");
+        StackPane avatarCircle = new StackPane(avatarLetter);
+        avatarCircle.setPrefSize(34, 34); avatarCircle.setMinSize(34, 34); avatarCircle.setMaxSize(34, 34);
+        if (LauncherEngine.avatarImagePath != null) {
+            java.io.File imgFile = new java.io.File(LauncherEngine.avatarImagePath);
+            if (imgFile.exists()) {
+                ImageView iv = new ImageView(new Image(imgFile.toURI().toString(), true));
+                iv.setFitWidth(34); iv.setFitHeight(34); iv.setPreserveRatio(false);
+                iv.setClip(new javafx.scene.shape.Circle(17, 17, 17));
+                avatarLetter.setVisible(false);
+                avatarCircle.getChildren().add(iv);
+            }
+        }
         Label usernameLabel = new Label(LauncherEngine.currentUsername);
         usernameLabel.getStyleClass().add("nav-username");
         VBox userInfo = new VBox(1, usernameLabel);
@@ -2050,7 +2072,7 @@ public class RSPSHub extends Application {
                 StreakStore.recordPlay(server.name);
                 Platform.runLater(() -> {
                     LauncherEngine.activeServer = null;
-                    DiscordRPC.clearActivity();
+                    DiscordRPC.setBrowsing("Browsing the store");
                     if (sessionTimeline != null) { sessionTimeline.stop(); sessionTimeline = null; }
                     if (sessionTimerLabel != null) {
                         sessionTimerLabel.setVisible(false);
