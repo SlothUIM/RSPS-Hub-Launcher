@@ -20,6 +20,7 @@ public class LauncherEngine {
 
     // Session
     public static String currentUsername = "";
+    public static String sessionToken    = "";
     public static String avatarImagePath = null;
     public static String statusMessage   = "";
     public static String activeServer    = null;

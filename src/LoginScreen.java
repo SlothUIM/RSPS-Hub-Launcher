@@ -74,11 +74,23 @@ public class LoginScreen {
                         loginBtn.setText("LOGIN");
                         loginBtn.setDisable(false);
                         
-                        // NOTE: You might need to adjust this depending on what your API actually returns!
-                        if (response != null && !response.contains("error")) {
+                        if (response != null && response.contains("\"token\"")) {
+                            // Parse token and store it
+                            try {
+                                com.google.gson.JsonObject obj = com.google.gson.JsonParser.parseString(response).getAsJsonObject();
+                                String token = obj.get("token").getAsString();
+                                LauncherEngine.sessionToken = token;
+                            } catch (Exception ignored) {}
                             onLoginSuccess.accept(username);
+                        } else if (response != null && response.contains("\"error\"")) {
+                            try {
+                                com.google.gson.JsonObject obj = com.google.gson.JsonParser.parseString(response).getAsJsonObject();
+                                showError(errorLabel, obj.get("error").getAsString());
+                            } catch (Exception e2) {
+                                showError(errorLabel, "Invalid username or password.");
+                            }
                         } else {
-                            showError(errorLabel, "Invalid username or password.");
+                            showError(errorLabel, "Could not connect to server.");
                         }
                     });
                 }).exceptionally(ex -> {
