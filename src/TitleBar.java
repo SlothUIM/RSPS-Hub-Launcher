@@ -41,8 +41,9 @@ public class TitleBar {
         });
         closeBtn.setOnAction(e -> stage.close());
 
-        HBox buttons = new HBox(minimizeBtn, maximizeBtn, closeBtn);
+        HBox buttons = new HBox(0, minimizeBtn, maximizeBtn, closeBtn);
         buttons.setAlignment(Pos.CENTER_RIGHT);
+        buttons.setFillHeight(true);
         StackPane.setAlignment(buttons, Pos.CENTER_RIGHT);
 
         content.getChildren().addAll(appName, buttons);

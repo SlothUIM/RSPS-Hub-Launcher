@@ -1,14 +1,19 @@
+import javafx.animation.FadeTransition;
 import javafx.animation.PauseTransition;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import javafx.util.Duration;
 
 import java.util.*;
@@ -53,7 +58,7 @@ public class ServerDetailScreen {
             buildInfoBar(stage, server),
             buildDivider(),
             buildDescriptionSection(server),
-            buildScreenshotsSection(server),
+            buildScreenshotsSection(stage, server),
             buildChangelogSection(server),
             buildDivider(),
             buildReviewsSection(server, content)
@@ -248,7 +253,7 @@ public class ServerDetailScreen {
 
     // ── SCREENSHOTS ──────────────────────────────────────────────────────────
 
-    private static VBox buildScreenshotsSection(ServerProfile server) {
+    private static VBox buildScreenshotsSection(Stage stage, ServerProfile server) {
         if (server.screenshots == null || server.screenshots.isEmpty()) return new VBox();
 
         VBox section = new VBox(12);
@@ -265,12 +270,17 @@ public class ServerDetailScreen {
         HBox imgRow = new HBox(10);
         imgRow.setPadding(new Insets(4, 0, 4, 0));
 
-        for (String url : server.screenshots) {
+        List<Image> loadedImages = new ArrayList<>();
+        for (int i = 0; i < server.screenshots.size(); i++) {
+            String url = server.screenshots.get(i);
+            final int idx = i;
+
             StackPane imgBox = new StackPane();
             imgBox.getStyleClass().add("screenshot-box");
             imgBox.setPrefSize(300, 170);
             imgBox.setMinSize(300, 170);
             imgBox.setMaxSize(300, 170);
+            imgBox.setStyle("-fx-cursor: hand;");
 
             Label placeholder = new Label("Loading...");
             placeholder.getStyleClass().add("dev-preview-placeholder");
@@ -282,16 +292,27 @@ public class ServerDetailScreen {
             iv.setManaged(false);
             iv.setVisible(false);
 
+            // Hover overlay hint
+            Label hoverHint = new Label("🔍 View");
+            hoverHint.setStyle("-fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold;" +
+                "-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 4 10 4 10; -fx-background-radius: 6;");
+            hoverHint.setVisible(false);
+
             Image img = new Image(url, true);
+            loadedImages.add(img);
             img.progressProperty().addListener((obs, old, p) -> {
                 if (p.doubleValue() >= 1.0 && !img.isError()) {
                     iv.setImage(img);
+                    iv.setManaged(true);
                     iv.setVisible(true);
                     placeholder.setVisible(false);
                 }
             });
 
-            imgBox.getChildren().addAll(placeholder, iv);
+            imgBox.getChildren().addAll(placeholder, iv, hoverHint);
+            imgBox.setOnMouseEntered(e -> hoverHint.setVisible(true));
+            imgBox.setOnMouseExited(e -> hoverHint.setVisible(false));
+            imgBox.setOnMouseClicked(e -> openLightbox(stage, loadedImages, idx));
             imgRow.getChildren().add(imgBox);
         }
 
@@ -578,5 +599,95 @@ public class ServerDetailScreen {
         div.setMaxHeight(1);
         div.setStyle("-fx-background-color: #2a2e39;");
         return div;
+    }
+
+    // ── SCREENSHOT LIGHTBOX ───────────────────────────────────────────────────
+
+    private static void openLightbox(Stage owner, List<Image> images, int startIndex) {
+        Stage lightbox = new Stage();
+        lightbox.initOwner(owner);
+        lightbox.initModality(Modality.APPLICATION_MODAL);
+        lightbox.initStyle(StageStyle.TRANSPARENT);
+
+        int[] current = {startIndex};
+
+        // Main image
+        ImageView mainImg = new ImageView();
+        mainImg.setFitWidth(960);
+        mainImg.setFitHeight(540);
+        mainImg.setPreserveRatio(true);
+
+        StackPane imagePane = new StackPane(mainImg);
+        imagePane.setStyle("-fx-background-color: transparent;");
+
+        // Counter label
+        Label counter = new Label();
+        counter.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 13px;");
+
+        Runnable updateImage = () -> {
+            Image img = images.get(current[0]);
+            mainImg.setImage(img);
+            counter.setText((current[0] + 1) + " / " + images.size());
+        };
+
+        // Nav buttons
+        Button prevBtn = new Button("‹");
+        Button nextBtn = new Button("›");
+        for (Button b : new Button[]{prevBtn, nextBtn}) {
+            b.setStyle("-fx-background-color: rgba(255,255,255,0.1); -fx-text-fill: white;" +
+                "-fx-font-size: 28px; -fx-font-weight: bold; -fx-background-radius: 50;" +
+                "-fx-min-width: 48; -fx-min-height: 48; -fx-cursor: hand;");
+        }
+        prevBtn.setOnAction(e -> { current[0] = (current[0] - 1 + images.size()) % images.size(); updateImage.run(); });
+        nextBtn.setOnAction(e -> { current[0] = (current[0] + 1) % images.size(); updateImage.run(); });
+        prevBtn.setVisible(images.size() > 1);
+        nextBtn.setVisible(images.size() > 1);
+
+        // Close button
+        Button closeBtn = new Button("✕");
+        closeBtn.setStyle("-fx-background-color: rgba(255,255,255,0.15); -fx-text-fill: white;" +
+            "-fx-font-size: 16px; -fx-background-radius: 50; -fx-min-width: 36; -fx-min-height: 36; -fx-cursor: hand;");
+        closeBtn.setOnAction(e -> lightbox.close());
+
+        HBox navRow = new HBox(20, prevBtn, counter, nextBtn);
+        navRow.setAlignment(Pos.CENTER);
+
+        HBox topBar = new HBox(closeBtn);
+        topBar.setAlignment(Pos.CENTER_RIGHT);
+        topBar.setPadding(new Insets(0, 0, 12, 0));
+
+        VBox content = new VBox(16, topBar, imagePane, navRow);
+        content.setAlignment(Pos.CENTER);
+        content.setPadding(new Insets(24));
+        content.setStyle(
+            "-fx-background-color: rgba(10,12,18,0.95);" +
+            "-fx-background-radius: 14;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 40, 0, 0, 8);"
+        );
+        content.setMaxWidth(1040);
+        content.setMaxHeight(660);
+
+        // Dim overlay
+        StackPane overlay = new StackPane(content);
+        overlay.setStyle("-fx-background-color: rgba(0,0,0,0.75);");
+        overlay.setOnMouseClicked(e -> { if (e.getTarget() == overlay) lightbox.close(); });
+
+        Scene scene = new Scene(overlay, owner.getWidth(), owner.getHeight());
+        scene.setFill(Color.TRANSPARENT);
+        scene.setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.ESCAPE) lightbox.close();
+            if (e.getCode() == KeyCode.LEFT)  { current[0] = (current[0] - 1 + images.size()) % images.size(); updateImage.run(); }
+            if (e.getCode() == KeyCode.RIGHT) { current[0] = (current[0] + 1) % images.size(); updateImage.run(); }
+        });
+
+        updateImage.run();
+
+        // Fade in
+        overlay.setOpacity(0);
+        lightbox.setScene(scene);
+        lightbox.show();
+        FadeTransition fadeIn = new FadeTransition(Duration.millis(180), overlay);
+        fadeIn.setToValue(1.0);
+        fadeIn.play();
     }
 }

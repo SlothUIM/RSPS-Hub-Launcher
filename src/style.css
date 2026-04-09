@@ -1036,10 +1036,14 @@
     -fx-text-fill: #8b92a5;
     -fx-font-size: 14px;
     -fx-cursor: hand;
-    -fx-padding: 0 14;
-    -fx-pref-height: 36px;
-    -fx-min-height: 36px;
+    -fx-padding: 0 16;
+    -fx-pref-height: 34px;
+    -fx-min-height: 34px;
+    -fx-max-height: 34px;
+    -fx-pref-width: 46px;
+    -fx-min-width: 46px;
     -fx-background-radius: 0;
+    -fx-background-insets: 0;
     -fx-border-width: 0;
 }
 

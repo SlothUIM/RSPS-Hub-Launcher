@@ -26,6 +26,11 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
+import java.awt.AWTException;
+import java.awt.PopupMenu;
+import java.awt.SystemTray;
+import java.awt.TrayIcon;
+import java.awt.image.BufferedImage;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -121,6 +126,8 @@ public class RSPSHub extends Application {
             if (scene != null) ResizeHelper.addTo(primaryStage, scene);
         });
 
+        setupTrayIcon(primaryStage);
+
         SplashScreen.show(primaryStage, () -> showLoginScreen(primaryStage));
         primaryStage.show();
     }
@@ -144,7 +151,7 @@ public class RSPSHub extends Application {
     }
 
     private void showSettings(Stage stage) {
-        transitionTo(stage, () -> AccountSettingsScreen.create(
+        stage.setScene(AccountSettingsScreen.create(
             stage,
             () -> showHub(stage),
             () -> { allServers = null; LauncherEngine.currentUsername = ""; LauncherEngine.avatarImagePath = null; showLoginScreen(stage); },
@@ -153,11 +160,12 @@ public class RSPSHub extends Application {
     }
 
     private void showDevPortal(Stage stage) {
-        transitionTo(stage, () -> DeveloperPortalScreen.create(stage, () -> showSettings(stage)));
+        stage.setScene(DeveloperPortalScreen.create(stage, () -> showSettings(stage)));
     }
 
     private void showServerDetail(Stage stage, ServerProfile server) {
-        transitionTo(stage, () -> ServerDetailScreen.create(stage, server, () -> showHub(stage)));
+        Scene next = ServerDetailScreen.create(stage, server, () -> showHub(stage));
+        stage.setScene(next);
     }
 
     private void showStats(Stage stage) {
@@ -384,7 +392,7 @@ public class RSPSHub extends Application {
         Scene scene = new Scene(hubRoot);
         scene.getStylesheets().addAll(LauncherEngine.getStylesheets(getClass()));
         SceneUtils.applyRoundedCorners(scene, hubRoot, stage);
-        transitionTo(stage, () -> scene);
+        stage.setScene(scene);
 
         // Mock friend activity toast on hub load
         PauseTransition toastDelay = new PauseTransition(Duration.seconds(1.5));
@@ -402,6 +410,67 @@ public class RSPSHub extends Application {
         for (Button b : new Button[]{storeTab, libraryTab, friendsTab, statsTab, leaderboardTab})
             b.getStyleClass().setAll("nav-tab");
         active.getStyleClass().setAll("nav-tab-active");
+    }
+
+    // ── TRAY ICON ─────────────────────────────────────────────────────────────
+
+    private void setupTrayIcon(Stage stage) {
+        if (!SystemTray.isSupported()) return;
+
+        Platform.setImplicitExit(false);
+
+        // Draw a simple orange circle icon
+        BufferedImage image = new BufferedImage(32, 32, BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = image.createGraphics();
+        g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setColor(new java.awt.Color(0xff, 0x98, 0x1f));
+        g.fillOval(2, 2, 28, 28);
+        g.setColor(java.awt.Color.WHITE);
+        g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 14));
+        java.awt.FontMetrics fm = g.getFontMetrics();
+        String text = "R";
+        g.drawString(text, (32 - fm.stringWidth(text)) / 2, (32 - fm.getHeight()) / 2 + fm.getAscent());
+        g.dispose();
+
+        PopupMenu popup = new PopupMenu();
+        java.awt.MenuItem openItem = new java.awt.MenuItem("Open RSPS Hub");
+        java.awt.MenuItem exitItem = new java.awt.MenuItem("Exit");
+
+        openItem.addActionListener(e -> Platform.runLater(() -> {
+            stage.show();
+            stage.setIconified(false);
+            stage.toFront();
+        }));
+        exitItem.addActionListener(e -> {
+            SystemTray.getSystemTray().remove(SystemTray.getSystemTray().getTrayIcons()[0]);
+            Platform.exit();
+        });
+
+        popup.add(openItem);
+        popup.addSeparator();
+        popup.add(exitItem);
+
+        TrayIcon trayIcon = new TrayIcon(image, "RSPS Hub", popup);
+        trayIcon.setImageAutoSize(true);
+        trayIcon.addActionListener(e -> Platform.runLater(() -> {
+            stage.show();
+            stage.setIconified(false);
+            stage.toFront();
+        }));
+
+        try {
+            SystemTray.getSystemTray().add(trayIcon);
+        } catch (AWTException e) {
+            e.printStackTrace();
+            return;
+        }
+
+        // Intercept close → minimize to tray instead
+        stage.setOnCloseRequest(e -> {
+            e.consume();
+            stage.hide();
+            trayIcon.displayMessage("RSPS Hub", "Running in the background. Right-click the tray icon to exit.", TrayIcon.MessageType.INFO);
+        });
     }
 
     // ── SCREEN TRANSITION ─────────────────────────────────────────────────────
