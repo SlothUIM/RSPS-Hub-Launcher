@@ -7,6 +7,7 @@ public class ServerProfile {
     public String name;
     public String tagline;
     public String description;
+    public transient String apiKey;
     
     // We added this in the Developer Portal!
     @SerializedName("xp_rate")
