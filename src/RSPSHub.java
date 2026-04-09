@@ -164,7 +164,25 @@ public class RSPSHub extends Application {
 
         setupTrayIcon(primaryStage);
 
-        SplashScreen.show(primaryStage, () -> showLoginScreen(primaryStage));
+        SplashScreen.show(primaryStage, () -> {
+            // Check for saved session — auto login if found
+            String[] saved = LoginScreen.loadSession();
+            if (saved != null) {
+                LauncherEngine.currentUsername = saved[0];
+                LauncherEngine.sessionToken    = saved[1];
+                if (LauncherEngine.hasCompletedOnboarding) {
+                    showHub(primaryStage);
+                } else {
+                    primaryStage.setScene(OnboardingScreen.create(primaryStage, () -> {
+                        LauncherEngine.hasCompletedOnboarding = true;
+                        LauncherEngine.saveSettings();
+                        showHub(primaryStage);
+                    }));
+                }
+            } else {
+                showLoginScreen(primaryStage);
+            }
+        });
         primaryStage.show();
     }
 

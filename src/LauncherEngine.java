@@ -31,7 +31,7 @@ public class LauncherEngine {
     public static boolean autoUpdateClients = false;
     public static boolean lightMode = false;
     public static boolean autoLaunch = false;
-    public static String accentColor = "#ff981f";
+    public static String accentColor = "#9b5de5";
     public static Set<String> favouriteServers = new LinkedHashSet<>();
     public static Map<String, String> serverNotes = new HashMap<>();
     public static boolean friendActivityNotifications = true;
