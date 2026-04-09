@@ -31,6 +31,7 @@ public class LauncherEngine {
     public static boolean autoUpdateClients = false;
     public static boolean lightMode = false;
     public static boolean autoLaunch = false;
+    public static boolean minimizeToTray = false;
     public static String accentColor = "#9b5de5";
     public static Set<String> favouriteServers = new LinkedHashSet<>();
     public static Map<String, String> serverNotes = new HashMap<>();
@@ -49,7 +50,7 @@ public class LauncherEngine {
 
     private static class SettingsData {
         String downloadPath, statusMessage, accentColor, profilePrivacy;
-        boolean minimizeOnLaunch, autoUpdateClients, lightMode, autoLaunch;
+        boolean minimizeOnLaunch, autoUpdateClients, lightMode, autoLaunch, minimizeToTray;
         List<String> favouriteServers, preferredTags;
         Map<String, String> serverNotes;
         Boolean friendActivityNotifications, notifFriendRequests, notifFriendOnline, notifServerUpdates, notifSystem, notifStreakReminder, hasCompletedOnboarding;
@@ -60,6 +61,7 @@ public class LauncherEngine {
             SettingsData d = new SettingsData();
             d.downloadPath = downloadPath; d.statusMessage = statusMessage; d.minimizeOnLaunch = minimizeOnLaunch;
             d.autoUpdateClients = autoUpdateClients; d.lightMode = lightMode; d.autoLaunch = autoLaunch;
+            d.minimizeToTray = minimizeToTray;
             d.accentColor = accentColor; d.favouriteServers = new ArrayList<>(favouriteServers);
             d.serverNotes = serverNotes; d.friendActivityNotifications = friendActivityNotifications;
             d.notifFriendRequests = notifFriendRequests; d.notifFriendOnline = notifFriendOnline;
@@ -90,7 +92,7 @@ public class LauncherEngine {
             if (d.preferredTags != null) preferredTags = d.preferredTags;
             if (d.profilePrivacy != null) profilePrivacy = d.profilePrivacy;
             minimizeOnLaunch = d.minimizeOnLaunch; autoUpdateClients = d.autoUpdateClients;
-            lightMode = d.lightMode; autoLaunch = d.autoLaunch;
+            lightMode = d.lightMode; autoLaunch = d.autoLaunch; minimizeToTray = d.minimizeToTray;
         } catch (Exception e) { System.err.println("Failed to load settings: " + e.getMessage()); }
     }
 
@@ -106,10 +108,62 @@ public class LauncherEngine {
 
     public static void setAccentColor(String hex) { accentColor = hex; writeAccentCss(); saveSettings(); }
 
+    public static String darkenHex(String hex, double factor) {
+        try {
+            int r = Integer.parseInt(hex.substring(1, 3), 16);
+            int g = Integer.parseInt(hex.substring(3, 5), 16);
+            int b = Integer.parseInt(hex.substring(5, 7), 16);
+            return String.format("#%02x%02x%02x", (int)(r * factor), (int)(g * factor), (int)(b * factor));
+        } catch (Exception e) { return hex; }
+    }
+
     public static void writeAccentCss() {
         try {
             Files.createDirectories(ACCENT_CSS_PATH.getParent());
-            Files.writeString(ACCENT_CSS_PATH, ".nav-tab-active { -fx-text-fill: " + accentColor + "; -fx-border-color: " + accentColor + "; }\n.play-button { -fx-background-color: " + accentColor + "; }");
+            String a = accentColor;
+            String d = darkenHex(a, 0.8);
+            StringBuilder css = new StringBuilder();
+            css.append(".nav-tab-active { -fx-text-fill: ").append(a).append("; -fx-border-color: ").append(a).append("; }\n");
+            css.append(".search-field:focused { -fx-border-color: ").append(a).append("; }\n");
+            css.append(".filter-btn-active { -fx-border-color: ").append(a).append("; }\n");
+            css.append(".server-card-wrapper:hover { -fx-border-color: ").append(a).append("; }\n");
+            css.append(".play-button { -fx-background-color: ").append(a).append("; }\n");
+            css.append(".play-button:hover { -fx-background-color: ").append(d).append("; }\n");
+            css.append(".detail-icon-placeholder { -fx-text-fill: ").append(a).append("; }\n");
+            css.append(".detail-stars-display { -fx-text-fill: ").append(a).append("; }\n");
+            css.append(".review-avatar { -fx-text-fill: ").append(a).append("; }\n");
+            css.append(".review-star-selected { -fx-text-fill: ").append(a).append("; }\n");
+            css.append(".msg-bubble-me { -fx-background-color: ").append(a).append("; }\n");
+            css.append(".msg-sender-name { -fx-text-fill: ").append(a).append("; }\n");
+            css.append(".nav-avatar { -fx-background-color: ").append(a).append("; }\n");
+            css.append(".nav-account-widget:hover .nav-username { -fx-text-fill: ").append(a).append("; }\n");
+            css.append(".settings-section-header { -fx-text-fill: ").append(a).append("; }\n");
+            css.append(".settings-checkbox:selected .box { -fx-background-color: ").append(a).append("; -fx-border-color: ").append(a).append("; }\n");
+            css.append(".settings-avatar { -fx-background-color: ").append(a).append("; }\n");
+            css.append(".dev-textarea { -fx-highlight-fill: ").append(a).append("; }\n");
+            css.append(".dev-textarea:focused { -fx-border-color: ").append(a).append("; }\n");
+            css.append(".dev-tag-check:selected .box { -fx-background-color: ").append(a).append("; -fx-border-color: ").append(a).append("; }\n");
+            css.append(".auth-field:focused { -fx-border-color: ").append(a).append("; }\n");
+            css.append(".auth-btn { -fx-background-color: ").append(a).append("; }\n");
+            css.append(".auth-btn:hover { -fx-background-color: ").append(d).append("; }\n");
+            css.append(".auth-link { -fx-text-fill: ").append(a).append("; }\n");
+            css.append(".auth-link:hover { -fx-text-fill: ").append(d).append("; }\n");
+            css.append(".friends-subtab-active { -fx-border-color: ").append(a).append("; }\n");
+            css.append(".splash-logo { -fx-text-fill: ").append(a).append("; }\n");
+            css.append(".splash-progress .bar { -fx-background-color: ").append(a).append("; }\n");
+            css.append(".dialog-pane .button-bar .button:default { -fx-background-color: ").append(a).append("; }\n");
+            css.append(".dialog-pane .button-bar .button:default:hover { -fx-background-color: ").append(d).append("; }\n");
+            css.append(".dialog-pane .text-field:focused { -fx-border-color: ").append(a).append("; }\n");
+            css.append(".nav-bell-badge { -fx-background-color: ").append(a).append("; }\n");
+            css.append(".dark-menu-btn:hover { -fx-border-color: ").append(a).append("; }\n");
+            css.append(".fav-btn:hover { -fx-text-fill: ").append(a).append("; }\n");
+            css.append(".fav-btn-active { -fx-text-fill: ").append(a).append("; }\n");
+            css.append(".server-note-text { -fx-text-fill: ").append(a).append("; }\n");
+            css.append(".pinned-header { -fx-text-fill: ").append(a).append("; }\n");
+            css.append(".skill-level-badge { -fx-text-fill: ").append(a).append("; }\n");
+            css.append(".xp-bar-fill { -fx-background-color: ").append(a).append("; }\n");
+            css.append(".profile-avatar { -fx-background-color: ").append(a).append("; }\n");
+            Files.writeString(ACCENT_CSS_PATH, css.toString());
         } catch (Exception e) { System.err.println("Failed to write accent CSS: " + e.getMessage()); }
     }
 

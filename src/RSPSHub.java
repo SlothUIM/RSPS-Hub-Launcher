@@ -170,15 +170,13 @@ public class RSPSHub extends Application {
             if (saved != null) {
                 LauncherEngine.currentUsername = saved[0];
                 LauncherEngine.sessionToken    = saved[1];
-                if (LauncherEngine.hasCompletedOnboarding) {
-                    showHub(primaryStage);
-                } else {
-                    primaryStage.setScene(OnboardingScreen.create(primaryStage, () -> {
-                        LauncherEngine.hasCompletedOnboarding = true;
-                        LauncherEngine.saveSettings();
-                        showHub(primaryStage);
-                    }));
-                }
+                // If they have a saved session they've already been through onboarding — skip it.
+                // NOTE: do NOT call saveSettings() here — init() hasn't run yet so all settings
+                // are still at their in-memory defaults (including accentColor = #9b5de5).
+                // Saving now would overwrite the real settings.json and wipe the player's saved accent.
+                // showHub() will call init() → loadSettings() → writeAccentCss() with the real values.
+                LauncherEngine.hasCompletedOnboarding = true;
+                showHub(primaryStage);
             } else {
                 showLoginScreen(primaryStage);
             }
@@ -498,11 +496,11 @@ public class RSPSHub extends Application {
 
         Platform.setImplicitExit(false);
 
-        // Draw a simple orange circle icon
+        // Draw a simple purple circle icon
         BufferedImage image = new BufferedImage(32, 32, BufferedImage.TYPE_INT_ARGB);
         java.awt.Graphics2D g = image.createGraphics();
         g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
-        g.setColor(new java.awt.Color(0xff, 0x98, 0x1f));
+        g.setColor(new java.awt.Color(0x9b, 0x5d, 0xe5));
         g.fillOval(2, 2, 28, 28);
         g.setColor(java.awt.Color.WHITE);
         g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 14));
@@ -544,11 +542,16 @@ public class RSPSHub extends Application {
             return;
         }
 
-        // Intercept close → minimize to tray instead
+        // Intercept close — minimize to tray if the setting is on, otherwise exit normally
         stage.setOnCloseRequest(e -> {
-            e.consume();
-            stage.hide();
-            trayIcon.displayMessage("RSPS Hub", "Running in the background. Right-click the tray icon to exit.", TrayIcon.MessageType.INFO);
+            if (LauncherEngine.minimizeToTray) {
+                e.consume();
+                stage.hide();
+                trayIcon.displayMessage("RSPS Hub", "Running in the background. Right-click the tray icon to exit.", TrayIcon.MessageType.INFO);
+            } else {
+                SystemTray.getSystemTray().remove(trayIcon);
+                Platform.exit();
+            }
         });
     }
 
