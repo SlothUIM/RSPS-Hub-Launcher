@@ -80,10 +80,17 @@ public class RegisterScreen {
                         registerBtn.setText("CREATE ACCOUNT");
                         registerBtn.setDisable(false);
                         
-                        if (response != null && !response.contains("error")) {
+                        if (response != null && response.contains("\"success\"")) {
                             onRegisterSuccess.run();
+                        } else if (response != null && response.contains("\"error\"")) {
+                            try {
+                                com.google.gson.JsonObject obj = new com.google.gson.Gson().fromJson(response, com.google.gson.JsonObject.class);
+                                showError(errorLabel, obj.get("error").getAsString());
+                            } catch (Exception e2) {
+                                showError(errorLabel, "Registration failed.");
+                            }
                         } else {
-                            showError(errorLabel, "Username or email already exists.");
+                            showError(errorLabel, "Could not connect to server.");
                         }
                     });
                 }).exceptionally(ex -> {

@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit;
 public class HubConnector {
 
     // The endpoint pointing to your VPS
-    private static final String API_URL = "http://slothscape.duckdns.org/api/update_players";
+    private static final String API_URL = "https://api.rspshub.gg/api/update_players";
 
     /**
      * Starts the background heartbeat to update the RSPS Hub.
