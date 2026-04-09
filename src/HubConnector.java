@@ -1,24 +1,43 @@
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-/*
- * For Server owners and developers as a drop in class
- * Just add HubConnector.init("YourServerName"); to your server startup and we handle the rest.
- */
 public class HubConnector {
-    public static void init(String serverName) {
+
+    // The endpoint pointing to your VPS
+    private static final String API_URL = "http://slothscape.duckdns.org:8080/api/update_players";
+
+    /**
+     * Starts the background heartbeat to update the RSPS Hub.
+     * * @param serverName The exact name of your server as registered on the Hub.
+     * @param apiKey     Your secret API key from the Developer Portal.
+     */
+    public static void start(String serverName, String apiKey) {
+        System.out.println("[RSPS Hub] Connector initialized for: " + serverName);
+
         Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() -> {
             try {
-                /*
-                 *  Swap 0 with 'PlayerHandler.getCount()' or your servers variable
-                 */
-                int count = 0;
-                
-                URL url = new URL("http://slothscape.duckdns.org:8080/api/update_players?name=" 
-                                   + serverName + "&count=" + count);
-                url.openStream().close();
-            } catch (Exception ignored) {}
-        }, 1, 1, TimeUnit.MINUTES);
+                // 👉 DEV INSTRUCTION: Change this line to however your server counts players!
+                // Example: World.getPlayers().size() OR PlayerHandler.getPlayerCount()
+                int currentPlayers = 0; //PlayerHandler.getPlayerCount(); 
+
+                // Safely format the URL (handles spaces in server names)
+                String safeName = serverName.replace(" ", "%20");
+                String requestUrl = API_URL + "?name=" + safeName 
+                                  + "&count=" + currentPlayers 
+                                  + "&key=" + apiKey;
+
+                // Send the heartbeat
+                URL url = new URL(requestUrl);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(3000); // 3-second timeout limits lag
+                conn.getResponseCode();       // Executes the ping
+
+            } catch (Exception e) {
+                // Fails silently to prevent console spam if the Hub is restarting
+            }
+        }, 0, 1, TimeUnit.MINUTES); // Pings once every 60 seconds
     }
 }
