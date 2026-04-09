@@ -16,7 +16,7 @@ import com.google.gson.reflect.TypeToken;
 public class ApiClient {
     // Make sure your BASE_URL ends with a slash!
 	// Notice the :4567 added here!
-	private static final String BASE_URL = "http://slothscape.duckdns.org:8080/api/";
+	private static final String BASE_URL = "https://api.rspshub.gg/api/";
     private static final HttpClient client = HttpClient.newHttpClient();
 
     /**

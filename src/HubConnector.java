@@ -15,7 +15,7 @@ public class HubConnector {
                  */
                 int count = 0;
                 
-                URL url = new URL("http://slothscape.duckdns.org:8080/api/update_players?name="
+                URL url = new URL("https://api.rspshub.gg/api/update_players?name="
                                    + serverName + "&count=" + count);
                 url.openStream().close();
             } catch (Exception ignored) {}
