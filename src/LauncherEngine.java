@@ -230,13 +230,20 @@ public class LauncherEngine {
      * Downloads a specific server's client with optional progress reporting and cancel support.
      * The UI will call this when 'Play' is clicked if the file is missing.
      */
+    public static String jarFileName(ServerProfile server) {
+        if (server.jar_url == null || server.jar_url.isEmpty()) return "client.jar";
+        String raw = server.jar_url.replaceAll("\\?.*", ""); // strip query params
+        String name = raw.substring(raw.lastIndexOf('/') + 1);
+        return name.endsWith(".jar") ? name : "client.jar";
+    }
+
     public static boolean downloadClient(ServerProfile server, DoubleConsumer onProgress, boolean[] cancelledFlag) {
         Path jarPath = null;
         try {
             Path serverFolder = Paths.get(downloadPath, server.name.replaceAll(" ", "_"));
             Files.createDirectories(serverFolder);
 
-            jarPath = serverFolder.resolve("SlothLite.jar");
+            jarPath = serverFolder.resolve(jarFileName(server));
 
             System.out.println("Downloading " + server.name + "...");
 
@@ -283,7 +290,7 @@ public class LauncherEngine {
             Path serverFolder = Paths.get(downloadPath, server.name.replaceAll(" ", "_"));
             // Note: We use the serverFolder as the working directory so the game
             // saves its own cache/settings in the right spot!
-            ProcessBuilder pb = new ProcessBuilder("java", "-jar", "SlothLite.jar");
+            ProcessBuilder pb = new ProcessBuilder("java", "-jar", jarFileName(server));
             pb.directory(serverFolder.toFile());
             return pb.start();
         } catch (Exception e) {
@@ -296,7 +303,7 @@ public class LauncherEngine {
      * Helper to check if a server is already downloaded.
      */
     public static boolean isDownloaded(ServerProfile server) {
-        Path jarPath = Paths.get(downloadPath, server.name.replaceAll(" ", "_"), "SlothLite.jar");
+        Path jarPath = Paths.get(downloadPath, server.name.replaceAll(" ", "_"), jarFileName(server));
         return Files.exists(jarPath);
     }
 
@@ -324,7 +331,7 @@ public class LauncherEngine {
      */
     public static boolean isUpdateAvailable(ServerProfile server) {
         try {
-            Path jarPath = Paths.get(downloadPath, server.name.replaceAll(" ", "_"), "SlothLite.jar");
+            Path jarPath = Paths.get(downloadPath, server.name.replaceAll(" ", "_"), jarFileName(server));
             if (!Files.exists(jarPath)) return false;
 
             long localSize = Files.size(jarPath);

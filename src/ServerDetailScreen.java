@@ -188,17 +188,47 @@ public class ServerDetailScreen {
         String accent = (server.accent_color != null && !server.accent_color.isEmpty())
             ? server.accent_color : LauncherEngine.accentColor;
 
-        Button playBtn = new Button(LauncherEngine.isDownloaded(server) ? "PLAY" : "INSTALL");
+        boolean alreadyInstalled = LauncherEngine.isDownloaded(server);
+        Button playBtn = new Button(alreadyInstalled ? "PLAY" : "INSTALL");
         playBtn.getStyleClass().add("play-button");
         playBtn.setStyle("-fx-background-color: " + accent + ";");
         playBtn.setPrefWidth(160);
+
+        ProgressBar dlBar = new ProgressBar(0);
+        dlBar.setPrefWidth(160);
+        dlBar.setVisible(false);
+        dlBar.setManaged(false);
+        dlBar.setStyle("-fx-accent: " + accent + ";");
+
+        Label dlLabel = new Label();
+        dlLabel.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 11px;");
+        dlLabel.setVisible(false);
+        dlLabel.setManaged(false);
+
         playBtn.setOnAction(e -> {
             if (!LauncherEngine.isDownloaded(server)) {
                 playBtn.setDisable(true);
                 playBtn.setText("DOWNLOADING...");
+                dlBar.setProgress(0);
+                dlBar.setVisible(true);
+                dlBar.setManaged(true);
+                dlLabel.setText("0%");
+                dlLabel.setVisible(true);
+                dlLabel.setManaged(true);
+
                 new Thread(() -> {
-                    boolean ok = LauncherEngine.downloadClient(server);
+                    boolean ok = LauncherEngine.downloadClient(server,
+                        progress -> javafx.application.Platform.runLater(() -> {
+                            dlBar.setProgress(progress);
+                            dlLabel.setText((int)(progress * 100) + "%");
+                        }),
+                        null
+                    );
                     javafx.application.Platform.runLater(() -> {
+                        dlBar.setVisible(false);
+                        dlBar.setManaged(false);
+                        dlLabel.setVisible(false);
+                        dlLabel.setManaged(false);
                         playBtn.setDisable(false);
                         playBtn.setText(ok ? "PLAY" : "INSTALL");
                     });
@@ -231,7 +261,7 @@ public class ServerDetailScreen {
             socialRow.getChildren().add(webBtn);
         }
 
-        right.getChildren().addAll(players, playBtn, socialRow);
+        right.getChildren().addAll(players, playBtn, dlBar, dlLabel, socialRow);
         bar.getChildren().addAll(left, right);
         return bar;
     }
