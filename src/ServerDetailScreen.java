@@ -528,15 +528,37 @@ public class ServerDetailScreen {
 
     private static void refreshReviewList(VBox reviewList, List<Review> reviews) {
         reviewList.getChildren().clear();
-        if (reviews.isEmpty()) {
+        List<Review> visible = reviews.stream().filter(r -> !r.pending).toList();
+        if (visible.isEmpty()) {
             Label empty = new Label("No reviews yet. Be the first!");
             empty.getStyleClass().add("auth-muted");
             reviewList.getChildren().add(empty);
             return;
         }
-        for (Review r : reviews) {
+        for (Review r : visible) {
             reviewList.getChildren().add(buildReviewCard(r));
         }
+    }
+
+    // ── MODERATION API (used by DeveloperPortalScreen) ───────────────────────
+
+    /** Returns all pending reviews across every server, as server-name → review pairs. */
+    public static Map<Integer, List<Review>> getPendingReviews() {
+        Map<Integer, List<Review>> result = new HashMap<>();
+        for (var entry : reviewStore.entrySet()) {
+            List<Review> pending = entry.getValue().stream().filter(r -> r.pending).toList();
+            if (!pending.isEmpty()) result.put(entry.getKey(), pending);
+        }
+        return result;
+    }
+
+    public static void approveReview(int serverId, Review review) {
+        review.pending = false;
+    }
+
+    public static void rejectReview(int serverId, Review review) {
+        List<Review> list = reviewStore.get(serverId);
+        if (list != null) list.remove(review);
     }
 
     private static HBox buildReviewCard(Review r) {
@@ -625,7 +647,8 @@ public class ServerDetailScreen {
                 errorLabel.setManaged(true);
                 return;
             }
-            if (commentField.getText().trim().isEmpty()) {
+            String text = commentField.getText().trim();
+            if (text.isEmpty()) {
                 errorLabel.setText("Please write a comment.");
                 errorLabel.setVisible(true);
                 errorLabel.setManaged(true);
@@ -635,23 +658,35 @@ public class ServerDetailScreen {
             Review newReview = new Review(
                 LauncherEngine.currentUsername.isEmpty() ? "Anonymous" : LauncherEngine.currentUsername,
                 selectedRating[0],
-                commentField.getText().trim(),
+                text,
                 java.time.LocalDate.now().toString()
             );
-            reviews.add(0, newReview);
+
+            if (containsProfanity(text)) {
+                newReview.pending = true;
+                reviews.add(0, newReview);
+                errorLabel.setText("⚠  Your review contains inappropriate language and is under review by the server owner.");
+                errorLabel.setStyle("-fx-text-fill: #e09020; -fx-font-size: 12px;");
+                errorLabel.setVisible(true);
+                errorLabel.setManaged(true);
+            } else {
+                reviews.add(0, newReview);
+                errorLabel.setVisible(false);
+                errorLabel.setManaged(false);
+            }
+
             refreshReviewList(reviewList, reviews);
 
-            // Update average
-            double newAvg = reviews.stream().mapToInt(r -> r.stars).average().orElse(0);
+            // Update average (only count approved reviews)
+            double newAvg = reviews.stream().filter(r -> !r.pending).mapToInt(r -> r.stars).average().orElse(0);
+            long approved = reviews.stream().filter(r -> !r.pending).count();
             avgLabel.setText(String.format("%.1f / 5", newAvg));
             starsLabel.setText(buildStarString((int) Math.round(newAvg)));
-            countLabel.setText("(" + reviews.size() + " reviews)");
+            countLabel.setText("(" + approved + " reviews)");
 
             commentField.clear();
             selectedRating[0] = 0;
             updateStarPicker(starLabels, 0, 0);
-            errorLabel.setVisible(false);
-            errorLabel.setManaged(false);
         });
 
         form.getChildren().addAll(formHeader, starPicker, commentField, errorLabel, submitBtn);
@@ -773,5 +808,22 @@ public class ServerDetailScreen {
         FadeTransition fadeIn = new FadeTransition(Duration.millis(180), overlay);
         fadeIn.setToValue(1.0);
         fadeIn.play();
+    }
+
+    // ── PROFANITY FILTER ─────────────────────────────────────────────────────
+
+    private static final Set<String> BANNED_WORDS = Set.of(
+        "fuck", "shit", "bitch", "asshole", "bastard", "cunt", "dick", "cock",
+        "pussy", "faggot", "nigger", "nigga", "retard", "whore", "slut",
+        "motherfucker", "fucker", "ass", "piss", "crap", "damn", "hell",
+        "bollocks", "wanker", "twat", "prick", "arsehole", "arse"
+    );
+
+    private static boolean containsProfanity(String text) {
+        String lower = text.toLowerCase().replaceAll("[^a-z ]", " ");
+        for (String word : lower.split("\\s+")) {
+            if (BANNED_WORDS.contains(word)) return true;
+        }
+        return false;
     }
 }

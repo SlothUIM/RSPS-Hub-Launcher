@@ -1889,6 +1889,15 @@ public class RSPSHub extends Application {
 
     // ── NOTIFICATION POPUP ───────────────────────────────────────────────────
 
+    private void refreshNotifBadge() {
+        long unread = notifications.stream().filter(n -> !n.read).count();
+        if (notifBadge != null) {
+            notifBadge.setText(String.valueOf(unread));
+            notifBadge.setVisible(unread > 0);
+            notifBadge.setManaged(unread > 0);
+        }
+    }
+
     private void showNotificationPopup(Button anchor) {
         // Toggle off if already showing
         if (notifPopup != null && notifPopup.isShowing()) { notifPopup.hide(); notifPopup = null; return; }
@@ -1913,14 +1922,14 @@ public class RSPSHub extends Application {
         String btnStyle = "-fx-background-color: transparent; -fx-font-size: 11px; -fx-cursor: hand; -fx-padding: 0;";
         Button markRead = new Button("Mark all read");
         markRead.setStyle(btnStyle + "-fx-text-fill: #ff981f;");
-        markRead.setOnAction(e -> { notifications.forEach(n -> n.read = true); popup.hide(); updateDisplay(); });
+        markRead.setOnAction(e -> { notifications.forEach(n -> n.read = true); popup.hide(); refreshNotifBadge(); });
 
         Label sep = new Label("·");
         sep.setStyle("-fx-text-fill: #3a3e4a;");
 
         Button clearAll = new Button("Clear all");
         clearAll.setStyle(btnStyle + "-fx-text-fill: #8b92a5;");
-        clearAll.setOnAction(e -> { notifications.clear(); popup.hide(); updateDisplay(); });
+        clearAll.setOnAction(e -> { notifications.clear(); popup.hide(); refreshNotifBadge(); });
 
         Region hSp = new Region(); HBox.setHgrow(hSp, Priority.ALWAYS);
         HBox header = new HBox(6, title, hSp, markRead, sep, clearAll);
@@ -1939,7 +1948,7 @@ public class RSPSHub extends Application {
         } else {
             ScrollPane scroll = new ScrollPane();
             scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-            scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+            scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
             scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
             scroll.setMaxHeight(420);
 
@@ -1955,6 +1964,7 @@ public class RSPSHub extends Application {
                 }
             }
             scroll.setContent(list);
+            scroll.setFitToWidth(true);
             box.getChildren().add(scroll);
         }
 
@@ -2028,13 +2038,13 @@ public class RSPSHub extends Application {
                 notifications.remove(n);
                 ActivityStore.add(new ActivityItem(uname, "joined as your friend", "", "Just now"));
                 popup.hide();
-                updateDisplay();
+                refreshNotifBadge();
             });
             declineBtn.setOnAction(e -> {
                 friendRequests.removeIf(r -> r.username.equals(uname));
                 notifications.remove(n);
                 popup.hide();
-                updateDisplay();
+                refreshNotifBadge();
             });
             HBox actions = new HBox(6, acceptBtn, declineBtn);
             actions.setPadding(new Insets(6, 0, 0, 0));

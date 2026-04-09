@@ -13,6 +13,7 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class DeveloperPortalScreen {
 
@@ -53,7 +54,8 @@ public class DeveloperPortalScreen {
             buildAboutSection(),
             buildScreenshotsSection(),
             buildServerSection(),
-            buildTagsSection(onBack));
+            buildTagsSection(onBack),
+            buildModerationSection());
 
         VBox wrapper = new VBox(content);
         wrapper.setAlignment(Pos.TOP_CENTER);
@@ -426,5 +428,94 @@ public class DeveloperPortalScreen {
         row.setAlignment(Pos.TOP_LEFT);
         HBox.setHgrow(control, Priority.ALWAYS);
         return row;
+    }
+
+    private static VBox buildModerationSection() {
+        VBox list = new VBox(10);
+
+        Runnable refresh = () -> {
+            list.getChildren().clear();
+            Map<Integer, List<Review>> pending = ServerDetailScreen.getPendingReviews();
+
+            if (pending.isEmpty()) {
+                Label none = new Label("No reviews pending moderation.");
+                none.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 13px;");
+                list.getChildren().add(none);
+                return;
+            }
+
+            for (var entry : pending.entrySet()) {
+                int serverId = entry.getKey();
+                for (Review r : new java.util.ArrayList<>(entry.getValue())) {
+                    // Card
+                    VBox card = new VBox(6);
+                    card.setStyle(
+                        "-fx-background-color: #1a1d24; -fx-background-radius: 8;" +
+                        "-fx-border-color: #e09020; -fx-border-radius: 8; -fx-border-width: 1;" +
+                        "-fx-padding: 12 16;"
+                    );
+
+                    Label stars = new Label("★".repeat(r.stars) + "☆".repeat(5 - r.stars));
+                    stars.setStyle("-fx-text-fill: #ff981f; -fx-font-size: 13px;");
+
+                    Label author = new Label(r.username + "  •  " + r.date);
+                    author.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 11px;");
+
+                    Label comment = new Label(r.comment);
+                    comment.setStyle("-fx-text-fill: white; -fx-font-size: 13px;");
+                    comment.setWrapText(true);
+
+                    Label flaggedNote = new Label("⚠  Flagged for inappropriate language");
+                    flaggedNote.setStyle("-fx-text-fill: #e09020; -fx-font-size: 11px; -fx-font-style: italic;");
+
+                    Button approveBtn = new Button("✓  Approve");
+                    approveBtn.setStyle(
+                        "-fx-background-color: #2a4a2a; -fx-text-fill: #4caf50;" +
+                        "-fx-background-radius: 6; -fx-padding: 6 14; -fx-cursor: hand;"
+                    );
+
+                    Button rejectBtn = new Button("✕  Reject");
+                    rejectBtn.setStyle(
+                        "-fx-background-color: #4a2a2a; -fx-text-fill: #e05252;" +
+                        "-fx-background-radius: 6; -fx-padding: 6 14; -fx-cursor: hand;"
+                    );
+
+                    Runnable[] doRefresh = {null};
+                    approveBtn.setOnAction(e -> { ServerDetailScreen.approveReview(serverId, r); doRefresh[0].run(); });
+                    rejectBtn.setOnAction(e ->  { ServerDetailScreen.rejectReview(serverId, r);  doRefresh[0].run(); });
+
+                    HBox btnRow = new HBox(8, approveBtn, rejectBtn);
+                    card.getChildren().addAll(author, stars, comment, flaggedNote, btnRow);
+                    list.getChildren().add(card);
+
+                    // Wire refresh after reference is set
+                    Runnable refreshRef = () -> {
+                        list.getChildren().clear();
+                        buildModerationSection(); // triggers re-read but we need inline refresh
+                    };
+                    doRefresh[0] = () -> {
+                        Map<Integer, List<Review>> stillPending = ServerDetailScreen.getPendingReviews();
+                        list.getChildren().clear();
+                        if (stillPending.isEmpty()) {
+                            Label none = new Label("No reviews pending moderation.");
+                            none.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 13px;");
+                            list.getChildren().add(none);
+                        } else {
+                            for (var e2 : stillPending.entrySet()) {
+                                for (Review r2 : e2.getValue()) {
+                                    Label l = new Label(r2.username + ": " + r2.comment);
+                                    l.setStyle("-fx-text-fill: #8b92a5;");
+                                    list.getChildren().add(l);
+                                }
+                            }
+                        }
+                    };
+                }
+            }
+        };
+
+        refresh.run();
+
+        return devSection("REVIEW MODERATION", list);
     }
 }
