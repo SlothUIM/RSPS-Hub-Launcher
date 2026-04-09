@@ -251,20 +251,11 @@ public class AccountSettingsScreen {
             LauncherEngine.saveSettings();
         });
 
-        CheckBox minimizeToTrayCheck = new CheckBox("Keep running in the background when closed");
-        minimizeToTrayCheck.getStyleClass().add("settings-checkbox");
-        minimizeToTrayCheck.setSelected(LauncherEngine.minimizeToTray);
-        minimizeToTrayCheck.selectedProperty().addListener((obs, old, val) -> {
-            LauncherEngine.minimizeToTray = val;
-            LauncherEngine.saveSettings();
-        });
-
         return section("LAUNCHER SETTINGS",
             settingRow("Download Location", downloadRow),
             settingRow("Minimize on Launch", minimizeCheck),
             settingRow("Auto-update Clients", autoUpdateCheck),
-            settingRow("Auto-launch", autoLaunchCheck),
-            settingRow("Run in Background", minimizeToTrayCheck)
+            settingRow("Auto-launch", autoLaunchCheck)
         );
     }
 

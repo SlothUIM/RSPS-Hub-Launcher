@@ -31,7 +31,6 @@ public class LauncherEngine {
     public static boolean autoUpdateClients = false;
     public static boolean lightMode = false;
     public static boolean autoLaunch = false;
-    public static boolean minimizeToTray = false;
     public static String accentColor = "#9b5de5";
     public static Set<String> favouriteServers = new LinkedHashSet<>();
     public static Map<String, String> serverNotes = new HashMap<>();
@@ -50,7 +49,7 @@ public class LauncherEngine {
 
     private static class SettingsData {
         String downloadPath, statusMessage, accentColor, profilePrivacy;
-        boolean minimizeOnLaunch, autoUpdateClients, lightMode, autoLaunch, minimizeToTray;
+        boolean minimizeOnLaunch, autoUpdateClients, lightMode, autoLaunch;
         List<String> favouriteServers, preferredTags;
         Map<String, String> serverNotes;
         Boolean friendActivityNotifications, notifFriendRequests, notifFriendOnline, notifServerUpdates, notifSystem, notifStreakReminder, hasCompletedOnboarding;
@@ -61,7 +60,6 @@ public class LauncherEngine {
             SettingsData d = new SettingsData();
             d.downloadPath = downloadPath; d.statusMessage = statusMessage; d.minimizeOnLaunch = minimizeOnLaunch;
             d.autoUpdateClients = autoUpdateClients; d.lightMode = lightMode; d.autoLaunch = autoLaunch;
-            d.minimizeToTray = minimizeToTray;
             d.accentColor = accentColor; d.favouriteServers = new ArrayList<>(favouriteServers);
             d.serverNotes = serverNotes; d.friendActivityNotifications = friendActivityNotifications;
             d.notifFriendRequests = notifFriendRequests; d.notifFriendOnline = notifFriendOnline;
@@ -92,7 +90,7 @@ public class LauncherEngine {
             if (d.preferredTags != null) preferredTags = d.preferredTags;
             if (d.profilePrivacy != null) profilePrivacy = d.profilePrivacy;
             minimizeOnLaunch = d.minimizeOnLaunch; autoUpdateClients = d.autoUpdateClients;
-            lightMode = d.lightMode; autoLaunch = d.autoLaunch; minimizeToTray = d.minimizeToTray;
+            lightMode = d.lightMode; autoLaunch = d.autoLaunch;
         } catch (Exception e) { System.err.println("Failed to load settings: " + e.getMessage()); }
     }
 
