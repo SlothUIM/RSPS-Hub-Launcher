@@ -20,3 +20,7 @@ gradle/wrapper/gradle-wrapper.jar
 # Jars (Gradle handles these automatically)
 lib/
 *.jar
+
+# Discord bot setup (contains sensitive token)
+discord-setup/setup_server.py
+discord-setup/post_messages.py

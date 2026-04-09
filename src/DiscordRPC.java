@@ -15,8 +15,7 @@ import java.nio.charset.StandardCharsets;
  */
 public class DiscordRPC {
 
-    // ← REPLACE THIS with your Discord Application ID
-    public static final String CLIENT_ID = "REPLACE_WITH_YOUR_DISCORD_APP_ID";
+    public static final String CLIENT_ID = "1491748892327542956";
 
     private static final int OP_HANDSHAKE = 0;
     private static final int OP_FRAME     = 1;
