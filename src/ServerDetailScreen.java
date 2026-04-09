@@ -205,48 +205,102 @@ public class ServerDetailScreen {
         dlLabel.setVisible(false);
         dlLabel.setManaged(false);
 
+        // Update banner (shown async if update found)
+        Label updateChip = new Label("⬆  Update available");
+        updateChip.setStyle(
+            "-fx-background-color: rgba(255,152,31,0.12); -fx-border-color: rgba(255,152,31,0.4);" +
+            "-fx-border-radius: 6; -fx-background-radius: 6; -fx-text-fill: #ff981f;" +
+            "-fx-font-size: 11px; -fx-padding: 4 10;"
+        );
+        updateChip.setVisible(false);
+        updateChip.setManaged(false);
+
+        Button updatePlayBtn = new Button("UPDATE & PLAY");
+        updatePlayBtn.setStyle(
+            "-fx-background-color: " + accent + "; -fx-text-fill: white;" +
+            "-fx-font-weight: bold; -fx-background-radius: 8; -fx-padding: 10 20; -fx-cursor: hand;"
+        );
+        updatePlayBtn.setVisible(false);
+        updatePlayBtn.setManaged(false);
+        updatePlayBtn.setPrefWidth(160);
+
+        // Shared launch logic
+        Runnable launchNow = () -> {
+            LauncherEngine.activeServer = server.name;
+            if (LauncherEngine.minimizeOnLaunch) stage.setIconified(true);
+            Process proc = LauncherEngine.launchGame(server);
+            if (proc != null) {
+                long start = System.currentTimeMillis();
+                new Thread(() -> {
+                    try { proc.waitFor(); } catch (InterruptedException ignored) {}
+                    long mins = (System.currentTimeMillis() - start) / 60000;
+                    PlaytimeStore.recordSession(server.name, mins);
+                }, "playtime-tracker").start();
+            }
+        };
+
+        // Shared download-then-action logic
+        java.util.function.Consumer<Runnable> downloadThen = (afterDownload) -> {
+            playBtn.setDisable(true);
+            updatePlayBtn.setDisable(true);
+            playBtn.setText("DOWNLOADING...");
+            dlBar.setProgress(0);
+            dlBar.setVisible(true);
+            dlBar.setManaged(true);
+            dlLabel.setText("0%");
+            dlLabel.setVisible(true);
+            dlLabel.setManaged(true);
+            new Thread(() -> {
+                boolean ok = LauncherEngine.downloadClient(server,
+                    progress -> javafx.application.Platform.runLater(() -> {
+                        dlBar.setProgress(progress);
+                        dlLabel.setText((int)(progress * 100) + "%");
+                    }), null);
+                javafx.application.Platform.runLater(() -> {
+                    dlBar.setVisible(false);  dlBar.setManaged(false);
+                    dlLabel.setVisible(false); dlLabel.setManaged(false);
+                    playBtn.setDisable(false); updatePlayBtn.setDisable(false);
+                    playBtn.setText(ok ? "PLAY" : "INSTALL");
+                    if (ok) afterDownload.run();
+                });
+            }).start();
+        };
+
         playBtn.setOnAction(e -> {
             if (!LauncherEngine.isDownloaded(server)) {
-                playBtn.setDisable(true);
-                playBtn.setText("DOWNLOADING...");
-                dlBar.setProgress(0);
-                dlBar.setVisible(true);
-                dlBar.setManaged(true);
-                dlLabel.setText("0%");
-                dlLabel.setVisible(true);
-                dlLabel.setManaged(true);
-
-                new Thread(() -> {
-                    boolean ok = LauncherEngine.downloadClient(server,
-                        progress -> javafx.application.Platform.runLater(() -> {
-                            dlBar.setProgress(progress);
-                            dlLabel.setText((int)(progress * 100) + "%");
-                        }),
-                        null
-                    );
-                    javafx.application.Platform.runLater(() -> {
-                        dlBar.setVisible(false);
-                        dlBar.setManaged(false);
-                        dlLabel.setVisible(false);
-                        dlLabel.setManaged(false);
-                        playBtn.setDisable(false);
-                        playBtn.setText(ok ? "PLAY" : "INSTALL");
-                    });
-                }).start();
+                downloadThen.accept(launchNow);
             } else {
-                LauncherEngine.activeServer = server.name;
-                if (LauncherEngine.minimizeOnLaunch) stage.setIconified(true);
-                Process proc = LauncherEngine.launchGame(server);
-                if (proc != null) {
-                    long start = System.currentTimeMillis();
-                    new Thread(() -> {
-                        try { proc.waitFor(); } catch (InterruptedException ignored) {}
-                        long mins = (System.currentTimeMillis() - start) / 60000;
-                        PlaytimeStore.recordSession(server.name, mins);
-                    }, "playtime-tracker").start();
-                }
+                launchNow.run();
             }
         });
+
+        updatePlayBtn.setOnAction(e -> downloadThen.accept(launchNow));
+
+        // Async update check (only if already installed)
+        if (alreadyInstalled) {
+            new Thread(() -> {
+                boolean hasUpdate = LauncherEngine.isUpdateAvailable(server);
+                javafx.application.Platform.runLater(() -> {
+                    if (hasUpdate) {
+                        if (LauncherEngine.autoUpdateClients) {
+                            // Auto mode: swap play button for update+play directly
+                            playBtn.setVisible(false);
+                            playBtn.setManaged(false);
+                            updatePlayBtn.setVisible(true);
+                            updatePlayBtn.setManaged(true);
+                            updateChip.setVisible(true);
+                            updateChip.setManaged(true);
+                        } else {
+                            // Manual mode: show chip + extra button
+                            updateChip.setVisible(true);
+                            updateChip.setManaged(true);
+                            updatePlayBtn.setVisible(true);
+                            updatePlayBtn.setManaged(true);
+                        }
+                    }
+                });
+            }, "update-check").start();
+        }
 
         HBox socialRow = new HBox(8);
         socialRow.setAlignment(Pos.CENTER_RIGHT);
@@ -261,7 +315,7 @@ public class ServerDetailScreen {
             socialRow.getChildren().add(webBtn);
         }
 
-        right.getChildren().addAll(players, playBtn, dlBar, dlLabel, socialRow);
+        right.getChildren().addAll(players, updateChip, playBtn, updatePlayBtn, dlBar, dlLabel, socialRow);
         bar.getChildren().addAll(left, right);
         return bar;
     }

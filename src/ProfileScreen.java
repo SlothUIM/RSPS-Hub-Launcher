@@ -4,13 +4,28 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ProfileScreen {
 
+    /** Called when viewing someone else's profile — respects their privacy setting. */
     public static Scene create(Stage stage, String username, boolean isOnline,
                                String statusMessage, List<String> blockedUsers,
+                               String targetPrivacy, boolean isFriend,
                                Runnable onBack, Runnable onMessage) {
+
+        boolean isOwnProfile = username.equals(LauncherEngine.currentUsername);
+        // Determine what the viewer can see
+        boolean canSeeDetails = isOwnProfile
+            || "public".equals(targetPrivacy)
+            || ("friends".equals(targetPrivacy) && isFriend);
+        boolean isPrivate = !isOwnProfile && "private".equals(targetPrivacy);
+        boolean isFriendsOnly = !isOwnProfile && "friends".equals(targetPrivacy) && !isFriend;
+
         BorderPane root = new BorderPane();
         root.getStyleClass().add("root-pane");
 
@@ -27,7 +42,7 @@ public class ProfileScreen {
 
         root.setTop(new VBox(TitleBar.create(stage), topBar));
 
-        // Avatar + identity
+        // ── Avatar + identity ────────────────────────────────────────────────
         String initial = username.isEmpty() ? "?" : String.valueOf(username.charAt(0)).toUpperCase();
         Label avatar = new Label(initial);
         avatar.getStyleClass().add("profile-avatar");
@@ -50,42 +65,176 @@ public class ProfileScreen {
         VBox profileHeader = new VBox(16, avatar, identity);
         profileHeader.setAlignment(Pos.CENTER);
 
-        // Stats
+        // ── Privacy badge (own profile only) ────────────────────────────────
+        Label privacyBadge = null;
+        if (isOwnProfile) {
+            String privacy = LauncherEngine.profilePrivacy;
+            String badgeText;
+            if ("private".equals(privacy)) {
+                badgeText = "\uD83D\uDD12  Private";
+            } else if ("friends".equals(privacy)) {
+                badgeText = "\uD83D\uDC65  Friends Only";
+            } else {
+                badgeText = "\uD83C\uDF0D  Public";
+            }
+            privacyBadge = new Label(badgeText);
+            privacyBadge.setStyle(
+                "-fx-background-color: #1a1d24;" +
+                "-fx-border-color: #2a2e39;" +
+                "-fx-border-radius: 20;" +
+                "-fx-background-radius: 20;" +
+                "-fx-text-fill: #8b92a5;" +
+                "-fx-font-size: 11px;" +
+                "-fx-padding: 4 12;"
+            );
+        }
+
+        // ── Stats row ────────────────────────────────────────────────────────
         HBox stats = new HBox(20);
         stats.setAlignment(Pos.CENTER);
-        stats.getChildren().addAll(
-            statBox("Member Since", "2024"),
-            statBox("Servers Played", "4"),
-            statBox("Reviews Written", "2")
-        );
 
-        // Action buttons
-        HBox actions = new HBox(12);
-        actions.setAlignment(Pos.CENTER);
-
-        Button msgBtn = new Button("Send Message");
-        msgBtn.getStyleClass().add("auth-btn");
-        msgBtn.setPrefWidth(160);
-        msgBtn.setOnAction(e -> onMessage.run());
-
-        boolean isBlocked = blockedUsers.contains(username);
-        Button blockBtn = new Button(isBlocked ? "Unblock" : "Block User");
-        blockBtn.getStyleClass().add(isBlocked ? "settings-secondary-btn" : "settings-logout-btn");
-        blockBtn.setOnAction(e -> {
-            if (blockedUsers.contains(username)) {
-                blockedUsers.remove(username);
-                blockBtn.setText("Block User");
-                blockBtn.getStyleClass().setAll("settings-logout-btn");
+        if (isOwnProfile) {
+            long totalMins = PlaytimeStore.getTotalMinutes();
+            String playtimeStr;
+            if (totalMins == 0) {
+                playtimeStr = "0m";
             } else {
-                blockedUsers.add(username);
-                blockBtn.setText("Unblock");
-                blockBtn.getStyleClass().setAll("settings-secondary-btn");
+                long h = totalMins / 60;
+                long m = totalMins % 60;
+                playtimeStr = (h > 0 ? h + "h " : "") + m + "m";
             }
-        });
+            stats.getChildren().addAll(
+                statBox("Total Playtime", playtimeStr),
+                statBox("Servers Played", String.valueOf(PlaytimeStore.getTotalServersPlayed())),
+                statBox("Most Played", PlaytimeStore.getMostPlayed())
+            );
+        } else {
+            stats.getChildren().addAll(
+                statBox("Total Playtime", "84h 20m"),
+                statBox("Servers Played", "6"),
+                statBox("Most Played", "SlothLite")
+            );
+        }
 
-        actions.getChildren().addAll(msgBtn, blockBtn);
+        // ── Server Levels section ────────────────────────────────────────────
+        VBox serverLevelsSection = new VBox(10);
+        Label serverLevelsHeader = new Label("SERVER LEVELS");
+        serverLevelsHeader.getStyleClass().add("friends-section-header");
+        serverLevelsHeader.setPadding(new Insets(0, 0, 4, 0));
+        serverLevelsSection.getChildren().add(serverLevelsHeader);
 
-        // Recent activity
+        if (isOwnProfile) {
+            Map<String, Long> allMinutes = PlaytimeStore.getAllMinutes();
+
+            if (allMinutes.isEmpty()) {
+                Label noServers = new Label("No servers played yet.");
+                noServers.getStyleClass().add("auth-muted");
+                serverLevelsSection.getChildren().add(noServers);
+            } else {
+                List<Map.Entry<String, Long>> sorted = new ArrayList<>(allMinutes.entrySet());
+                sorted.sort(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder()));
+                List<Map.Entry<String, Long>> top3 = sorted.subList(0, Math.min(3, sorted.size()));
+
+                int rank = 1;
+                for (Map.Entry<String, Long> entry : top3) {
+                    serverLevelsSection.getChildren().add(buildServerLevelRow(rank, entry.getKey(), true));
+                    rank++;
+                }
+
+                if ("private".equals(LauncherEngine.profilePrivacy)) {
+                    Label hiddenNote = new Label("Your server levels are hidden from others.");
+                    hiddenNote.getStyleClass().add("auth-muted");
+                    hiddenNote.setStyle("-fx-font-style: italic;");
+                    serverLevelsSection.getChildren().add(hiddenNote);
+                }
+            }
+        } else {
+            // Mock data for other profiles
+            String[][] mockServers = {
+                {"SlothLite", "32", "0.4"},
+                {"MythicPS",  "18", "0.7"},
+                {"NightmarePS", "9", "0.2"}
+            };
+            int rank = 1;
+            for (String[] mock : mockServers) {
+                serverLevelsSection.getChildren().add(
+                    buildMockServerLevelRow(rank, mock[0], Integer.parseInt(mock[1]), Double.parseDouble(mock[2]))
+                );
+                rank++;
+            }
+        }
+
+        // ── Favourite Servers section ────────────────────────────────────────
+        VBox favSection = new VBox(10);
+        Label favHeader = new Label("FAVOURITE SERVERS");
+        favHeader.getStyleClass().add("friends-section-header");
+        favHeader.setPadding(new Insets(0, 0, 4, 0));
+        favSection.getChildren().add(favHeader);
+
+        if (isOwnProfile) {
+            FlowPane favFlow = new FlowPane(8, 8);
+            favFlow.setAlignment(Pos.CENTER_LEFT);
+
+            if (LauncherEngine.favouriteServers.isEmpty()) {
+                Label noFavs = new Label("No favourites yet.");
+                noFavs.getStyleClass().add("auth-muted");
+                favSection.getChildren().add(noFavs);
+            } else {
+                for (String server : LauncherEngine.favouriteServers) {
+                    favFlow.getChildren().add(buildFavPill(server));
+                }
+
+                boolean isPublic = "public".equals(LauncherEngine.profilePrivacy);
+                if (!isPublic) {
+                    favFlow.setOpacity(0.5);
+                    Label hiddenNote = new Label("Hidden from others based on your privacy settings.");
+                    hiddenNote.getStyleClass().add("auth-muted");
+                    hiddenNote.setStyle("-fx-font-style: italic;");
+                    favSection.getChildren().add(favFlow);
+                    favSection.getChildren().add(hiddenNote);
+                } else {
+                    favSection.getChildren().add(favFlow);
+                }
+            }
+        } else {
+            FlowPane favFlow = new FlowPane(8, 8);
+            favFlow.setAlignment(Pos.CENTER_LEFT);
+            for (String server : new String[]{"SlothLite", "MythicPS", "NightmarePS"}) {
+                favFlow.getChildren().add(buildFavPill(server));
+            }
+            favSection.getChildren().add(favFlow);
+        }
+
+        // ── Action buttons (other profile only) ─────────────────────────────
+        HBox actions = null;
+        if (!isOwnProfile) {
+            actions = new HBox(12);
+            actions.setAlignment(Pos.CENTER);
+
+            Button msgBtn = new Button("Send Message");
+            msgBtn.getStyleClass().add("auth-btn");
+            msgBtn.setPrefWidth(160);
+            msgBtn.setOnAction(e -> onMessage.run());
+
+            boolean isBlocked = blockedUsers.contains(username);
+            Button blockBtn = new Button(isBlocked ? "Unblock" : "Block User");
+            blockBtn.getStyleClass().add(isBlocked ? "settings-secondary-btn" : "settings-logout-btn");
+            blockBtn.setOnAction(e -> {
+                if (blockedUsers.contains(username)) {
+                    blockedUsers.remove(username);
+                    blockBtn.setText("Block User");
+                    blockBtn.getStyleClass().setAll("settings-logout-btn");
+                } else {
+                    blockedUsers.add(username);
+                    blockBtn.setText("Unblock");
+                    blockBtn.getStyleClass().setAll("settings-secondary-btn");
+                }
+            });
+
+            actions.getChildren().addAll(msgBtn, blockBtn);
+        }
+
+        // ── Recent activity ──────────────────────────────────────────────────
         VBox activitySection = new VBox(0);
         Label activityHeader = new Label("RECENT ACTIVITY");
         activityHeader.getStyleClass().add("friends-section-header");
@@ -105,10 +254,59 @@ public class ProfileScreen {
             activitySection.getChildren().add(none);
         }
 
-        // Main content
-        VBox content = new VBox(28, profileHeader, stats, actions, activitySection);
+        // ── Layout assembly ──────────────────────────────────────────────────
+        VBox content = new VBox(28);
         content.setPadding(new Insets(50, 60, 60, 60));
         content.setMaxWidth(680);
+
+        content.getChildren().add(profileHeader);
+
+        if (isOwnProfile && privacyBadge != null) {
+            HBox badgeRow = new HBox(privacyBadge);
+            badgeRow.setAlignment(Pos.CENTER);
+            content.getChildren().add(badgeRow);
+        }
+
+        if (isPrivate) {
+            // Full lock — show nothing beyond name/status
+            VBox lockBox = new VBox(10);
+            lockBox.setAlignment(Pos.CENTER);
+            Label lockIcon = new Label("🔒");
+            lockIcon.setStyle("-fx-font-size: 36px;");
+            Label lockMsg = new Label("This profile is private.");
+            lockMsg.setStyle("-fx-text-fill: white; -fx-font-size: 15px; -fx-font-weight: bold;");
+            Label lockSub = new Label("Only their name and status are visible.");
+            lockSub.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 12px;");
+            lockBox.getChildren().addAll(lockIcon, lockMsg, lockSub);
+            content.getChildren().add(lockBox);
+        } else if (isFriendsOnly) {
+            // Partial lock — friends-only profile viewed by non-friend
+            VBox lockBox = new VBox(10);
+            lockBox.setAlignment(Pos.CENTER);
+            Label lockIcon = new Label("👥");
+            lockIcon.setStyle("-fx-font-size: 36px;");
+            Label lockMsg = new Label("Friends Only Profile");
+            lockMsg.setStyle("-fx-text-fill: white; -fx-font-size: 15px; -fx-font-weight: bold;");
+            Label lockSub = new Label("Add them as a friend to see their stats, levels and favourites.");
+            lockSub.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 12px;");
+            lockSub.setWrapText(true);
+            lockSub.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+            lockBox.getChildren().addAll(lockIcon, lockMsg, lockSub);
+            content.getChildren().add(lockBox);
+        } else {
+            // Visible — show all sections
+            content.getChildren().add(stats);
+            content.getChildren().add(serverLevelsSection);
+            content.getChildren().add(favSection);
+        }
+
+        if (actions != null) {
+            content.getChildren().add(actions);
+        }
+
+        if (!isPrivate && !isFriendsOnly) {
+            content.getChildren().add(activitySection);
+        }
 
         VBox wrapper = new VBox(content);
         wrapper.setAlignment(Pos.TOP_CENTER);
@@ -123,6 +321,68 @@ public class ProfileScreen {
         SceneUtils.applyRoundedCorners(scene, root, stage);
         return scene;
     }
+
+    // ── Helper: build a server-level row from real data ──────────────────────
+    private static HBox buildServerLevelRow(int rank, String serverName, boolean isReal) {
+        int level = ServerSkillSystem.getLevel(serverName);
+        double progress = ServerSkillSystem.getLevelProgress(serverName);
+        return buildServerLevelRowRaw(rank, serverName, level, progress);
+    }
+
+    // ── Helper: build a server-level row from mock data ──────────────────────
+    private static HBox buildMockServerLevelRow(int rank, String serverName, int level, double progress) {
+        return buildServerLevelRowRaw(rank, serverName, level, progress);
+    }
+
+    private static HBox buildServerLevelRowRaw(int rank, String serverName, int level, double progress) {
+        String milestoneColor = ServerSkillSystem.getMilestoneColor(level);
+        String rankName = ServerSkillSystem.getRankName(level);
+
+        Label rankLbl = new Label("#" + rank);
+        rankLbl.setStyle("-fx-text-fill: #8b92a5; -fx-font-weight: bold; -fx-min-width: 28;");
+
+        Label nameLbl = new Label(serverName);
+        nameLbl.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
+        HBox.setHgrow(nameLbl, Priority.ALWAYS);
+
+        Label levelBadge = new Label("Lvl " + level);
+        levelBadge.setStyle(
+            "-fx-text-fill: " + milestoneColor + ";" +
+            "-fx-font-weight: bold;" +
+            "-fx-font-size: 12px;"
+        );
+
+        Label rankNameLbl = new Label(rankName);
+        rankNameLbl.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 11px;");
+
+        ProgressBar bar = new ProgressBar(progress);
+        bar.setStyle(
+            "-fx-accent: " + milestoneColor + ";" +
+            "-fx-pref-width: 120;" +
+            "-fx-pref-height: 6;"
+        );
+
+        HBox row = new HBox(10, rankLbl, nameLbl, levelBadge, rankNameLbl, bar);
+        row.setAlignment(Pos.CENTER_LEFT);
+        return row;
+    }
+
+    // ── Helper: build a favourite server pill ───────────────────────────────
+    private static Label buildFavPill(String serverName) {
+        Label pill = new Label(serverName);
+        pill.setStyle(
+            "-fx-background-color: #1a1d24;" +
+            "-fx-border-color: #2a2e39;" +
+            "-fx-border-radius: 12;" +
+            "-fx-background-radius: 12;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 12px;" +
+            "-fx-padding: 4 12;"
+        );
+        return pill;
+    }
+
+    // ── Unchanged helpers ────────────────────────────────────────────────────
 
     private static VBox statBox(String label, String value) {
         Label val = new Label(value);

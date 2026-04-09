@@ -45,6 +45,7 @@ public class AccountSettingsScreen {
 
         content.getChildren().addAll(
             buildProfileSection(stage),
+            buildPreferencesSection(),
             buildLauncherSection(stage),
             buildAppearanceSection(),
             buildNotificationsSection(),
@@ -123,11 +124,86 @@ public class AccountSettingsScreen {
             presetRow.getChildren().add(pb);
         }
 
+        // Privacy selector
+        String[] privLabels = {"🌍  Public", "👥  Friends Only", "🔒  Private"};
+        String[] privKeys   = {"public", "friends", "private"};
+        String[] privHints  = {
+            "Everyone can see your playtime, levels and favourite servers.",
+            "Only friends can see your details. Others see your name only.",
+            "No one can see your details. Only your name is visible."
+        };
+
+        Label privHint = new Label(privHints[java.util.Arrays.asList(privKeys).indexOf(LauncherEngine.profilePrivacy)]);
+        privHint.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 11px;");
+        privHint.setWrapText(true);
+
+        HBox privCtrl = new HBox(0);
+        List<Button> privBtns = new ArrayList<>();
+        for (int i = 0; i < privLabels.length; i++) {
+            final int idx = i;
+            Button pb = new Button(privLabels[i]);
+            String radius = i == 0 ? "8 0 0 8" : i == privLabels.length - 1 ? "0 8 8 0" : "0";
+            pb.setStyle(privSegStyle(privKeys[i].equals(LauncherEngine.profilePrivacy), radius));
+            pb.setOnAction(e -> {
+                LauncherEngine.profilePrivacy = privKeys[idx];
+                LauncherEngine.saveSettings();
+                privHint.setText(privHints[idx]);
+                for (int j = 0; j < privBtns.size(); j++) {
+                    String r = j == 0 ? "8 0 0 8" : j == privBtns.size() - 1 ? "0 8 8 0" : "0";
+                    privBtns.get(j).setStyle(privSegStyle(privKeys[j].equals(privKeys[idx]), r));
+                }
+            });
+            privBtns.add(pb);
+            privCtrl.getChildren().add(pb);
+        }
+
+        VBox privBox = new VBox(6, privCtrl, privHint);
+
         return section("PROFILE", avatarBox,
             settingRow("Display Name", nameField),
             settingRow("Email", emailField),
             settingRow("Status", statusField),
-            presetRow);
+            presetRow,
+            settingRow("Profile Visibility", privBox));
+    }
+
+    private static String privSegStyle(boolean active, String radius) {
+        String bg     = active ? LauncherEngine.accentColor : "#1a1d24";
+        String fg     = active ? "white" : "#8b92a5";
+        String border = active ? LauncherEngine.accentColor : "#2a2e39";
+        return "-fx-background-color: " + bg + "; -fx-text-fill: " + fg + ";" +
+               "-fx-border-color: " + border + "; -fx-border-width: 1;" +
+               "-fx-background-radius: " + radius + "; -fx-border-radius: " + radius + ";" +
+               "-fx-font-size: 12px; -fx-padding: 8 14; -fx-cursor: hand;";
+    }
+
+    private static VBox buildPreferencesSection() {
+        String[] tags = {"PvP", "Economy", "OSRS", "Hardcore", "Leagues", "Vanilla", "Ironman", "Skilling", "Custom", "Minigames"};
+
+        Label sub = new Label("These tags power your \"For You\" filter in the store.");
+        sub.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 12px;");
+
+        FlowPane tagFlow = new FlowPane(10, 10);
+        tagFlow.setPrefWrapLength(560);
+
+        for (String tag : tags) {
+            boolean active = LauncherEngine.preferredTags.contains(tag);
+            Button btn = new Button(tag);
+            btn.getStyleClass().add(active ? "filter-btn-active" : "filter-btn");
+            btn.setOnAction(e -> {
+                if (LauncherEngine.preferredTags.contains(tag)) {
+                    LauncherEngine.preferredTags.remove(tag);
+                    btn.getStyleClass().setAll("filter-btn");
+                } else {
+                    LauncherEngine.preferredTags.add(tag);
+                    btn.getStyleClass().setAll("filter-btn-active");
+                }
+                LauncherEngine.saveSettings();
+            });
+            tagFlow.getChildren().add(btn);
+        }
+
+        return section("PREFERENCES", sub, tagFlow);
     }
 
     private static VBox buildLauncherSection(Stage stage) {

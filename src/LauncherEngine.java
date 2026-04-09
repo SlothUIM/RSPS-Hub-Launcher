@@ -45,6 +45,7 @@ public class LauncherEngine {
     public static boolean notifStreakReminder = true;
     public static boolean hasCompletedOnboarding = false;
     public static List<String> preferredTags = new ArrayList<>();
+    public static String profilePrivacy = "public"; // "public", "friends", "private"
 
     private static final Path SETTINGS_PATH =
         Paths.get(System.getProperty("user.home"), ".rsps_hub", "settings.json");
@@ -70,6 +71,7 @@ public class LauncherEngine {
         Boolean notifStreakReminder;
         Boolean hasCompletedOnboarding;
         List<String> preferredTags;
+        String profilePrivacy;
     }
 
     public static void saveSettings() {
@@ -92,6 +94,7 @@ public class LauncherEngine {
             d.notifStreakReminder          = notifStreakReminder;
             d.hasCompletedOnboarding       = hasCompletedOnboarding;
             d.preferredTags                = new ArrayList<>(preferredTags);
+            d.profilePrivacy               = profilePrivacy;
             Files.createDirectories(SETTINGS_PATH.getParent());
             Files.writeString(SETTINGS_PATH, new Gson().toJson(d));
         } catch (Exception e) {
@@ -116,6 +119,7 @@ public class LauncherEngine {
             if (d.notifStreakReminder      != null) notifStreakReminder      = d.notifStreakReminder;
             if (d.hasCompletedOnboarding  != null) hasCompletedOnboarding  = d.hasCompletedOnboarding;
             if (d.preferredTags           != null) preferredTags           = d.preferredTags;
+            if (d.profilePrivacy          != null) profilePrivacy          = d.profilePrivacy;
             minimizeOnLaunch  = d.minimizeOnLaunch;
             autoUpdateClients = d.autoUpdateClients;
             lightMode         = d.lightMode;
