@@ -52,6 +52,9 @@ public class ProfileScreen {
         avatarLetter.getStyleClass().add("profile-avatar");
         StackPane avatar = new StackPane(avatarLetter);
         avatar.setPrefSize(100, 100); avatar.setMinSize(100, 100); avatar.setMaxSize(100, 100);
+
+        // Try local file first (own profile), then fall back to server URL for everyone
+        boolean loadedLocal = false;
         if (isOwnProfile && LauncherEngine.avatarImagePath != null) {
             File imgFile = new File(LauncherEngine.avatarImagePath);
             if (imgFile.exists()) {
@@ -60,7 +63,23 @@ public class ProfileScreen {
                 iv.setClip(new Circle(50, 50, 50));
                 avatarLetter.setVisible(false);
                 avatar.getChildren().add(iv);
+                loadedLocal = true;
             }
+        }
+        if (!loadedLocal) {
+            // Try loading from server (works for own and other users)
+            Image serverImg = new Image(ApiClient.avatarUrl(username), true);
+            serverImg.progressProperty().addListener((obs, old, p) -> {
+                if (p.doubleValue() >= 1.0 && !serverImg.isError()) {
+                    javafx.application.Platform.runLater(() -> {
+                        ImageView iv = new ImageView(serverImg);
+                        iv.setFitWidth(100); iv.setFitHeight(100); iv.setPreserveRatio(false);
+                        iv.setClip(new Circle(50, 50, 50));
+                        avatarLetter.setVisible(false);
+                        avatar.getChildren().add(iv);
+                    });
+                }
+            });
         }
 
         Label nameLbl = new Label(username);
@@ -125,11 +144,28 @@ public class ProfileScreen {
                 statBox("Most Played", PlaytimeStore.getMostPlayed())
             );
         } else {
-            stats.getChildren().addAll(
-                statBox("Total Playtime", "—"),
-                statBox("Servers Played", "—"),
-                statBox("Most Played", "—")
-            );
+            // Placeholders — filled in async once API responds
+            VBox playtimeBox  = statBox("Total Playtime", "...");
+            VBox serversBox   = statBox("Servers Played", "...");
+            VBox mostBox      = statBox("Most Played",    "...");
+            stats.getChildren().addAll(playtimeBox, serversBox, mostBox);
+
+            ApiClient.getUserStats(username).thenAccept(obj -> javafx.application.Platform.runLater(() -> {
+                if (obj == null || obj.has("error")) {
+                    updateStatBox(playtimeBox, "—");
+                    updateStatBox(serversBox,  "—");
+                    updateStatBox(mostBox,     "—");
+                    return;
+                }
+                long totalMins = obj.has("total_playtime_minutes") ? obj.get("total_playtime_minutes").getAsLong() : 0;
+                int servers    = obj.has("servers_played")         ? obj.get("servers_played").getAsInt() : 0;
+                String most    = obj.has("most_played_server")     ? obj.get("most_played_server").getAsString() : "";
+                long h = totalMins / 60, m = totalMins % 60;
+                String playtimeStr = totalMins == 0 ? "0m" : (h > 0 ? h + "h " : "") + m + "m";
+                updateStatBox(playtimeBox, playtimeStr);
+                updateStatBox(serversBox,  String.valueOf(servers));
+                updateStatBox(mostBox,     most.isEmpty() ? "—" : most);
+            }));
         }
 
         // ── Server Levels section ────────────────────────────────────────────
@@ -391,6 +427,13 @@ public class ProfileScreen {
         box.setAlignment(Pos.CENTER);
         box.getStyleClass().add("profile-stat-box");
         return box;
+    }
+
+    /** Updates the value label inside a statBox created by statBox(). */
+    private static void updateStatBox(VBox box, String newValue) {
+        if (!box.getChildren().isEmpty() && box.getChildren().get(0) instanceof Label lbl) {
+            lbl.setText(newValue);
+        }
     }
 
     private static HBox buildActivityRow(ActivityItem item) {

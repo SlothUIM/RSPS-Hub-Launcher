@@ -110,6 +110,7 @@ public class AccountSettingsScreen {
                 LauncherEngine.avatarImagePath = file.getAbsolutePath();
                 LauncherEngine.saveSettings();
                 loadAvatarImage(avatarPane, avatarLetter, file.toURI().toString());
+                ApiClient.uploadAvatar(file.getAbsolutePath());
             }
         });
 

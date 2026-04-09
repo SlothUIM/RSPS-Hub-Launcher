@@ -2070,6 +2070,12 @@ public class RSPSHub extends Application {
                 PlaytimeStore.recordSession(server.name, mins);
                 SessionHistoryStore.add(server.name, mins);
                 StreakStore.recordPlay(server.name);
+                // Push updated stats to server
+                ApiClient.updateStats(
+                    PlaytimeStore.getTotalMinutes(),
+                    PlaytimeStore.getTotalServersPlayed(),
+                    PlaytimeStore.getMostPlayed()
+                );
                 Platform.runLater(() -> {
                     LauncherEngine.activeServer = null;
                     DiscordRPC.setBrowsing("Browsing the store");

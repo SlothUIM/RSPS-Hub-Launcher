@@ -239,4 +239,47 @@ public class ApiClient {
                 return list;
             });
     }
+
+    // ── USER STATS & AVATARS ─────────────────────────────────────────────────────
+
+    /** GET users/stats.php?username=X — returns playtime stats for any user. */
+    public static CompletableFuture<JsonObject> getUserStats(String username) {
+        return sendAndParse(authedGet("users/stats.php?username=" + username).build());
+    }
+
+    /** POST users/update_stats.php — push local playtime totals to the server. */
+    public static CompletableFuture<Void> updateStats(long totalMinutes, int serversPlayed, String mostPlayed) {
+        String safe = mostPlayed.replace("\\", "\\\\").replace("\"", "\\\"");
+        String json = "{\"total_playtime_minutes\":" + totalMinutes
+            + ",\"servers_played\":" + serversPlayed
+            + ",\"most_played_server\":\"" + safe + "\"}";
+        return sendAndParse(authedPost("users/update_stats.php", json).build())
+            .thenApply(obj -> null);
+    }
+
+    /**
+     * POST users/upload_avatar.php — upload profile picture as base64.
+     * Returns the public URL of the saved image, or null on failure.
+     */
+    public static CompletableFuture<String> uploadAvatar(String filePath) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                byte[] bytes = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(filePath));
+                String b64 = java.util.Base64.getEncoder().encodeToString(bytes);
+                return "{\"image\":\"" + b64 + "\"}";
+            } catch (Exception e) {
+                System.err.println("[ApiClient] uploadAvatar read failed: " + e.getMessage());
+                return null;
+            }
+        }).thenCompose(json -> {
+            if (json == null) return CompletableFuture.completedFuture((String) null);
+            return sendAndParse(authedPost("users/upload_avatar.php", json).build())
+                .thenApply(obj -> obj.has("url") ? obj.get("url").getAsString() : null);
+        });
+    }
+
+    /** Returns the avatar URL for any username (no request needed — deterministic). */
+    public static String avatarUrl(String username) {
+        return "http://api.therspshub.com/uploads/avatars/" + username + ".jpg";
+    }
 }
