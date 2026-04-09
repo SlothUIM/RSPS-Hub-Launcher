@@ -24,3 +24,4 @@ lib/
 # Discord bot setup (contains sensitive token)
 discord-setup/setup_server.py
 discord-setup/post_messages.py
+discord-setup/config.py
