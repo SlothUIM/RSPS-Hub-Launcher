@@ -84,7 +84,7 @@ public class RegisterScreen {
                             onRegisterSuccess.run();
                         } else if (response != null && response.contains("\"error\"")) {
                             try {
-                                com.google.gson.JsonObject obj = com.google.gson.JsonParser.parseString(response).getAsJsonObject();
+                                com.google.gson.JsonObject obj = new com.google.gson.Gson().fromJson(response, com.google.gson.JsonObject.class);
                                 showError(errorLabel, obj.get("error").getAsString());
                             } catch (Exception e2) {
                                 showError(errorLabel, "Registration failed.");

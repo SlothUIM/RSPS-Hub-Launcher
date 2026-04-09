@@ -77,14 +77,14 @@ public class LoginScreen {
                         if (response != null && response.contains("\"token\"")) {
                             // Parse token and store it
                             try {
-                                com.google.gson.JsonObject obj = com.google.gson.JsonParser.parseString(response).getAsJsonObject();
+                                com.google.gson.JsonObject obj = new com.google.gson.Gson().fromJson(response, com.google.gson.JsonObject.class);
                                 String token = obj.get("token").getAsString();
                                 LauncherEngine.sessionToken = token;
                             } catch (Exception ignored) {}
                             onLoginSuccess.accept(username);
                         } else if (response != null && response.contains("\"error\"")) {
                             try {
-                                com.google.gson.JsonObject obj = com.google.gson.JsonParser.parseString(response).getAsJsonObject();
+                                com.google.gson.JsonObject obj = new com.google.gson.Gson().fromJson(response, com.google.gson.JsonObject.class);
                                 showError(errorLabel, obj.get("error").getAsString());
                             } catch (Exception e2) {
                                 showError(errorLabel, "Invalid username or password.");
