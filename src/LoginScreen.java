@@ -5,6 +5,8 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import java.util.function.Consumer;
+import java.io.*;
+import java.nio.file.*;
 
 public class LoginScreen {
 
@@ -41,6 +43,11 @@ public class LoginScreen {
         PasswordField passwordField = (PasswordField) passGroup.getChildren().get(1);
         passwordField.setPromptText("Enter your password");
 
+        // Remember Me
+        CheckBox rememberMe = new CheckBox("Remember me");
+        rememberMe.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 12px;");
+        rememberMe.setSelected(true);
+
         // Error
         Label errorLabel = new Label();
         errorLabel.getStyleClass().add("auth-error");
@@ -68,18 +75,20 @@ public class LoginScreen {
                 String payload = String.format("{\"username\":\"%s\", \"password\":\"%s\"}", username, password);
 
                 // Send to the DuckDNS API
-                ApiClient.postJson("login", payload).thenAccept(response -> {
+                ApiClient.postJson("auth/login.php", payload).thenAccept(response -> {
                     // Switch back to the UI thread to update the screen
                     javafx.application.Platform.runLater(() -> {
                         loginBtn.setText("LOGIN");
                         loginBtn.setDisable(false);
                         
                         if (response != null && response.contains("\"token\"")) {
-                            // Parse token and store it
                             try {
                                 com.google.gson.JsonObject obj = new com.google.gson.Gson().fromJson(response, com.google.gson.JsonObject.class);
                                 String token = obj.get("token").getAsString();
                                 LauncherEngine.sessionToken = token;
+                                if (rememberMe.isSelected()) {
+                                    saveSession(username, token);
+                                }
                             } catch (Exception ignored) {}
                             onLoginSuccess.accept(username);
                         } else if (response != null && response.contains("\"error\"")) {
@@ -118,7 +127,7 @@ public class LoginScreen {
         registerLink.setOnMouseClicked(e -> onShowRegister.run());
         registerRow.getChildren().addAll(noAccount, registerLink);
 
-        card.getChildren().addAll(brand, subtitle, sep, userGroup, passGroup, errorLabel, loginBtn, registerRow);
+        card.getChildren().addAll(brand, subtitle, sep, userGroup, passGroup, rememberMe, errorLabel, loginBtn, registerRow);
         centered.getChildren().add(card);
         root.setCenter(centered);
 
@@ -126,6 +135,29 @@ public class LoginScreen {
         scene.getStylesheets().addAll(LauncherEngine.getStylesheets(LoginScreen.class));
         SceneUtils.applyRoundedCorners(scene, root, stage);
         return scene;
+    }
+
+    private static final Path SESSION_FILE = Paths.get(System.getProperty("user.home"), ".rsps_hub", "session.dat");
+
+    public static void saveSession(String username, String token) {
+        try {
+            Files.createDirectories(SESSION_FILE.getParent());
+            Files.writeString(SESSION_FILE, username + "\n" + token);
+        } catch (Exception ignored) {}
+    }
+
+    public static String[] loadSession() {
+        try {
+            if (Files.exists(SESSION_FILE)) {
+                String[] parts = Files.readString(SESSION_FILE).split("\n");
+                if (parts.length == 2) return parts;
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    public static void clearSession() {
+        try { Files.deleteIfExists(SESSION_FILE); } catch (Exception ignored) {}
     }
 
     private static VBox fieldGroup(String labelText, boolean isPassword) {

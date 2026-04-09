@@ -97,7 +97,7 @@ public class OnboardingScreen {
 
     private static VBox buildWelcome(Runnable next) {
         Label logo = new Label("RSPS HUB");
-        logo.setStyle("-fx-text-fill: #ff981f; -fx-font-size: 36px; -fx-font-weight: 800;");
+        logo.setStyle("-fx-text-fill: #9b5de5; -fx-font-size: 36px; -fx-font-weight: 800;");
 
         Label headline = new Label("Welcome" + (LauncherEngine.currentUsername.isEmpty()
             ? "!" : ", " + LauncherEngine.currentUsername + "!"));
@@ -250,7 +250,7 @@ public class OnboardingScreen {
         row.setAlignment(Pos.CENTER);
         for (int i = 0; i < total; i++) {
             Circle dot = new Circle(i == current ? 5 : 3.5);
-            dot.setFill(i == current ? Color.web("#ff981f") : Color.web("#2a2e39"));
+            dot.setFill(i == current ? Color.web("#9b5de5") : Color.web("#2a2e39"));
             row.getChildren().add(dot);
         }
         return row;
@@ -258,10 +258,10 @@ public class OnboardingScreen {
 
     private static Button primaryBtn(String text) {
         Button btn = new Button(text);
-        String base = "-fx-background-color: #ff981f; -fx-text-fill: white;" +
+        String base = "-fx-background-color: #9b5de5; -fx-text-fill: white;" +
             "-fx-font-size: 14px; -fx-font-weight: bold;" +
             "-fx-background-radius: 8; -fx-padding: 12 32; -fx-cursor: hand;";
-        String hover = "-fx-background-color: #e8871a; -fx-text-fill: white;" +
+        String hover = "-fx-background-color: #7d4bc5; -fx-text-fill: white;" +
             "-fx-font-size: 14px; -fx-font-weight: bold;" +
             "-fx-background-radius: 8; -fx-padding: 12 32; -fx-cursor: hand;";
         btn.setStyle(base);
@@ -272,7 +272,7 @@ public class OnboardingScreen {
 
     private static String tagStyle(boolean selected) {
         return selected
-            ? "-fx-background-color: #ff981f22; -fx-text-fill: #ff981f; -fx-border-color: #ff981f;" +
+            ? "-fx-background-color: #9b5de522; -fx-text-fill: #9b5de5; -fx-border-color: #9b5de5;" +
               "-fx-border-radius: 20; -fx-background-radius: 20; -fx-border-width: 1.5;" +
               "-fx-padding: 6 16; -fx-cursor: hand; -fx-font-size: 13px;"
             : "-fx-background-color: #1a1d24; -fx-text-fill: #8b92a5; -fx-border-color: #2a2e39;" +

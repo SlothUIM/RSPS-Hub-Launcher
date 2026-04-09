@@ -75,7 +75,7 @@ public class RegisterScreen {
 
                 String payload = String.format("{\"username\":\"%s\", \"email\":\"%s\", \"password\":\"%s\"}", username, email, password);
 
-                ApiClient.postJson("register", payload).thenAccept(response -> {
+                ApiClient.postJson("auth/register.php", payload).thenAccept(response -> {
                     javafx.application.Platform.runLater(() -> {
                         registerBtn.setText("CREATE ACCOUNT");
                         registerBtn.setDisable(false);

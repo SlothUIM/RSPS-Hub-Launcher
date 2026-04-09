@@ -36,8 +36,8 @@
 }
 
 .nav-tab-active {
-    -fx-text-fill: #ff981f;
-    -fx-border-color: #ff981f;
+    -fx-text-fill: #9b5de5;
+    -fx-border-color: #9b5de5;
 }
 
 /* --- SEARCH & FILTERS --- */
@@ -51,7 +51,7 @@
 }
 
 .search-field:focused {
-    -fx-border-color: #ff981f;
+    -fx-border-color: #9b5de5;
 }
 
 .filter-btn, .filter-btn-active {
@@ -68,7 +68,7 @@
 .filter-btn-active {
     -fx-text-fill: white;
     -fx-background-color: #2a2e39;
-    -fx-border-color: #ff981f;
+    -fx-border-color: #9b5de5;
 }
 
 /* --- SERVER CARDS --- */
@@ -80,7 +80,7 @@
 }
 
 .server-card-wrapper:hover {
-    -fx-border-color: #ff981f;
+    -fx-border-color: #9b5de5;
 }
 
 .server-card-wrapper:hover .xp-bar-fill {
@@ -127,7 +127,7 @@
 }
 
 .play-button {
-    -fx-background-color: #ff981f;
+    -fx-background-color: #9b5de5;
     -fx-text-fill: black;
     -fx-font-weight: 800;
     -fx-font-size: 16px;
@@ -170,7 +170,7 @@
 }
 
 .detail-icon-placeholder {
-    -fx-text-fill: #ff981f;
+    -fx-text-fill: #9b5de5;
     -fx-font-size: 28px;
     -fx-font-weight: 800;
 }
@@ -203,7 +203,7 @@
 }
 
 .detail-stars-display {
-    -fx-text-fill: #ff981f;
+    -fx-text-fill: #9b5de5;
     -fx-font-size: 16px;
 }
 
@@ -230,7 +230,7 @@
 
 .review-avatar {
     -fx-background-color: #2a2e39;
-    -fx-text-fill: #ff981f;
+    -fx-text-fill: #9b5de5;
     -fx-font-weight: 800;
     -fx-font-size: 14px;
     -fx-min-width: 38px;
@@ -254,7 +254,7 @@
 }
 
 .review-star-selected {
-    -fx-text-fill: #ff981f;
+    -fx-text-fill: #9b5de5;
     -fx-font-size: 24px;
     -fx-cursor: hand;
 }
@@ -394,7 +394,7 @@
 }
 
 .msg-bubble-me {
-    -fx-background-color: #ff981f;
+    -fx-background-color: #9b5de5;
     -fx-text-fill: black;
     -fx-font-size: 14px;
     -fx-padding: 10 14;
@@ -402,7 +402,7 @@
 }
 
 .msg-sender-name {
-    -fx-text-fill: #ff981f;
+    -fx-text-fill: #9b5de5;
     -fx-font-size: 11px;
     -fx-font-weight: 800;
 }
@@ -414,7 +414,7 @@
 
 /* --- NAVBAR ACCOUNT WIDGET --- */
 .nav-avatar {
-    -fx-background-color: #ff981f;
+    -fx-background-color: #9b5de5;
     -fx-text-fill: #0f1115;
     -fx-font-weight: 800;
     -fx-font-size: 14px;
@@ -433,7 +433,7 @@
 }
 
 .nav-account-widget:hover .nav-username {
-    -fx-text-fill: #ff981f;
+    -fx-text-fill: #9b5de5;
 }
 
 /* --- SETTINGS PAGE --- */
@@ -465,7 +465,7 @@
 }
 
 .settings-section-header {
-    -fx-text-fill: #ff981f;
+    -fx-text-fill: #9b5de5;
     -fx-font-size: 11px;
     -fx-font-weight: 800;
 }
@@ -501,8 +501,8 @@
 }
 
 .settings-checkbox:selected .box {
-    -fx-background-color: #ff981f;
-    -fx-border-color: #ff981f;
+    -fx-background-color: #9b5de5;
+    -fx-border-color: #9b5de5;
 }
 
 .settings-checkbox:selected .mark {
@@ -510,7 +510,7 @@
 }
 
 .settings-avatar {
-    -fx-background-color: #ff981f;
+    -fx-background-color: #9b5de5;
     -fx-text-fill: #0f1115;
     -fx-font-weight: 800;
     -fx-font-size: 32px;
@@ -594,7 +594,7 @@
     -fx-padding: 10;
     -fx-font-size: 14px;
     -fx-control-inner-background: #0f1115;
-    -fx-highlight-fill: #ff981f;
+    -fx-highlight-fill: #9b5de5;
     -fx-highlight-text-fill: black;
 }
 
@@ -611,7 +611,7 @@
 }
 
 .dev-textarea:focused {
-    -fx-border-color: #ff981f;
+    -fx-border-color: #9b5de5;
 }
 
 .dev-tag-check {
@@ -632,8 +632,8 @@
 }
 
 .dev-tag-check:selected .box {
-    -fx-background-color: #ff981f;
-    -fx-border-color: #ff981f;
+    -fx-background-color: #9b5de5;
+    -fx-border-color: #9b5de5;
 }
 
 .dev-tag-check:selected .mark {
@@ -734,11 +734,11 @@
 }
 
 .auth-field:focused {
-    -fx-border-color: #ff981f;
+    -fx-border-color: #9b5de5;
 }
 
 .auth-btn {
-    -fx-background-color: #ff981f;
+    -fx-background-color: #9b5de5;
     -fx-text-fill: black;
     -fx-font-weight: 800;
     -fx-font-size: 14px;
@@ -757,7 +757,7 @@
 }
 
 .auth-link {
-    -fx-text-fill: #ff981f;
+    -fx-text-fill: #9b5de5;
     -fx-font-size: 13px;
     -fx-cursor: hand;
     -fx-font-weight: bold;
@@ -787,7 +787,7 @@
 
 .friends-subtab-active {
     -fx-text-fill: white;
-    -fx-border-color: #ff981f;
+    -fx-border-color: #9b5de5;
 }
 
 .friends-subtab:hover {
@@ -868,7 +868,7 @@
 
 /* --- PROFILE PAGE --- */
 .profile-avatar {
-    -fx-background-color: #ff981f;
+    -fx-background-color: #9b5de5;
     -fx-text-fill: #0f1115;
     -fx-font-weight: 800;
     -fx-font-size: 48px;
@@ -993,7 +993,7 @@
 }
 
 .dialog-pane .button-bar .button:default {
-    -fx-background-color: #ff981f;
+    -fx-background-color: #9b5de5;
     -fx-text-fill: black;
     -fx-font-weight: bold;
 }
@@ -1013,7 +1013,7 @@
 }
 
 .dialog-pane .text-field:focused {
-    -fx-border-color: #ff981f;
+    -fx-border-color: #9b5de5;
 }
 
 /* --- CUSTOM TITLE BAR --- */
@@ -1065,7 +1065,7 @@
 }
 
 .splash-logo {
-    -fx-text-fill: #ff981f;
+    -fx-text-fill: #9b5de5;
     -fx-font-size: 64px;
     -fx-font-weight: 800;
 }
@@ -1087,7 +1087,7 @@
 }
 
 .splash-progress .bar {
-    -fx-background-color: #ff981f;
+    -fx-background-color: #9b5de5;
     -fx-background-radius: 4;
     -fx-padding: 4 0;
     -fx-effect: dropshadow(gaussian, rgba(255,152,31,0.5), 6, 0, 0, 0);
@@ -1133,7 +1133,7 @@
     -fx-text-fill: white;
 }
 .nav-bell-badge {
-    -fx-background-color: #ff981f;
+    -fx-background-color: #9b5de5;
     -fx-text-fill: white;
     -fx-font-size: 10px;
     -fx-font-weight: bold;
@@ -1155,7 +1155,7 @@
     -fx-font-size: 13px;
 }
 .dark-menu-btn:hover {
-    -fx-border-color: #ff981f;
+    -fx-border-color: #9b5de5;
     -fx-text-fill: white;
 }
 .dark-menu-btn .arrow {
@@ -1172,11 +1172,11 @@
     -fx-border-color: transparent;
 }
 .fav-btn:hover {
-    -fx-text-fill: #ff981f;
+    -fx-text-fill: #9b5de5;
 }
 .fav-btn-active {
     -fx-background-color: transparent;
-    -fx-text-fill: #ff981f;
+    -fx-text-fill: #9b5de5;
     -fx-font-size: 18px;
     -fx-padding: 2 6;
     -fx-cursor: hand;
@@ -1198,7 +1198,7 @@
 
 /* --- SERVER NOTE TEXT --- */
 .server-note-text {
-    -fx-text-fill: #ff981f;
+    -fx-text-fill: #9b5de5;
     -fx-font-size: 13px;
     -fx-font-style: italic;
     -fx-font-weight: bold;
@@ -1206,7 +1206,7 @@
 
 /* --- PINNED SECTION HEADER --- */
 .pinned-header {
-    -fx-text-fill: #ff981f;
+    -fx-text-fill: #9b5de5;
     -fx-font-size: 11px;
     -fx-font-weight: bold;
     -fx-padding: 6 0 2 0;
@@ -1253,7 +1253,7 @@
 /* --- SKILL LEVEL BADGE --- */
 .skill-level-badge {
     -fx-background-color: #2a2e39;
-    -fx-text-fill: #ff981f;
+    -fx-text-fill: #9b5de5;
     -fx-font-size: 11px;
     -fx-font-weight: bold;
     -fx-padding: 3 9;
@@ -1273,7 +1273,7 @@
     -fx-background-radius: 0 0 8 8;
 }
 .xp-bar-fill {
-    -fx-background-color: #ff981f;
+    -fx-background-color: #9b5de5;
     -fx-background-radius: 0 0 0 8;
 }
 

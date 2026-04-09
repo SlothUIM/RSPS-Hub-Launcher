@@ -41,7 +41,7 @@ public class ApiClient {
      */
     public static CompletableFuture<List<ServerProfile>> getLiveServers() {
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(BASE_URL + "servers"))
+                .uri(URI.create(BASE_URL + "servers/list.php"))
                 .GET()
                 .build();
 
