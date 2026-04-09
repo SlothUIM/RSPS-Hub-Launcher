@@ -4,7 +4,7 @@ A free, unified launcher for RuneScape Private Servers — like Steam but for RS
 
 Built by [Vinnlarr](https://github.com/Vinnlarr) & [SlothUIM](https://github.com/SlothUIM).
 
-![License](https://img.shields.io/badge/license-MIT-orange)
+![License](https://img.shields.io/badge/license-Proprietary-red)
 ![Java](https://img.shields.io/badge/Java-17-orange)
 ![JavaFX](https://img.shields.io/badge/JavaFX-17-orange)
 ![Status](https://img.shields.io/badge/status-early%20access-orange)
@@ -73,12 +73,6 @@ The full source code is open for anyone to audit.
 
 ---
 
-## Contributing
-
-Pull requests are welcome. For major changes please open an issue first.
-
----
-
 ## Community
 
 - **Discord:** https://discord.gg/grt9C4GJcj
@@ -88,4 +82,6 @@ Pull requests are welcome. For major changes please open an issue first.
 
 ## License
 
-[MIT](LICENSE) — free to use, modify, and distribute.
+Copyright (c) 2026 Vinnlarr & SlothUIM. All Rights Reserved.
+
+This software is **proprietary**. You may view and run it for personal use only. Copying, forking, redistribution, or commercial use is strictly prohibited. See [LICENSE](LICENSE) for full terms.
