@@ -715,6 +715,8 @@ public class RSPSHub extends Application {
 
         Button addBtn = new Button("Send Request");
         addBtn.getStyleClass().add("auth-btn");
+        addBtn.setMinWidth(140);
+        addBtn.setPrefHeight(38);
 
         Label feedbackLbl = new Label();
         feedbackLbl.setStyle("-fx-font-size: 12px;");
@@ -827,6 +829,8 @@ public class RSPSHub extends Application {
 
                 Button acceptBtn = new Button("Accept");
                 acceptBtn.getStyleClass().add("auth-btn");
+                acceptBtn.setMinWidth(100);
+                acceptBtn.setPrefHeight(38);
                 acceptBtn.setOnAction(e -> {
                     friends.add(new Friend(req.username, true, null));
                     friendRequests.remove(req);

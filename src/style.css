@@ -130,8 +130,9 @@
     -fx-background-color: #ff981f;
     -fx-text-fill: black;
     -fx-font-weight: 800;
-    -fx-padding: 12 25;
-    -fx-min-width: 130px;
+    -fx-font-size: 16px;
+    -fx-padding: 14 32;
+    -fx-min-width: 150px;
     -fx-background-radius: 4;
     -fx-cursor: hand;
 }
