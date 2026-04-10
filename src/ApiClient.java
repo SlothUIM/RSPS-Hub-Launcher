@@ -17,17 +17,11 @@ import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 
 public class ApiClient {
-<<<<<<< HEAD
-	
-	private static final String BASE_URL = "https://slothscape.duckdns.org/api/";
-    private static final HttpClient client = HttpClient.newHttpClient();
-=======
 
     private static final String BASE = "http://api.therspshub.com/api/";
     private static final HttpClient http = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(10))
         .build();
->>>>>>> branch 'main' of https://github.com/SlothUIM/RSPS-Hub-Launcher.git
     private static final Gson gson = new Gson();
 
     // -- helpers --
@@ -61,24 +55,6 @@ public class ApiClient {
             });
     }
 
-<<<<<<< HEAD
-    /**
-     * Generic POST method for sending JSON payloads (unauthenticated — used by login/register).
-     */
-    public static CompletableFuture<String> postJson(String endpoint, String jsonPayload) {
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(BASE_URL + endpoint))
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
-                .build();
-
-        return client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenApply(response -> {
-                    // 👉 THIS IS THE MAGIC LINE: It prints exactly what the server says!
-                    System.out.println("[API X-RAY] Response from " + endpoint + ": " + response.body());
-                    return response.body();
-                });
-=======
     // unauthenticated POST — used by login/register screens
     public static CompletableFuture<String> postJson(String endpoint, String json) {
         var req = HttpRequest.newBuilder()
@@ -89,23 +65,15 @@ public class ApiClient {
             .build();
         return http.sendAsync(req, HttpResponse.BodyHandlers.ofString())
             .thenApply(HttpResponse::body);
->>>>>>> branch 'main' of https://github.com/SlothUIM/RSPS-Hub-Launcher.git
     }
 
     // -- servers --
 
     public static CompletableFuture<List<ServerProfile>> getLiveServers() {
-<<<<<<< HEAD
-        HttpRequest request = HttpRequest.newBuilder()
-        		.uri(URI.create("http://slothscape.duckdns.org:8080/api/servers"))
-                .GET()
-                .build();
-=======
         var req = HttpRequest.newBuilder()
             .uri(URI.create(BASE + "servers/list.php"))
             .timeout(Duration.ofSeconds(15))
             .GET().build();
->>>>>>> branch 'main' of https://github.com/SlothUIM/RSPS-Hub-Launcher.git
 
         return http.sendAsync(req, HttpResponse.BodyHandlers.ofString())
             .thenApply(res -> {

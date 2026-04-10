@@ -78,18 +78,13 @@ public class RegisterScreen {
                 registerBtn.setDisable(true);
                 errorLabel.setVisible(false);
 
-<<<<<<< HEAD
+
                 com.google.gson.JsonObject jsonNode = new com.google.gson.JsonObject();
                 jsonNode.addProperty("username", username);
                 jsonNode.addProperty("email", email);
                 jsonNode.addProperty("password", password);
                 String payload = jsonNode.toString();
-=======
-                String payload = String.format(
-                    "{\"username\":\"%s\", \"email\":\"%s\", \"password\":\"%s\"}",
-                    username, email, password
-                );
->>>>>>> branch 'main' of https://github.com/SlothUIM/RSPS-Hub-Launcher.git
+
 
                 ApiClient.postJson("register.php", payload).thenAccept(response -> {
                     javafx.application.Platform.runLater(() -> {
