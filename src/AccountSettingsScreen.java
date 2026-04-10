@@ -3,7 +3,10 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
+import javafx.scene.shape.Circle;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -69,12 +72,32 @@ public class AccountSettingsScreen {
         return scene;
     }
 
+    private static void loadAvatarImage(StackPane pane, Label letter, String uri) {
+        pane.getChildren().removeIf(n -> n instanceof ImageView);
+        try {
+            ImageView iv = new ImageView(new Image(uri, true));
+            iv.setFitWidth(80); iv.setFitHeight(80); iv.setPreserveRatio(false);
+            iv.setClip(new Circle(40, 40, 40));
+            letter.setVisible(false);
+            pane.getChildren().add(iv);
+        } catch (Exception ignored) {}
+    }
+
     private static VBox buildProfileSection(Stage stage) {
         String initial = LauncherEngine.currentUsername.isEmpty() ? "?"
             : String.valueOf(LauncherEngine.currentUsername.charAt(0)).toUpperCase();
 
-        Label avatarCircle = new Label(initial);
-        avatarCircle.getStyleClass().add("settings-avatar");
+        Label avatarLetter = new Label(initial);
+        avatarLetter.getStyleClass().add("settings-avatar");
+
+        StackPane avatarPane = new StackPane(avatarLetter);
+        avatarPane.setPrefSize(80, 80); avatarPane.setMinSize(80, 80); avatarPane.setMaxSize(80, 80);
+
+        // Show saved image on open
+        if (LauncherEngine.avatarImagePath != null) {
+            File existing = new File(LauncherEngine.avatarImagePath);
+            if (existing.exists()) loadAvatarImage(avatarPane, avatarLetter, existing.toURI().toString());
+        }
 
         Button changePhotoBtn = new Button("Change Photo");
         changePhotoBtn.getStyleClass().add("settings-secondary-btn");
@@ -85,11 +108,13 @@ public class AccountSettingsScreen {
             File file = fc.showOpenDialog(stage);
             if (file != null) {
                 LauncherEngine.avatarImagePath = file.getAbsolutePath();
-                avatarCircle.setText("✓");
+                LauncherEngine.saveSettings();
+                loadAvatarImage(avatarPane, avatarLetter, file.toURI().toString());
+                ApiClient.uploadAvatar(file.getAbsolutePath());
             }
         });
 
-        VBox avatarBox = new VBox(10, avatarCircle, changePhotoBtn);
+        VBox avatarBox = new VBox(10, avatarPane, changePhotoBtn);
         avatarBox.setAlignment(Pos.CENTER);
 
         TextField nameField = new TextField(LauncherEngine.currentUsername);

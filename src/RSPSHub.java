@@ -26,11 +26,6 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
-import java.awt.AWTException;
-import java.awt.PopupMenu;
-import java.awt.SystemTray;
-import java.awt.TrayIcon;
-import java.awt.image.BufferedImage;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -48,10 +43,6 @@ public class RSPSHub extends Application {
     private List<Friend> friends = new ArrayList<>();
     private List<String> groups  = new ArrayList<>();
     private Map<String, List<String>> groupMembers = new HashMap<>(); // groupName -> member usernames
-    // Simulated privacy settings for other users ("public", "friends", "private")
-    private final Map<String, String> mockUserPrivacy = new HashMap<>(Map.of(
-        "NightmarePS_Dev", "private"
-    ));
 
     // UI state
     private String activeTag                   = "All";
@@ -114,6 +105,9 @@ public class RSPSHub extends Application {
     private List<FriendRequest> friendRequests = new ArrayList<>();
     private List<String> blockedUsers = new ArrayList<>();
 
+    // Heartbeat timer
+    private Timeline heartbeatTimeline;
+
     // ── LIFECYCLE ────────────────────────────────────────────────────────────
 
     @Override
@@ -125,34 +119,6 @@ public class RSPSHub extends Application {
         primaryStage.setMinWidth(1050);
         primaryStage.setMinHeight(600);
 
-        Friend pk  = new Friend("PKMaster99",  true,  "SlothLite");  pk.statusMessage  = "Grinding slayer";
-        Friend joe = new Friend("IronmanJoe",  true,  "MythicPS");   joe.statusMessage = "AFK - brb";
-        friends.add(pk);
-        friends.add(joe);
-        friends.add(new Friend("ZulrahGrind", false, null));
-        friends.add(new Friend("Sasqu",       false, null));
-
-        groups.add("RSPS Gang");
-        groupMembers.put("RSPS Gang", new ArrayList<>(List.of("PKMaster99", "IronmanJoe")));
-
-        friendRequests.add(new FriendRequest("NightmarePS_Dev", true,  "5m ago"));
-        friendRequests.add(new FriendRequest("Slayer_King",     true,  "2h ago"));
-        friendRequests.add(new FriendRequest("CosmicRSPS",      false, "10m ago"));
-
-        // Seed notifications (respect user toggles)
-        if (LauncherEngine.notifFriendRequests) {
-            AppNotif n1 = new AppNotif(NotifType.FRIEND_REQUEST, "Friend Request", "NightmarePS_Dev wants to be your friend", "5m ago");
-            n1.friendUsername = "NightmarePS_Dev";
-            AppNotif n2 = new AppNotif(NotifType.FRIEND_REQUEST, "Friend Request", "Slayer_King wants to be your friend", "2h ago");
-            n2.friendUsername = "Slayer_King";
-            notifications.addAll(List.of(n1, n2));
-        }
-        if (LauncherEngine.notifFriendOnline) {
-            notifications.add(new AppNotif(NotifType.FRIEND_ONLINE, "Friend Online", "PKMaster99 is now online — playing SlothLite", "10m ago"));
-        }
-        if (LauncherEngine.notifServerUpdates) {
-            notifications.add(new AppNotif(NotifType.SERVER_UPDATE, "Server Updated", "SlothScape pushed a new update — check the changelog", "1h ago"));
-        }
         if (LauncherEngine.notifSystem) {
             notifications.add(new AppNotif(NotifType.SYSTEM, "Welcome to RSPS Hub", "Browse servers, track your playtime and level up!", "Today"));
         }
@@ -162,23 +128,19 @@ public class RSPSHub extends Application {
             if (scene != null) ResizeHelper.addTo(primaryStage, scene);
         });
 
-        setupTrayIcon(primaryStage);
-
         SplashScreen.show(primaryStage, () -> {
             // Check for saved session — auto login if found
             String[] saved = LoginScreen.loadSession();
             if (saved != null) {
                 LauncherEngine.currentUsername = saved[0];
                 LauncherEngine.sessionToken    = saved[1];
-                if (LauncherEngine.hasCompletedOnboarding) {
-                    showHub(primaryStage);
-                } else {
-                    primaryStage.setScene(OnboardingScreen.create(primaryStage, () -> {
-                        LauncherEngine.hasCompletedOnboarding = true;
-                        LauncherEngine.saveSettings();
-                        showHub(primaryStage);
-                    }));
-                }
+                // If they have a saved session they've already been through onboarding — skip it.
+                // NOTE: do NOT call saveSettings() here — init() hasn't run yet so all settings
+                // are still at their in-memory defaults (including accentColor = #9b5de5).
+                // Saving now would overwrite the real settings.json and wipe the player's saved accent.
+                // showHub() will call init() → loadSettings() → writeAccentCss() with the real values.
+                LauncherEngine.hasCompletedOnboarding = true;
+                showHub(primaryStage);
             } else {
                 showLoginScreen(primaryStage);
             }
@@ -246,7 +208,7 @@ public class RSPSHub extends Application {
         boolean online    = friend != null && friend.online;
         String  status    = friend != null && friend.statusMessage != null ? friend.statusMessage : "";
         boolean isFriend  = friend != null;
-        String  privacy   = mockUserPrivacy.getOrDefault(username, "public");
+        String  privacy   = "public";
         stage.setScene(ProfileScreen.create(stage, username, online, status, blockedUsers,
             privacy, isFriend,
             () -> { showHub(stage); showingFriends = true; setActiveTab(friendsTab); updateDisplay(); },
@@ -289,21 +251,14 @@ public class RSPSHub extends Application {
         if (allServers == null) {
             LauncherEngine.init();
             allServers = LauncherEngine.fetchServers();
-            // Demo: seed visual test data so badges are visible
-            if (allServers.size() > 0) {
-                allServers.get(0).isNew = true;
-                StreakStore.seedDemo(allServers.get(0).name, 7);
-                PlaytimeStore.seedDemo(allServers.get(0).name, 4200); // ~70 hours → Lv 51
-                if (allServers.get(0).changelog == null || allServers.get(0).changelog.isEmpty())
-                    allServers.get(0).changelog = "v1.3.0 — April 2025\n- Added new wilderness boss\n- PvP balancing updates\n- Fixed client crash on login\n- New donator zone added\n\nv1.2.5 — March 2025\n- Economy rebalance\n- New skilling area: Zeah\n- Performance improvements\n\nv1.2.0 — February 2025\n- Launch";
-            }
-            if (allServers.size() > 1) {
-                allServers.get(1).isNew = true;
-                StreakStore.seedDemo(allServers.get(1).name, 3);
-                PlaytimeStore.seedDemo(allServers.get(1).name, 900);  // ~15 hours → Lv 18
-            }
-            SessionHistoryStore.seedDemo();
             DiscordRPC.connectAsync();
+            // Set initial presence after a short delay to let IPC connect
+            new Thread(() -> {
+                try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
+                DiscordRPC.setBrowsing("Browsing the store");
+            }, "discord-idle").start();
+            refreshFriendsFromApi();
+            startHeartbeat();
         }
 
         hubRoot = new BorderPane();
@@ -328,38 +283,55 @@ public class RSPSHub extends Application {
             showingLibrary = false; showingFriends = false; showingStats = false; showingLeaderboard = false;
             if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
             setActiveTab(storeTab);
+            if (LauncherEngine.activeServer == null) DiscordRPC.setBrowsing("Browsing the store");
             updateDisplay();
         });
         libraryTab.setOnAction(e -> {
             showingLibrary = true; showingFriends = false; showingStats = false; showingLeaderboard = false;
             if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
             setActiveTab(libraryTab);
+            if (LauncherEngine.activeServer == null) DiscordRPC.setBrowsing("Viewing their library");
             updateDisplay();
         });
         friendsTab.setOnAction(e -> {
             showingFriends = true; showingLibrary = false; showingStats = false; showingLeaderboard = false;
             if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
             setActiveTab(friendsTab);
+            if (LauncherEngine.activeServer == null) DiscordRPC.setBrowsing("Hanging out in Friends");
             updateDisplay();
         });
         statsTab.setOnAction(e -> {
             showingStats = true; showingLibrary = false; showingFriends = false; showingLeaderboard = false;
             if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
             setActiveTab(statsTab);
+            if (LauncherEngine.activeServer == null) DiscordRPC.setBrowsing("Checking their stats");
             updateDisplay();
         });
         leaderboardTab.setOnAction(e -> {
             showingLeaderboard = true; showingLibrary = false; showingFriends = false; showingStats = false;
             if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
             setActiveTab(leaderboardTab);
+            if (LauncherEngine.activeServer == null) DiscordRPC.setBrowsing("Checking the leaderboard");
             updateDisplay();
         });
 
         // Account widget
         String initial = LauncherEngine.currentUsername.isEmpty() ? "?"
             : String.valueOf(LauncherEngine.currentUsername.charAt(0)).toUpperCase();
-        Label avatarCircle = new Label(initial);
-        avatarCircle.getStyleClass().add("nav-avatar");
+        Label avatarLetter = new Label(initial);
+        avatarLetter.getStyleClass().add("nav-avatar");
+        StackPane avatarCircle = new StackPane(avatarLetter);
+        avatarCircle.setPrefSize(34, 34); avatarCircle.setMinSize(34, 34); avatarCircle.setMaxSize(34, 34);
+        if (LauncherEngine.avatarImagePath != null) {
+            java.io.File imgFile = new java.io.File(LauncherEngine.avatarImagePath);
+            if (imgFile.exists()) {
+                ImageView iv = new ImageView(new Image(imgFile.toURI().toString(), true));
+                iv.setFitWidth(34); iv.setFitHeight(34); iv.setPreserveRatio(false);
+                iv.setClip(new javafx.scene.shape.Circle(17, 17, 17));
+                avatarLetter.setVisible(false);
+                avatarCircle.getChildren().add(iv);
+            }
+        }
         Label usernameLabel = new Label(LauncherEngine.currentUsername);
         usernameLabel.getStyleClass().add("nav-username");
         VBox userInfo = new VBox(1, usernameLabel);
@@ -473,10 +445,6 @@ public class RSPSHub extends Application {
         SceneUtils.applyRoundedCorners(scene, hubRoot, stage);
         stage.setScene(scene);
 
-        // Mock friend activity toast on hub load
-        PauseTransition toastDelay = new PauseTransition(Duration.seconds(1.5));
-        toastDelay.setOnFinished(e -> ToastManager.show(stage, "PKMaster99 is online", "Playing SlothLite \u2022 Grinding slayer"));
-        toastDelay.play();
     }
 
     private Button navTab(String text, boolean active) {
@@ -491,66 +459,33 @@ public class RSPSHub extends Application {
         active.getStyleClass().setAll("nav-tab-active");
     }
 
-    // ── TRAY ICON ─────────────────────────────────────────────────────────────
+    // ── API HELPERS ──────────────────────────────────────────────────────────────
 
-    private void setupTrayIcon(Stage stage) {
-        if (!SystemTray.isSupported()) return;
-
-        Platform.setImplicitExit(false);
-
-        // Draw a simple orange circle icon
-        BufferedImage image = new BufferedImage(32, 32, BufferedImage.TYPE_INT_ARGB);
-        java.awt.Graphics2D g = image.createGraphics();
-        g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
-        g.setColor(new java.awt.Color(0xff, 0x98, 0x1f));
-        g.fillOval(2, 2, 28, 28);
-        g.setColor(java.awt.Color.WHITE);
-        g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 14));
-        java.awt.FontMetrics fm = g.getFontMetrics();
-        String text = "R";
-        g.drawString(text, (32 - fm.stringWidth(text)) / 2, (32 - fm.getHeight()) / 2 + fm.getAscent());
-        g.dispose();
-
-        PopupMenu popup = new PopupMenu();
-        java.awt.MenuItem openItem = new java.awt.MenuItem("Open RSPS Hub");
-        java.awt.MenuItem exitItem = new java.awt.MenuItem("Exit");
-
-        openItem.addActionListener(e -> Platform.runLater(() -> {
-            stage.show();
-            stage.setIconified(false);
-            stage.toFront();
+    private void refreshFriendsFromApi() {
+        ApiClient.getFriends().thenAccept(list -> Platform.runLater(() -> {
+            friends.clear();
+            friends.addAll(list);
         }));
-        exitItem.addActionListener(e -> {
-            SystemTray.getSystemTray().remove(SystemTray.getSystemTray().getTrayIcons()[0]);
-            Platform.exit();
-        });
-
-        popup.add(openItem);
-        popup.addSeparator();
-        popup.add(exitItem);
-
-        TrayIcon trayIcon = new TrayIcon(image, "RSPS Hub", popup);
-        trayIcon.setImageAutoSize(true);
-        trayIcon.addActionListener(e -> Platform.runLater(() -> {
-            stage.show();
-            stage.setIconified(false);
-            stage.toFront();
+        ApiClient.getFriendRequests().thenAccept(list -> Platform.runLater(() -> {
+            // Keep outgoing requests (we track those locally until confirmed)
+            List<FriendRequest> outgoing = new ArrayList<>();
+            for (FriendRequest r : friendRequests) if (!r.incoming) outgoing.add(r);
+            friendRequests.clear();
+            friendRequests.addAll(list);
+            friendRequests.addAll(outgoing);
         }));
-
-        try {
-            SystemTray.getSystemTray().add(trayIcon);
-        } catch (AWTException e) {
-            e.printStackTrace();
-            return;
-        }
-
-        // Intercept close → minimize to tray instead
-        stage.setOnCloseRequest(e -> {
-            e.consume();
-            stage.hide();
-            trayIcon.displayMessage("RSPS Hub", "Running in the background. Right-click the tray icon to exit.", TrayIcon.MessageType.INFO);
-        });
     }
+
+    private void startHeartbeat() {
+        if (heartbeatTimeline != null) heartbeatTimeline.stop();
+        heartbeatTimeline = new Timeline(new KeyFrame(Duration.seconds(60), e -> ApiClient.heartbeat()));
+        heartbeatTimeline.setCycleCount(Timeline.INDEFINITE);
+        heartbeatTimeline.play();
+        // Send one immediately
+        ApiClient.heartbeat();
+    }
+
+    // ── TRAY ICON ─────────────────────────────────────────────────────────────
 
     // ── SCREEN TRANSITION ─────────────────────────────────────────────────────
 
@@ -775,10 +710,20 @@ public class RSPSHub extends Application {
                 return;
             }
 
-            friendRequests.add(new FriendRequest(u, false, "Just now"));
-            addField.clear();
-            feedbackLbl.setText("✓  Friend request sent to " + u + "!");
-            feedbackLbl.setStyle("-fx-text-fill: #4caf50; -fx-font-size: 12px;");
+            feedbackLbl.setText("Sending...");
+            feedbackLbl.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 12px;");
+            String uFinal = u;
+            ApiClient.addFriend(uFinal).thenAccept(result -> Platform.runLater(() -> {
+                if ("ok".equals(result)) {
+                    friendRequests.add(new FriendRequest(uFinal, false, "Just now"));
+                    addField.clear();
+                    feedbackLbl.setText("✓  Friend request sent to " + uFinal + "!");
+                    feedbackLbl.setStyle("-fx-text-fill: #4caf50; -fx-font-size: 12px;");
+                } else {
+                    feedbackLbl.setText(result);
+                    feedbackLbl.setStyle("-fx-text-fill: #e05252; -fx-font-size: 12px;");
+                }
+            }));
         };
 
         addBtn.setOnAction(e -> sendRequest.run());
@@ -853,15 +798,23 @@ public class RSPSHub extends Application {
                 acceptBtn.setMinWidth(100);
                 acceptBtn.setPrefHeight(38);
                 acceptBtn.setOnAction(e -> {
-                    friends.add(new Friend(req.username, true, null));
-                    friendRequests.remove(req);
-                    ActivityStore.add(new ActivityItem(req.username, "joined as your friend", "", "Just now"));
-                    updateDisplay();
+                    ApiClient.acceptFriend(req.username).thenAccept(ok -> Platform.runLater(() -> {
+                        if (ok) {
+                            friends.add(new Friend(req.username, false, null));
+                            friendRequests.remove(req);
+                        }
+                        updateDisplay();
+                    }));
                 });
 
                 Button declineBtn = new Button("Decline");
                 declineBtn.getStyleClass().add("settings-secondary-btn");
-                declineBtn.setOnAction(e -> { friendRequests.remove(req); updateDisplay(); });
+                declineBtn.setOnAction(e -> {
+                    ApiClient.declineFriend(req.username).thenAccept(ok -> Platform.runLater(() -> {
+                        friendRequests.remove(req);
+                        updateDisplay();
+                    }));
+                });
 
                 card.getChildren().addAll(avatar, info, viewBtn, acceptBtn, declineBtn);
                 serverGrid.getChildren().add(card);
@@ -890,7 +843,12 @@ public class RSPSHub extends Application {
 
                 Button cancelBtn = new Button("Cancel");
                 cancelBtn.getStyleClass().add("settings-secondary-btn");
-                cancelBtn.setOnAction(e -> { friendRequests.remove(req); updateDisplay(); });
+                cancelBtn.setOnAction(e -> {
+                    ApiClient.declineFriend(req.username).thenAccept(ok -> Platform.runLater(() -> {
+                        friendRequests.remove(req);
+                        updateDisplay();
+                    }));
+                });
 
                 card.getChildren().addAll(avatar, info, viewBtn2, cancelBtn);
                 serverGrid.getChildren().add(card);
@@ -899,38 +857,44 @@ public class RSPSHub extends Application {
     }
 
     private void buildActivityContent() {
-        List<ActivityItem> feed = ActivityStore.getFeed();
-        if (feed.isEmpty()) {
-            Label empty = new Label("No activity yet.");
-            empty.getStyleClass().add("empty-label");
-            serverGrid.getChildren().add(empty);
-            return;
-        }
-        for (ActivityItem item : feed) {
-            HBox row = new HBox(12);
-            row.getStyleClass().add("activity-item");
-            row.setAlignment(Pos.CENTER_LEFT);
-            row.setPadding(new Insets(10, 0, 10, 0));
+        Label loading = new Label("Loading activity...");
+        loading.getStyleClass().add("auth-muted");
+        serverGrid.getChildren().add(loading);
 
-            Label avatar = new Label(item.username.substring(0, 1).toUpperCase());
-            avatar.getStyleClass().add("friend-avatar-offline");
-            avatar.setMinWidth(36); avatar.setMaxWidth(36);
-            avatar.setMinHeight(36); avatar.setMaxHeight(36);
+        ApiClient.getActivityFeed().thenAccept(feed -> Platform.runLater(() -> {
+            serverGrid.getChildren().remove(loading);
+            if (feed.isEmpty()) {
+                Label empty = new Label("No activity yet.");
+                empty.getStyleClass().add("empty-label");
+                serverGrid.getChildren().add(empty);
+                return;
+            }
+            for (ActivityItem item : feed) {
+                HBox row = new HBox(12);
+                row.getStyleClass().add("activity-item");
+                row.setAlignment(Pos.CENTER_LEFT);
+                row.setPadding(new Insets(10, 0, 10, 0));
 
-            String actionText = item.target.isEmpty()
-                ? item.username + " " + item.action
-                : item.username + " " + item.action + " " + item.target;
+                Label avatar = new Label(item.username.substring(0, 1).toUpperCase());
+                avatar.getStyleClass().add("friend-avatar-offline");
+                avatar.setMinWidth(36); avatar.setMaxWidth(36);
+                avatar.setMinHeight(36); avatar.setMaxHeight(36);
 
-            Label action = new Label(actionText);
-            action.getStyleClass().add("activity-action");
-            HBox.setHgrow(action, Priority.ALWAYS);
+                String actionText = item.target.isEmpty()
+                    ? item.username + " " + item.action
+                    : item.username + " " + item.action + " " + item.target;
 
-            Label time = new Label(item.timestamp);
-            time.getStyleClass().add("activity-time");
+                Label action = new Label(actionText);
+                action.getStyleClass().add("activity-action");
+                HBox.setHgrow(action, Priority.ALWAYS);
 
-            row.getChildren().addAll(avatar, action, time);
-            serverGrid.getChildren().add(row);
-        }
+                Label time = new Label(item.timestamp);
+                time.getStyleClass().add("activity-time");
+
+                row.getChildren().addAll(avatar, action, time);
+                serverGrid.getChildren().add(row);
+            }
+        }));
     }
 
     private Label friendsGroupHeader(String text) {
@@ -1001,7 +965,12 @@ public class RSPSHub extends Application {
         });
 
         MenuItem removeFriend = new MenuItem("Remove Friend");
-        removeFriend.setOnAction(e -> { friends.remove(friend); updateDisplay(); });
+        removeFriend.setOnAction(e -> {
+            ApiClient.declineFriend(friend.username).thenAccept(ok -> Platform.runLater(() -> {
+                friends.remove(friend);
+                updateDisplay();
+            }));
+        });
 
         MenuItem reportItem = new MenuItem("Report");
         reportItem.setOnAction(e -> {
@@ -1165,7 +1134,10 @@ public class RSPSHub extends Application {
     // ── CHAT VIEW ────────────────────────────────────────────────────────────
 
     private void buildChatView() {
-        List<Message> messages = MessageStore.getMessages(activeConversation);
+        // For group chats we still use local MessageStore; DMs use the API
+        List<Message> messages = isGroupConversation
+            ? MessageStore.getMessages(activeConversation)
+            : new ArrayList<>();
 
         BorderPane chatPane = new BorderPane();
         chatPane.getStyleClass().add("root-pane");
@@ -1260,6 +1232,14 @@ public class RSPSHub extends Application {
         msgScroll.setVvalue(1.0);
         chatPane.setCenter(msgScroll);
 
+        // Load DM history from API
+        if (!isGroupConversation) {
+            ApiClient.getMessages(activeConversation).thenAccept(apiMessages -> Platform.runLater(() -> {
+                messagesBox.getChildren().clear();
+                for (Message msg : apiMessages) messagesBox.getChildren().add(buildBubble(msg));
+            }));
+        }
+
         // Input bar
         HBox inputBar = new HBox(10);
         inputBar.getStyleClass().add("chat-input-bar");
@@ -1275,15 +1255,23 @@ public class RSPSHub extends Application {
         sendBtn.getStyleClass().add("auth-btn");
         sendBtn.setPrefWidth(80);
 
+        String convId = activeConversation;
+        boolean isGroup = isGroupConversation;
         Runnable send = () -> {
             String text = inputField.getText().trim();
             if (text.isEmpty()) return;
             String sender = LauncherEngine.currentUsername.isEmpty() ? "You" : LauncherEngine.currentUsername;
             String time = LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm a"));
             Message msg = new Message(sender, text, time, true);
-            MessageStore.addMessage(activeConversation, msg);
-            messagesBox.getChildren().add(buildBubble(msg));
             inputField.clear();
+            if (isGroup) {
+                MessageStore.addMessage(convId, msg);
+                messagesBox.getChildren().add(buildBubble(msg));
+            } else {
+                // Optimistic UI — add bubble immediately, send async
+                messagesBox.getChildren().add(buildBubble(msg));
+                ApiClient.sendMessage(convId, text);
+            }
         };
 
         inputField.setOnAction(e -> send.run());
@@ -1756,31 +1744,12 @@ public class RSPSHub extends Application {
 
         record LeaderEntry(int rank, String username, String topServer, long minutes, boolean isYou) {}
 
-        // Mock per-server minutes: map of server → list of (username, minutes)
         List<LeaderEntry> entries = new ArrayList<>();
         if (filterAll) {
-            entries.addAll(List.of(
-                new LeaderEntry(0, "PKMaster99",  "SlothLite",   2840, false),
-                new LeaderEntry(0, "IronmanJoe",  "MythicPS",    1920, false),
-                new LeaderEntry(0, "ZulrahGrind", "SlothLite",    980, false),
-                new LeaderEntry(0, "Sasqu",       "NightmarePS",  720, false)
-            ));
             long yourMin = PlaytimeStore.getTotalMinutes();
             String yourTop = PlaytimeStore.getMostPlayed();
             entries.add(new LeaderEntry(0, yourName, yourTop != null ? yourTop : "—", yourMin, true));
         } else {
-            // Per-server mock data
-            Map<String, Long> mockServerMinutes = new HashMap<>();
-            mockServerMinutes.put("PKMaster99:SlothLite",   2100L);
-            mockServerMinutes.put("PKMaster99:MythicPS",     400L);
-            mockServerMinutes.put("IronmanJoe:MythicPS",    1920L);
-            mockServerMinutes.put("ZulrahGrind:SlothLite",   980L);
-            mockServerMinutes.put("Sasqu:NightmarePS",       720L);
-            String[] mockUsers = {"PKMaster99", "IronmanJoe", "ZulrahGrind", "Sasqu"};
-            for (String u : mockUsers) {
-                long min = mockServerMinutes.getOrDefault(u + ":" + leaderboardServer, 0L);
-                if (min > 0) entries.add(new LeaderEntry(0, u, leaderboardServer, min, false));
-            }
             long yourMin = PlaytimeStore.getMinutes(leaderboardServer);
             entries.add(new LeaderEntry(0, yourName, leaderboardServer, yourMin, true));
         }
@@ -2101,9 +2070,15 @@ public class RSPSHub extends Application {
                 PlaytimeStore.recordSession(server.name, mins);
                 SessionHistoryStore.add(server.name, mins);
                 StreakStore.recordPlay(server.name);
+                // Push updated stats to server
+                ApiClient.updateStats(
+                    PlaytimeStore.getTotalMinutes(),
+                    PlaytimeStore.getTotalServersPlayed(),
+                    PlaytimeStore.getMostPlayed()
+                );
                 Platform.runLater(() -> {
                     LauncherEngine.activeServer = null;
-                    DiscordRPC.clearActivity();
+                    DiscordRPC.setBrowsing("Browsing the store");
                     if (sessionTimeline != null) { sessionTimeline.stop(); sessionTimeline = null; }
                     if (sessionTimerLabel != null) {
                         sessionTimerLabel.setVisible(false);

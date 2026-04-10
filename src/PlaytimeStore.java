@@ -44,12 +44,6 @@ public class PlaytimeStore {
         return minutesPlayed.size();
     }
 
-    /** Seeds demo playtime only if the server has no existing record. */
-    public static void seedDemo(String serverName, long minutes) {
-        minutesPlayed.putIfAbsent(serverName, minutes);
-        launchCount.putIfAbsent(serverName, 1);
-    }
-
     private static class Data { Map<String, Long> minutesPlayed; Map<String, Integer> launchCount; }
 
     public static void save() {

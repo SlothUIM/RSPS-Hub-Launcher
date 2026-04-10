@@ -58,6 +58,31 @@ public class DiscordRPC {
         }
     }
 
+    /**
+     * Show a browsing state — used when the user is on the hub but not in a game.
+     * e.g. "Browsing the store", "Viewing friends", etc.
+     */
+    public static synchronized void setBrowsing(String details) {
+        if (!connected) return;
+        try {
+            int pid = (int) ProcessHandle.current().pid();
+            String nonce = String.valueOf(System.currentTimeMillis());
+            String safe  = details.replace("\\", "\\\\").replace("\"", "\\\"");
+            String payload = String.format(
+                "{\"cmd\":\"SET_ACTIVITY\",\"args\":{\"pid\":%d,\"activity\":{" +
+                "\"details\":\"%s\"," +
+                "\"assets\":{\"large_image\":\"logo\",\"large_text\":\"RSPS Hub\"}" +
+                "}},\"nonce\":\"%s\"}",
+                pid, safe, nonce
+            );
+            send(OP_FRAME, payload);
+            drain();
+        } catch (Exception e) {
+            System.err.println("Discord RPC setBrowsing: " + e.getMessage());
+            connected = false;
+        }
+    }
+
     /** Clear the activity when the game closes. */
     public static synchronized void clearActivity() {
         if (!connected) return;

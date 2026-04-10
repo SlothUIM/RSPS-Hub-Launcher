@@ -2,8 +2,12 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
+import javafx.scene.shape.Circle;
 import javafx.stage.Stage;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -44,8 +48,39 @@ public class ProfileScreen {
 
         // ── Avatar + identity ────────────────────────────────────────────────
         String initial = username.isEmpty() ? "?" : String.valueOf(username.charAt(0)).toUpperCase();
-        Label avatar = new Label(initial);
-        avatar.getStyleClass().add("profile-avatar");
+        Label avatarLetter = new Label(initial);
+        avatarLetter.getStyleClass().add("profile-avatar");
+        StackPane avatar = new StackPane(avatarLetter);
+        avatar.setPrefSize(100, 100); avatar.setMinSize(100, 100); avatar.setMaxSize(100, 100);
+
+        // Try local file first (own profile), then fall back to server URL for everyone
+        boolean loadedLocal = false;
+        if (isOwnProfile && LauncherEngine.avatarImagePath != null) {
+            File imgFile = new File(LauncherEngine.avatarImagePath);
+            if (imgFile.exists()) {
+                ImageView iv = new ImageView(new Image(imgFile.toURI().toString(), true));
+                iv.setFitWidth(100); iv.setFitHeight(100); iv.setPreserveRatio(false);
+                iv.setClip(new Circle(50, 50, 50));
+                avatarLetter.setVisible(false);
+                avatar.getChildren().add(iv);
+                loadedLocal = true;
+            }
+        }
+        if (!loadedLocal) {
+            // Try loading from server (works for own and other users)
+            Image serverImg = new Image(ApiClient.avatarUrl(username), true);
+            serverImg.progressProperty().addListener((obs, old, p) -> {
+                if (p.doubleValue() >= 1.0 && !serverImg.isError()) {
+                    javafx.application.Platform.runLater(() -> {
+                        ImageView iv = new ImageView(serverImg);
+                        iv.setFitWidth(100); iv.setFitHeight(100); iv.setPreserveRatio(false);
+                        iv.setClip(new Circle(50, 50, 50));
+                        avatarLetter.setVisible(false);
+                        avatar.getChildren().add(iv);
+                    });
+                }
+            });
+        }
 
         Label nameLbl = new Label(username);
         nameLbl.getStyleClass().add("profile-username");
@@ -109,11 +144,28 @@ public class ProfileScreen {
                 statBox("Most Played", PlaytimeStore.getMostPlayed())
             );
         } else {
-            stats.getChildren().addAll(
-                statBox("Total Playtime", "84h 20m"),
-                statBox("Servers Played", "6"),
-                statBox("Most Played", "SlothLite")
-            );
+            // Placeholders — filled in async once API responds
+            VBox playtimeBox  = statBox("Total Playtime", "...");
+            VBox serversBox   = statBox("Servers Played", "...");
+            VBox mostBox      = statBox("Most Played",    "...");
+            stats.getChildren().addAll(playtimeBox, serversBox, mostBox);
+
+            ApiClient.getUserStats(username).thenAccept(obj -> javafx.application.Platform.runLater(() -> {
+                if (obj == null || obj.has("error")) {
+                    updateStatBox(playtimeBox, "—");
+                    updateStatBox(serversBox,  "—");
+                    updateStatBox(mostBox,     "—");
+                    return;
+                }
+                long totalMins = obj.has("total_playtime_minutes") ? obj.get("total_playtime_minutes").getAsLong() : 0;
+                int servers    = obj.has("servers_played")         ? obj.get("servers_played").getAsInt() : 0;
+                String most    = obj.has("most_played_server")     ? obj.get("most_played_server").getAsString() : "";
+                long h = totalMins / 60, m = totalMins % 60;
+                String playtimeStr = totalMins == 0 ? "0m" : (h > 0 ? h + "h " : "") + m + "m";
+                updateStatBox(playtimeBox, playtimeStr);
+                updateStatBox(serversBox,  String.valueOf(servers));
+                updateStatBox(mostBox,     most.isEmpty() ? "—" : most);
+            }));
         }
 
         // ── Server Levels section ────────────────────────────────────────────
@@ -149,19 +201,9 @@ public class ProfileScreen {
                 }
             }
         } else {
-            // Mock data for other profiles
-            String[][] mockServers = {
-                {"SlothLite", "32", "0.4"},
-                {"MythicPS",  "18", "0.7"},
-                {"NightmarePS", "9", "0.2"}
-            };
-            int rank = 1;
-            for (String[] mock : mockServers) {
-                serverLevelsSection.getChildren().add(
-                    buildMockServerLevelRow(rank, mock[0], Integer.parseInt(mock[1]), Double.parseDouble(mock[2]))
-                );
-                rank++;
-            }
+            Label noData = new Label("Stats are not available for other players yet.");
+            noData.setStyle("-fx-text-fill: #555d6e; -fx-font-size: 13px; -fx-font-style: italic;");
+            serverLevelsSection.getChildren().add(noData);
         }
 
         // ── Favourite Servers section ────────────────────────────────────────
@@ -197,12 +239,9 @@ public class ProfileScreen {
                 }
             }
         } else {
-            FlowPane favFlow = new FlowPane(8, 8);
-            favFlow.setAlignment(Pos.CENTER_LEFT);
-            for (String server : new String[]{"SlothLite", "MythicPS", "NightmarePS"}) {
-                favFlow.getChildren().add(buildFavPill(server));
-            }
-            favSection.getChildren().add(favFlow);
+            Label noFavs = new Label("Not available.");
+            noFavs.setStyle("-fx-text-fill: #555d6e; -fx-font-size: 13px; -fx-font-style: italic;");
+            favSection.getChildren().add(noFavs);
         }
 
         // ── Action buttons (other profile only) ─────────────────────────────
@@ -329,11 +368,6 @@ public class ProfileScreen {
         return buildServerLevelRowRaw(rank, serverName, level, progress);
     }
 
-    // ── Helper: build a server-level row from mock data ──────────────────────
-    private static HBox buildMockServerLevelRow(int rank, String serverName, int level, double progress) {
-        return buildServerLevelRowRaw(rank, serverName, level, progress);
-    }
-
     private static HBox buildServerLevelRowRaw(int rank, String serverName, int level, double progress) {
         String milestoneColor = ServerSkillSystem.getMilestoneColor(level);
         String rankName = ServerSkillSystem.getRankName(level);
@@ -393,6 +427,13 @@ public class ProfileScreen {
         box.setAlignment(Pos.CENTER);
         box.getStyleClass().add("profile-stat-box");
         return box;
+    }
+
+    /** Updates the value label inside a statBox created by statBox(). */
+    private static void updateStatBox(VBox box, String newValue) {
+        if (!box.getChildren().isEmpty() && box.getChildren().get(0) instanceof Label lbl) {
+            lbl.setText(newValue);
+        }
     }
 
     private static HBox buildActivityRow(ActivityItem item) {

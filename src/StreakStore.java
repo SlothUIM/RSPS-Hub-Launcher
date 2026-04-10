@@ -35,12 +35,6 @@ public class StreakStore {
         return streaks.getOrDefault(serverName, 0);
     }
 
-    /** Seeds demo streak data only if the server has no existing streak. */
-    public static void seedDemo(String serverName, int days) {
-        streaks.putIfAbsent(serverName, days);
-        lastPlayed.putIfAbsent(serverName, LocalDate.now().toString());
-    }
-
     private static class Data { Map<String, String> lastPlayed; Map<String, Integer> streaks; }
 
     public static void save() {
