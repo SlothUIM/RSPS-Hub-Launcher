@@ -992,18 +992,19 @@ public class DeveloperPortalScreen {
             errorLabel.setVisible(false);
             errorLabel.setManaged(false);
 
-            String payload = String.format(
-                "{\"name\":\"%s\", \"description\":\"%s\", \"jar_url\":\"%s\", \"xp_rate\":\"%s\"}", 
-                serverName, description, jarUrl, xp
-            );
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("name", serverName);
+            payload.put("description", description);
+            payload.put("jar_url", jarUrl);
+            payload.put("xp_rate", xp);
 
-            ApiClient.postJson("servers/submit.php", payload).thenAccept(response -> {
+            ApiClient.submitServer(payload).thenAccept(response -> {
                 javafx.application.Platform.runLater(() -> {
                     submitBtn.setText("SUBMIT SERVER");
                     submitBtn.setDisable(false);
-                    
+
                     if (response != null && !response.contains("error")) {
-                        successPanel.setVisible(true); 
+                        successPanel.setVisible(true);
                         successPanel.setManaged(true);
                         submitBtn.setVisible(false);
                     } else {

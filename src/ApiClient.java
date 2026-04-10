@@ -242,6 +242,12 @@ public class ApiClient {
         });
     }
 
+    public static CompletableFuture<String> submitServer(Map<String, Object> fields) {
+        return http.sendAsync(post("servers/submit.php", fields).build(), HttpResponse.BodyHandlers.ofString())
+            .thenApply(HttpResponse::body)
+            .exceptionally(ex -> "{\"error\":\"" + ex.getMessage() + "\"}");
+    }
+
     public static CompletableFuture<List<ServerProfile>> getPendingServers() {
         return fetch(get("servers/pending.php").build()).thenApply(obj -> {
             List<ServerProfile> list = new ArrayList<>();

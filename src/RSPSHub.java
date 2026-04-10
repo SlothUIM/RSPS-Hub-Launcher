@@ -423,10 +423,17 @@ public class RSPSHub extends Application {
             sessionTimerLabel.setManaged(false);
         }
 
+        Button discordJoinBtn = new Button("Discord");
+        discordJoinBtn.getStyleClass().add("nav-discord-btn");
+        discordJoinBtn.setOnAction(e -> {
+            try { java.awt.Desktop.getDesktop().browse(new java.net.URI("https://discord.gg/grt9C4GJcj")); }
+            catch (Exception ex) { System.err.println("Failed to open Discord: " + ex.getMessage()); }
+        });
+
         Region navSpacer = new Region();
         HBox.setHgrow(navSpacer, Priority.ALWAYS);
         navbar.getChildren().addAll(brand, storeTab, libraryTab, friendsTab, statsTab, leaderboardTab,
-            navSpacer, sessionTimerLabel, downloadPane, bellPane, accountWidget);
+            navSpacer, sessionTimerLabel, discordJoinBtn, downloadPane, bellPane, accountWidget);
 
         // --- SEARCH & FILTERS ---
         topControls = new VBox(15);

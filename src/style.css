@@ -1304,6 +1304,18 @@
 }
 
 /* --- DOWNLOAD BADGE --- */
+.nav-discord-btn {
+    -fx-background-color: #5865F2;
+    -fx-text-fill: white;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
+    -fx-padding: 6 14;
+    -fx-background-radius: 6;
+    -fx-border-color: transparent;
+}
+.nav-discord-btn:hover { -fx-background-color: #4752c4; }
+
 .nav-download-btn {
     -fx-background-color: transparent;
     -fx-text-fill: #8b92a5;
