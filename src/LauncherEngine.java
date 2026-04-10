@@ -23,6 +23,7 @@ public class LauncherEngine {
     public static String sessionToken    = "";
     public static String avatarImagePath = null;
     public static String statusMessage   = "";
+    public static boolean isStaff       = false;
     public static String activeServer    = null;
 
     // Settings

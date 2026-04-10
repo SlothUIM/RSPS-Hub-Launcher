@@ -252,13 +252,16 @@ public class RSPSHub extends Application {
             LauncherEngine.init();
             allServers = LauncherEngine.fetchServers();
             DiscordRPC.connectAsync();
-            // Set initial presence after a short delay to let IPC connect
             new Thread(() -> {
                 try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
                 DiscordRPC.setBrowsing("Browsing the store");
             }, "discord-idle").start();
             refreshFriendsFromApi();
             startHeartbeat();
+            ApiClient.checkStaff().thenAccept(staff -> Platform.runLater(() -> {
+                LauncherEngine.isStaff = staff;
+                if (staff) updateDisplay();
+            }));
         }
 
         hubRoot = new BorderPane();
@@ -558,6 +561,26 @@ public class RSPSHub extends Application {
         if (showSearch) {
             topControls.setPadding(new Insets(20, 40, 20, 40));
             topControls.setAlignment(Pos.TOP_LEFT);
+
+            // Staff-only refresh button — added/removed dynamically after async staff check resolves
+            sortRow.getChildren().removeIf(n -> "staff-refresh".equals(n.getUserData()));
+            if (LauncherEngine.isStaff) {
+                Button refreshBtn = new Button("↻ Refresh");
+                refreshBtn.setUserData("staff-refresh");
+                refreshBtn.getStyleClass().add("settings-secondary-btn");
+                refreshBtn.setOnAction(e -> {
+                    refreshBtn.setDisable(true);
+                    refreshBtn.setText("Refreshing...");
+                    ApiClient.getLiveServers().thenAccept(servers -> Platform.runLater(() -> {
+                        allServers = servers;
+                        refreshBtn.setDisable(false);
+                        refreshBtn.setText("↻ Refresh");
+                        updateDisplay();
+                    }));
+                });
+                sortRow.getChildren().add(refreshBtn);
+            }
+
             topControls.getChildren().add(sortRow);
             boolean showFilters = !showingLibrary;
             filterBar.setVisible(showFilters);
