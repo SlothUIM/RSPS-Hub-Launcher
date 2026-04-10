@@ -40,6 +40,12 @@ public class ServerProfile {
     public List<String> screenshots;
     public boolean isNew;
 
+    public int approved;
+    public int visible;
+
+    @SerializedName("submitted_by")
+    public String submittedBy;
+
     @Override
     public String toString() {
         return name + " (" + playersOnline + " Online)";

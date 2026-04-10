@@ -955,6 +955,84 @@
     -fx-pref-height: 1px;
 }
 
+/* --- COMBO BOX ------------------------------------------------------------ */
+
+/* The box itself */
+.combo-box {
+    -fx-background-color: #1a1d24;
+    -fx-border-color: #2a2e39;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-border-width: 1;
+    -fx-padding: 0;
+}
+.combo-box:focused,
+.combo-box:showing {
+    -fx-border-color: #9b5de5;
+}
+
+/* Selected value label inside the button */
+.combo-box .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+    -fx-padding: 7 10;
+}
+
+/* Arrow button area */
+.combo-box .arrow-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0 8 0 0;
+}
+.combo-box .arrow {
+    -fx-background-color: #8b92a5;
+}
+
+/* The popup dropdown */
+.combo-box-popup .list-view {
+    -fx-background-color: #1a1d24;
+    -fx-border-color: #2a2e39;
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.55), 14, 0, 0, 4);
+    -fx-padding: 4 0;
+}
+
+/* Each item in the dropdown */
+.combo-box-popup .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #c8cdd8;
+    -fx-font-size: 13px;
+    -fx-padding: 8 14;
+}
+.combo-box-popup .list-cell:hover {
+    -fx-background-color: #2a2e39;
+    -fx-text-fill: white;
+}
+.combo-box-popup .list-cell:filled:selected,
+.combo-box-popup .list-cell:filled:selected:hover {
+    -fx-background-color: #2d2040;
+    -fx-text-fill: #9b5de5;
+}
+
+/* Scrollbar inside the popup */
+.combo-box-popup .list-view .scroll-bar:vertical {
+    -fx-background-color: #1a1d24;
+    -fx-pref-width: 8;
+}
+.combo-box-popup .list-view .scroll-bar:vertical .thumb {
+    -fx-background-color: #3a3f4e;
+    -fx-background-radius: 4;
+}
+.combo-box-popup .list-view .scroll-bar:vertical .track,
+.combo-box-popup .list-view .scroll-bar:vertical .track-background,
+.combo-box-popup .list-view .scroll-bar:vertical .increment-button,
+.combo-box-popup .list-view .scroll-bar:vertical .decrement-button {
+    -fx-background-color: transparent;
+    -fx-pref-width: 8;
+}
+
 /* --- DIALOGS (TextInputDialog, Alert) --- */
 .dialog-pane {
     -fx-background-color: #1a1d24;

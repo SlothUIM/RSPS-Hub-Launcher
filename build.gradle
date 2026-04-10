@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.rspshub'
-version = '1.0-SNAPSHOT'
+version = '1.0.0'
 
 java {
     toolchain {
@@ -21,6 +21,7 @@ javafx {
 
 application {
     mainClass = 'main'
+    applicationName = 'RSPSHub'
 }
 
 repositories {
@@ -48,5 +49,42 @@ sourceSets {
             srcDirs = ['src']
             exclude '**/*.java'
         }
+    }
+}
+
+// ── JPACKAGE INSTALLER ────────────────────────────────────────────────────────
+
+task packageInstaller(type: Exec, dependsOn: installDist) {
+    def jpackage = "${System.getenv('JAVA_HOME')}/bin/jpackage"
+    def inputDir = "${buildDir}/install/RSPSHub/lib"
+    def outputDir = "${buildDir}/installer"
+    def icon = "${projectDir}/src/icon.ico"
+
+    doFirst {
+        delete outputDir
+        mkdir outputDir
+    }
+
+    commandLine jpackage,
+        '--input',           inputDir,
+        '--dest',            outputDir,
+        '--name',            'RSPS Hub',
+        '--app-version',     version,
+        '--main-jar',        'RSPSHub-1.0.0.jar',
+        '--main-class',      'main',
+        '--icon',            icon,
+        '--type',            'exe',
+        '--win-shortcut',
+        '--win-menu',
+        '--win-dir-chooser',
+        '--win-shortcut-prompt',
+        '--java-options',    '--add-opens=javafx.graphics/com.sun.javafx.application=ALL-UNNAMED',
+        '--java-options',    '--add-opens=javafx.base/com.sun.javafx.reflect=ALL-UNNAMED',
+        '--vendor',          'RSPS Hub',
+        '--description',     'The unified RSPS launcher'
+
+    doLast {
+        println "\nInstaller built → ${outputDir}"
+        fileTree(outputDir).each { println "  $it.name" }
     }
 }
