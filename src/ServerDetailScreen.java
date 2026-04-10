@@ -56,6 +56,7 @@ public class ServerDetailScreen {
         ScrollPane scrollPane = new ScrollPane(content);
         scrollPane.setFitToWidth(true);
         scrollPane.getStyleClass().add("main-scroll");
+        boostScrollSpeed(scrollPane);
         root.setCenter(scrollPane);
 
         Scene scene = new Scene(root);
@@ -81,17 +82,15 @@ public class ServerDetailScreen {
         heroClip.widthProperty().bind(hero.widthProperty());
         hero.setClip(heroClip);
 
-        // Banner — same as Exora: natural ratio, height locked to HERO_H, centred.
+        // Banner — fills full width, loaded via disk cache
         if (server.bannerUrl != null && !server.bannerUrl.isEmpty()) {
             ImageView bannerImg = new ImageView();
-            bannerImg.setPreserveRatio(true);
+            bannerImg.setPreserveRatio(false);
             bannerImg.setFitHeight(HERO_H);
+            bannerImg.fitWidthProperty().bind(hero.widthProperty());
             bannerImg.setSmooth(true);
-            Image img = new Image(server.bannerUrl, true);
-            img.progressProperty().addListener((obs, old, p) -> {
-                if (p.doubleValue() >= 1.0 && !img.isError()) bannerImg.setImage(img);
-            });
             hero.getChildren().add(bannerImg);
+            ImageCache.load(server.bannerUrl, img -> bannerImg.setImage(img));
         }
 
         // Gradient fade at the bottom
@@ -120,13 +119,10 @@ public class ServerDetailScreen {
             ImageView iconImg = new ImageView();
             iconImg.setFitWidth(80); iconImg.setFitHeight(80);
             iconImg.setPreserveRatio(false); iconImg.setManaged(false);
-            Image img = new Image(server.iconUrl, true);
-            img.progressProperty().addListener((obs, old, p) -> {
-                if (p.doubleValue() >= 1.0 && !img.isError()) {
-                    iconImg.setImage(img); placeholder.setVisible(false);
-                }
-            });
             iconPane.getChildren().addAll(placeholder, iconImg);
+            ImageCache.load(server.iconUrl, img -> {
+                iconImg.setImage(img); placeholder.setVisible(false);
+            });
         } else {
             iconPane.getChildren().add(placeholder);
         }
@@ -589,6 +585,35 @@ public class ServerDetailScreen {
 
         section.getChildren().addAll(header, descStack, expandBtn);
         return section;
+    }
+
+    // ── UTILITIES ────────────────────────────────────────────────────────────
+
+    private static void boostScrollSpeed(ScrollPane sp) {
+        final double[] velocity = {0};
+        final javafx.animation.Timeline[] momentum = {null};
+
+        sp.getContent().setOnScroll(e -> {
+            velocity[0] += e.getDeltaY() * 1.5;
+
+            if (momentum[0] != null) momentum[0].stop();
+            javafx.animation.Timeline anim = new javafx.animation.Timeline();
+            momentum[0] = anim;
+
+            for (int i = 1; i <= 20; i++) {
+                anim.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.millis(i * 16), ev -> {
+                    double contentH  = sp.getContent().getBoundsInLocal().getHeight();
+                    double viewportH = sp.getViewportBounds().getHeight();
+                    double scrollable = contentH - viewportH;
+                    if (scrollable <= 0) return;
+                    sp.setVvalue(sp.getVvalue() - velocity[0] / scrollable);
+                    velocity[0] *= 0.82;
+                }));
+            }
+            anim.setOnFinished(ev -> velocity[0] = 0);
+            anim.play();
+            e.consume();
+        });
     }
 
     // ── URL-LINKIFIED TEXT FLOW ───────────────────────────────────────────────

@@ -82,6 +82,7 @@ public class DeveloperPortalScreen {
         ScrollPane scroll = new ScrollPane(wrapper);
         scroll.setFitToWidth(true);
         scroll.getStyleClass().add("main-scroll");
+        boostScrollSpeed(scroll);
         root.setCenter(scroll);
 
         Scene scene = new Scene(root);
@@ -218,8 +219,9 @@ public class DeveloperPortalScreen {
             String sectionTitle,
             String emptyHint) {
         List<ServerProfile>[] serverList = new List[]{new ArrayList<>()};
-        String[] localBanner = {null};
-        String[] localIcon   = {null};
+        String[] localBanner     = {null}; // detail page hero banner
+        String[] localCardBanner = {null}; // store card thumbnail banner
+        String[] localIcon       = {null};
 
         Label loadingLbl = new Label("Loading servers...");
         loadingLbl.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 13px;");
@@ -238,8 +240,9 @@ public class DeveloperPortalScreen {
         editPlayers.setPrefWidth(100); editPlayers.setMaxWidth(100);
         CheckBox editVisible  = new CheckBox("Visible in store"); editVisible.getStyleClass().add("settings-checkbox");
         CheckBox editApproved = new CheckBox("Approved");         editApproved.getStyleClass().add("settings-checkbox");
-        TextField editBanner  = styledField("Banner / hero image URL  (or pick a file)");
-        TextField editIcon    = styledField("Icon image URL  (or pick a file)");
+        TextField editCardBanner = styledField("Store card banner URL  (or pick a file)");
+        TextField editBanner     = styledField("Detail page banner URL  (or pick a file)");
+        TextField editIcon       = styledField("Icon image URL  (or pick a file)");
         TextArea  editDesc    = new TextArea();
         editDesc.getStyleClass().add("dev-textarea"); editDesc.setWrapText(true); editDesc.setPrefRowCount(5); editDesc.setMaxWidth(Double.MAX_VALUE);
         TextField editJar     = styledField("JAR download URL");
@@ -254,9 +257,9 @@ public class DeveloperPortalScreen {
         // ══ STORE CARD PREVIEW components ═════════════════════════════════════
         Label cardBannerLbl = new Label(""); cardBannerLbl.getStyleClass().add("card-banner-placeholder");
         ImageView cardBannerIV = new ImageView();
-        cardBannerIV.setFitWidth(200); cardBannerIV.setFitHeight(100); cardBannerIV.setPreserveRatio(false); cardBannerIV.setVisible(false);
+        cardBannerIV.setFitWidth(300); cardBannerIV.setFitHeight(150); cardBannerIV.setPreserveRatio(false); cardBannerIV.setVisible(false);
         StackPane cardBannerPane = new StackPane(cardBannerLbl, cardBannerIV);
-        cardBannerPane.setPrefSize(200, 100); cardBannerPane.setMinSize(200, 100); cardBannerPane.setMaxSize(200, 100);
+        cardBannerPane.setPrefSize(300, 150); cardBannerPane.setMinSize(300, 150); cardBannerPane.setMaxSize(300, 150);
         cardBannerPane.getStyleClass().add("card-banner");
 
         Label cardTitle   = new Label(); cardTitle.getStyleClass().add("card-title");
@@ -305,9 +308,9 @@ public class DeveloperPortalScreen {
         // Icon — lives in info bar with translateY(-36), same as actual detail page
         StackPane detailIconPane = new StackPane();
         detailIconPane.setStyle("-fx-background-color: #1a1d24; -fx-background-radius: 8; -fx-border-color: #2a2e39; -fx-border-radius: 8; -fx-border-width: 2;");
-        detailIconPane.setPrefSize(72, 72); detailIconPane.setMinSize(72, 72); detailIconPane.setMaxSize(72, 72);
+        detailIconPane.setPrefSize(80, 80); detailIconPane.setMinSize(80, 80); detailIconPane.setMaxSize(80, 80);
         Label detailIconLbl = new Label("?"); detailIconLbl.setStyle("-fx-text-fill: #9b5de5; -fx-font-weight: bold; -fx-font-size: 22px;");
-        ImageView detailIconIV = new ImageView(); detailIconIV.setFitWidth(72); detailIconIV.setFitHeight(72); detailIconIV.setPreserveRatio(false); detailIconIV.setVisible(false);
+        ImageView detailIconIV = new ImageView(); detailIconIV.setFitWidth(80); detailIconIV.setFitHeight(80); detailIconIV.setPreserveRatio(false); detailIconIV.setVisible(false);
         detailIconPane.getChildren().addAll(detailIconLbl, detailIconIV);
         detailIconPane.setTranslateY(-36);  // float up into the hero, matching actual page
 
@@ -334,51 +337,88 @@ public class DeveloperPortalScreen {
 
         Label detailPreviewHdr = new Label("DETAIL PAGE PREVIEW");
         detailPreviewHdr.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 11px; -fx-font-weight: bold;");
-        VBox detailPreview = new VBox(10, detailPreviewHdr, detailPreviewBox);
+        Label detailSizeHint = new Label("Banner: 1200×400px minimum, landscape. Icon: 256×256px square. Both JPG or PNG.");
+        detailSizeHint.setStyle("-fx-text-fill: #555d6e; -fx-font-size: 11px;");
+        VBox detailPreview = new VBox(6, detailPreviewHdr, detailSizeHint, detailPreviewBox);
         detailPreview.setStyle("-fx-padding: 16 0 0 0; -fx-border-color: #2a2e39; -fx-border-width: 1 0 0 0;");
 
         // ── ICON small preview (for store card tab) ────────────────────────────
         StackPane iconPreviewPane = new StackPane();
         iconPreviewPane.setStyle("-fx-background-color: #2a2e39; -fx-background-radius: 8; -fx-border-color: #3a3f4e; -fx-border-radius: 8; -fx-border-width: 1;");
-        iconPreviewPane.setPrefSize(72, 72); iconPreviewPane.setMinSize(72, 72); iconPreviewPane.setMaxSize(72, 72);
+        iconPreviewPane.setPrefSize(80, 80); iconPreviewPane.setMinSize(80, 80); iconPreviewPane.setMaxSize(80, 80);
         Label iconSmallPlaceholder = new Label("ICON"); iconSmallPlaceholder.setStyle("-fx-text-fill: #555d6e; -fx-font-size: 11px;");
-        ImageView iconSmallIV = new ImageView(); iconSmallIV.setFitWidth(72); iconSmallIV.setFitHeight(72); iconSmallIV.setPreserveRatio(false); iconSmallIV.setVisible(false);
+        ImageView iconSmallIV = new ImageView(); iconSmallIV.setFitWidth(80); iconSmallIV.setFitHeight(80); iconSmallIV.setPreserveRatio(false); iconSmallIV.setVisible(false);
         iconPreviewPane.getChildren().addAll(iconSmallPlaceholder, iconSmallIV);
 
         // ══ SHARED IMAGE CONSUMERS ═════════════════════════════════════════════
-        java.util.function.Consumer<Image> applyBannerImage = img -> {
-            cardBannerIV.setImage(img); heroBannerIV.setImage(img);
+
+        // Store card thumbnail banner
+        java.util.function.Consumer<Image> applyCardBannerImage = img -> {
+            Runnable show = () -> { cardBannerIV.setImage(img); cardBannerIV.setVisible(true); cardBannerLbl.setVisible(false); };
+            Runnable hide = () -> { cardBannerIV.setVisible(false); cardBannerLbl.setVisible(true); };
+            if (img.getProgress() >= 1.0) { if (!img.isError()) show.run(); else hide.run(); return; }
             img.progressProperty().addListener((o, ov, p) -> {
-                if (p.doubleValue() >= 1.0 && !img.isError()) Platform.runLater(() -> {
-                    cardBannerIV.setVisible(true); cardBannerLbl.setVisible(false);
-                    heroBannerIV.setVisible(true); heroBannerPlaceholder.setVisible(false);
-                });
+                if (p.doubleValue() >= 1.0) Platform.runLater(() -> { if (!img.isError()) show.run(); else hide.run(); });
             });
-            img.errorProperty().addListener((o, ov, err) -> { if (err) Platform.runLater(() -> {
-                cardBannerIV.setVisible(false); cardBannerLbl.setVisible(true);
-                heroBannerIV.setVisible(false); heroBannerPlaceholder.setVisible(true);
-            }); });
+        };
+
+        // Detail page hero banner
+        java.util.function.Consumer<Image> applyBannerImage = img -> {
+            Runnable show = () -> { heroBannerIV.setImage(img); heroBannerIV.setVisible(true); heroBannerPlaceholder.setVisible(false); };
+            Runnable hide = () -> { heroBannerIV.setVisible(false); heroBannerPlaceholder.setVisible(true); };
+            if (img.getProgress() >= 1.0) { if (!img.isError()) show.run(); else hide.run(); return; }
+            img.progressProperty().addListener((o, ov, p) -> {
+                if (p.doubleValue() >= 1.0) Platform.runLater(() -> { if (!img.isError()) show.run(); else hide.run(); });
+            });
         };
 
         java.util.function.Consumer<Image> applyIconImage = img -> {
             iconSmallIV.setImage(img); detailIconIV.setImage(img);
-            img.progressProperty().addListener((o, ov, p) -> {
-                if (p.doubleValue() >= 1.0 && !img.isError()) Platform.runLater(() -> {
-                    iconSmallIV.setVisible(true); iconSmallPlaceholder.setVisible(false);
-                    detailIconIV.setVisible(true); detailIconLbl.setVisible(false);
-                });
-            });
-            img.errorProperty().addListener((o, ov, err) -> { if (err) Platform.runLater(() -> {
+            Runnable showIcon = () -> {
+                iconSmallIV.setVisible(true); iconSmallPlaceholder.setVisible(false);
+                detailIconIV.setVisible(true); detailIconLbl.setVisible(false);
+            };
+            Runnable hideIcon = () -> {
                 iconSmallIV.setVisible(false); iconSmallPlaceholder.setVisible(true);
                 detailIconIV.setVisible(false); detailIconLbl.setVisible(true);
-            }); });
+            };
+            if (img.getProgress() >= 1.0) { if (!img.isError()) showIcon.run(); else hideIcon.run(); return; }
+            img.progressProperty().addListener((o, ov, p) -> {
+                if (p.doubleValue() >= 1.0) Platform.runLater(() -> { if (!img.isError()) showIcon.run(); else hideIcon.run(); });
+            });
         };
 
-        // ── BANNER FILE PICKER ────────────────────────────────────────────────
+        // ── CARD BANNER FILE PICKER ───────────────────────────────────────────
+        Button cardBannerPickBtn = new Button("📁  Choose File...");
+        cardBannerPickBtn.getStyleClass().add("settings-secondary-btn");
+        cardBannerPickBtn.setOnAction(e -> {
+            FileChooser fc = new FileChooser(); fc.setTitle("Choose Store Card Banner");
+            fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Images", "*.jpg", "*.jpeg", "*.png", "*.gif", "*.webp"));
+            File file = fc.showOpenDialog(stage); if (file == null) return;
+            localCardBanner[0] = file.getAbsolutePath(); editCardBanner.setText("");
+            editCardBanner.setPromptText("📁  " + file.getName() + "  (will upload on save)");
+            applyCardBannerImage.accept(new Image(file.toURI().toString(), true));
+        });
+        PauseTransition cardBannerPause = new PauseTransition(Duration.millis(700));
+        editCardBanner.textProperty().addListener((obs, old, url) -> {
+            cardBannerPause.setOnFinished(ev -> {
+                String u = url.trim(); if (!u.startsWith("http")) return;
+                localCardBanner[0] = null;
+                ImageCache.load(u, img -> applyCardBannerImage.accept(img));
+            });
+            cardBannerPause.playFromStart();
+        });
+        HBox cardBannerInputRow = new HBox(10, editCardBanner, cardBannerPickBtn);
+        cardBannerInputRow.setAlignment(Pos.CENTER_LEFT); HBox.setHgrow(editCardBanner, Priority.ALWAYS);
+        Label cardBannerHint = new Label("Recommended: 600 × 300px (2:1 ratio). JPG or PNG. Shown on the store browsing page.");
+        cardBannerHint.setStyle("-fx-text-fill: #555d6e; -fx-font-size: 11px;");
+        cardBannerHint.setWrapText(true);
+
+        // ── DETAIL BANNER FILE PICKER ─────────────────────────────────────────
         Button bannerPickBtn = new Button("📁  Choose File...");
         bannerPickBtn.getStyleClass().add("settings-secondary-btn");
         bannerPickBtn.setOnAction(e -> {
-            FileChooser fc = new FileChooser(); fc.setTitle("Choose Banner Image");
+            FileChooser fc = new FileChooser(); fc.setTitle("Choose Detail Page Banner");
             fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Images", "*.jpg", "*.jpeg", "*.png", "*.gif", "*.webp"));
             File file = fc.showOpenDialog(stage); if (file == null) return;
             localBanner[0] = file.getAbsolutePath(); editBanner.setText("");
@@ -387,10 +427,17 @@ public class DeveloperPortalScreen {
         });
         PauseTransition bannerPause = new PauseTransition(Duration.millis(700));
         editBanner.textProperty().addListener((obs, old, url) -> {
-            bannerPause.setOnFinished(ev -> { String u = url.trim(); if (!u.startsWith("http")) return; localBanner[0] = null; applyBannerImage.accept(new Image(u, true)); });
+            bannerPause.setOnFinished(ev -> {
+                String u = url.trim(); if (!u.startsWith("http")) return;
+                localBanner[0] = null;
+                ImageCache.load(u, img -> applyBannerImage.accept(img));
+            });
             bannerPause.playFromStart();
         });
         HBox bannerInputRow = new HBox(10, editBanner, bannerPickBtn); bannerInputRow.setAlignment(Pos.CENTER_LEFT); HBox.setHgrow(editBanner, Priority.ALWAYS);
+        Label bannerHint = new Label("Recommended: 1200 × 400px or wider (landscape). JPG or PNG. Shown at the top of the server detail page.");
+        bannerHint.setStyle("-fx-text-fill: #555d6e; -fx-font-size: 11px;");
+        bannerHint.setWrapText(true);
 
         // ── ICON FILE PICKER ──────────────────────────────────────────────────
         Button iconPickBtn = new Button("📁  Choose File...");
@@ -409,6 +456,9 @@ public class DeveloperPortalScreen {
             iconPause.playFromStart();
         });
         HBox iconInputRow = new HBox(10, editIcon, iconPickBtn, iconPreviewPane); iconInputRow.setAlignment(Pos.CENTER_LEFT); HBox.setHgrow(editIcon, Priority.ALWAYS);
+        Label iconHint = new Label("Recommended: 256 × 256px square. PNG with transparent background works best.");
+        iconHint.setStyle("-fx-text-fill: #555d6e; -fx-font-size: 11px;");
+        iconHint.setWrapText(true);
 
         // ── LIVE PREVIEW LISTENERS ────────────────────────────────────────────
         editName.textProperty().addListener((obs, old, v) -> {
@@ -452,12 +502,12 @@ public class DeveloperPortalScreen {
         // ── STORE CARD TAB FIELDS ─────────────────────────────────────────────
         VBox storeCardPane = new VBox(16);
         storeCardPane.getChildren().addAll(
-            devRow("Name *",       editName),
-            devRow("Tagline",      editTagline),
-            devRow("Tags",         editTags),
-            devRow("Accent Color", editAccent),
-            devRow("Banner",       new VBox(8, bannerInputRow)),
-            devRow("Icon",         iconInputRow)
+            devRow("Name *",         editName),
+            devRow("Tagline",        editTagline),
+            devRow("Tags",           editTags),
+            devRow("Accent Color",   editAccent),
+            devRow("Card Banner",    new VBox(6, cardBannerInputRow, cardBannerHint)),
+            devRow("Icon",           new VBox(6, iconInputRow, iconHint))
         );
         if (isStaff) {
             storeCardPane.getChildren().addAll(
@@ -469,11 +519,12 @@ public class DeveloperPortalScreen {
 
         // ── DETAIL PAGE TAB FIELDS ────────────────────────────────────────────
         VBox detailPagePane = new VBox(16,
-            devRow("Description *", editDesc),
-            devRow("JAR URL *",     editJar),
-            devRow("Website",       editWebsite),
-            devRow("Discord",       editDiscord),
-            devRow("XP Rate",       editXpRate),
+            devRow("Detail Banner",  new VBox(6, bannerInputRow, bannerHint)),
+            devRow("Description *",  editDesc),
+            devRow("JAR URL *",      editJar),
+            devRow("Website",        editWebsite),
+            devRow("Discord",        editDiscord),
+            devRow("XP Rate",        editXpRate),
             detailPreview
         );
         detailPagePane.setVisible(false); detailPagePane.setManaged(false);
@@ -509,9 +560,11 @@ public class DeveloperPortalScreen {
             int idx = serverPicker.getSelectionModel().getSelectedIndex();
             if (idx < 0 || idx >= serverList[0].size()) return;
             ServerProfile s = serverList[0].get(idx);
-            localBanner[0] = null; localIcon[0] = null;
-            editBanner.setPromptText("Banner / hero image URL  (or pick a file)");
+            localBanner[0] = null; localCardBanner[0] = null; localIcon[0] = null;
+            editCardBanner.setPromptText("Store card banner URL  (or pick a file)");
+            editBanner.setPromptText("Detail page banner URL  (or pick a file)");
             editIcon.setPromptText("Icon image URL  (or pick a file)");
+            editCardBanner.setText(s.cardBannerUrl != null ? s.cardBannerUrl : "");
             editBanner.setText(s.bannerUrl   != null ? s.bannerUrl   : "");
             editIcon.setText(s.iconUrl       != null ? s.iconUrl     : "");
             editName.setText(s.name          != null ? s.name        : "");
@@ -527,14 +580,22 @@ public class DeveloperPortalScreen {
             editVisible.setSelected(s.visible  == 1);
             editApproved.setSelected(s.approved == 1);
 
-            if (s.bannerUrl != null && !s.bannerUrl.isEmpty()) {
-                applyBannerImage.accept(new Image(s.bannerUrl, true));
+            // Load card banner (or fall back to detail banner for card preview)
+            String cardBannerSrc = (s.cardBannerUrl != null && !s.cardBannerUrl.isEmpty())
+                    ? s.cardBannerUrl : s.bannerUrl;
+            if (cardBannerSrc != null && !cardBannerSrc.isEmpty()) {
+                ImageCache.load(cardBannerSrc, img -> applyCardBannerImage.accept(img));
             } else {
                 cardBannerIV.setVisible(false); cardBannerLbl.setText(s.name != null ? s.name : ""); cardBannerLbl.setVisible(true);
+            }
+            // Load detail page banner
+            if (s.bannerUrl != null && !s.bannerUrl.isEmpty()) {
+                ImageCache.load(s.bannerUrl, img -> applyBannerImage.accept(img));
+            } else {
                 heroBannerIV.setVisible(false); heroBannerPlaceholder.setVisible(true);
             }
             if (s.iconUrl != null && !s.iconUrl.isEmpty()) {
-                applyIconImage.accept(new Image(s.iconUrl, true));
+                ImageCache.load(s.iconUrl, img -> applyIconImage.accept(img));
             } else {
                 iconSmallIV.setVisible(false); iconSmallPlaceholder.setVisible(true);
                 detailIconIV.setVisible(false); detailIconLbl.setVisible(true);
@@ -563,6 +624,7 @@ public class DeveloperPortalScreen {
             fields.put("tagline",        editTagline.getText().trim());
             fields.put("description",    editDesc.getText().trim());
             fields.put("jar_url",        editJar.getText().trim());
+            fields.put("card_banner_url", editCardBanner.getText().trim());
             fields.put("banner_url",     editBanner.getText().trim());
             fields.put("icon_url",       editIcon.getText().trim());
             fields.put("website_url",    editWebsite.getText().trim());
@@ -575,9 +637,15 @@ public class DeveloperPortalScreen {
             fields.put("approved",       editApproved.isSelected() ? 1 : 0);
 
             saveBtn.setDisable(true); saveStatus.setVisible(false); saveStatus.setManaged(false);
-            String bannerPath = localBanner[0]; String iconPath = localIcon[0];
+            String bannerPath = localBanner[0]; String cardBannerPath = localCardBanner[0]; String iconPath = localIcon[0];
             java.util.concurrent.CompletableFuture<Void> chain = java.util.concurrent.CompletableFuture.completedFuture(null);
 
+            if (cardBannerPath != null) {
+                chain = chain.thenCompose(v -> {
+                    Platform.runLater(() -> saveBtn.setText("UPLOADING CARD BANNER..."));
+                    return ApiClient.uploadCardBanner(s.id, cardBannerPath).thenAccept(url -> { if (url != null) fields.put("card_banner_url", url); localCardBanner[0] = null; });
+                });
+            }
             if (bannerPath != null) {
                 chain = chain.thenCompose(v -> {
                     Platform.runLater(() -> saveBtn.setText("UPLOADING BANNER..."));
@@ -591,6 +659,7 @@ public class DeveloperPortalScreen {
                 });
             }
             chain.thenAccept(v -> Platform.runLater(() -> {
+                if (fields.get("card_banner_url") instanceof String cb && !cb.isEmpty()) editCardBanner.setText(cb);
                 if (fields.get("banner_url") instanceof String bu && !bu.isEmpty()) editBanner.setText(bu);
                 if (fields.get("icon_url")   instanceof String iu && !iu.isEmpty()) editIcon.setText(iu);
                 saveBtn.setText("SAVING...");
@@ -785,7 +854,7 @@ public class DeveloperPortalScreen {
         bannerPreview.getStyleClass().add("dev-banner-preview-box");
         bannerPreview.setMinHeight(130); bannerPreview.setMaxHeight(130); bannerPreview.setPrefHeight(130);
         bannerPreview.setMaxWidth(Double.MAX_VALUE);
-        Label bannerLabel = new Label("Banner Preview (1200×400 recommended)");
+        Label bannerLabel = new Label("Banner Preview — recommended 1200×400px landscape");
         bannerLabel.getStyleClass().add("dev-preview-placeholder");
         ImageView bannerIV = new ImageView();
         bannerIV.setPreserveRatio(false); bannerIV.setVisible(false); bannerIV.setManaged(false);
@@ -1079,6 +1148,30 @@ public class DeveloperPortalScreen {
         field.getStyleClass().add("auth-field");
         field.setMaxWidth(Double.MAX_VALUE);
         return field;
+    }
+
+    private static void boostScrollSpeed(ScrollPane sp) {
+        final double[] velocity = {0};
+        final javafx.animation.Timeline[] momentum = {null};
+        sp.getContent().setOnScroll(e -> {
+            velocity[0] += e.getDeltaY() * 1.5;
+            if (momentum[0] != null) momentum[0].stop();
+            javafx.animation.Timeline anim = new javafx.animation.Timeline();
+            momentum[0] = anim;
+            for (int i = 1; i <= 20; i++) {
+                anim.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.millis(i * 16), ev -> {
+                    double contentH  = sp.getContent().getBoundsInLocal().getHeight();
+                    double viewportH = sp.getViewportBounds().getHeight();
+                    double scrollable = contentH - viewportH;
+                    if (scrollable <= 0) return;
+                    sp.setVvalue(sp.getVvalue() - velocity[0] / scrollable);
+                    velocity[0] *= 0.82;
+                }));
+            }
+            anim.setOnFinished(ev -> velocity[0] = 0);
+            anim.play();
+            e.consume();
+        });
     }
 
     private static VBox devSection(String title, Node... rows) {

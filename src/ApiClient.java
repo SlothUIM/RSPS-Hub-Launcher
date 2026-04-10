@@ -330,6 +330,25 @@ public class ApiClient {
         });
     }
 
+    public static CompletableFuture<String> uploadCardBanner(int serverId, String filePath) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                byte[] bytes = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(filePath));
+                return java.util.Base64.getEncoder().encodeToString(bytes);
+            } catch (Exception e) {
+                System.err.println("Card banner read failed: " + e.getMessage());
+                return null;
+            }
+        }).thenCompose(b64 -> {
+            if (b64 == null) return CompletableFuture.completedFuture(null);
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("image", b64);
+            payload.put("server_id", serverId);
+            return fetch(post("servers/upload_card_banner.php", payload).build())
+                .thenApply(obj -> obj.has("url") ? obj.get("url").getAsString() : null);
+        });
+    }
+
     public static CompletableFuture<Boolean> checkStaff() {
         return fetch(get("users/me.php").build())
             .thenApply(obj -> obj.has("is_staff") && obj.get("is_staff").getAsBoolean());

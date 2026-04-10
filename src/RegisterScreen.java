@@ -29,7 +29,17 @@ public class RegisterScreen {
 
         VBox userGroup = fieldGroup("USERNAME", false);
         TextField usernameField = (TextField) userGroup.getChildren().get(1);
-        usernameField.setPromptText("Choose a username");
+        usernameField.setPromptText("Choose a username (max 16, letters/numbers/_-)");
+
+        // Enforce: only a-z A-Z 0-9 _ - allowed, max 16 chars, no spaces
+        usernameField.textProperty().addListener((obs, oldVal, newVal) -> {
+            String filtered = newVal.replaceAll("[^a-zA-Z0-9_\\-]", "");
+            if (filtered.length() > 16) filtered = filtered.substring(0, 16);
+            if (!filtered.equals(newVal)) {
+                usernameField.setText(filtered);
+                usernameField.positionCaret(filtered.length());
+            }
+        });
 
         VBox emailGroup = fieldGroup("EMAIL", false);
         TextField emailField = (TextField) emailGroup.getChildren().get(1);
@@ -63,6 +73,10 @@ public class RegisterScreen {
 
             if (username.isEmpty() || email.isEmpty() || password.isEmpty() || confirm.isEmpty()) {
                 showError(errorLabel, "Please fill in all fields.");
+            } else if (username.length() < 3) {
+                showError(errorLabel, "Username must be at least 3 characters.");
+            } else if (!username.matches("[a-zA-Z0-9_\\-]+")) {
+                showError(errorLabel, "Username can only contain letters, numbers, _ and -");
             } else if (password.length() < 8) {
                 showError(errorLabel, "Password must be at least 8 characters.");
             } else if (!password.matches(".*[A-Z].*")) {

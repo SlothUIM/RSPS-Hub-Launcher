@@ -19,6 +19,9 @@ public class ServerProfile {
     @SerializedName("banner_url")
     public String bannerUrl;
 
+    @SerializedName("card_banner_url")
+    public String cardBannerUrl;
+
     @SerializedName("icon_url")
     public String iconUrl;
 

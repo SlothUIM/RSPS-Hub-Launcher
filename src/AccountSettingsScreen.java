@@ -64,12 +64,37 @@ public class AccountSettingsScreen {
         ScrollPane scrollPane = new ScrollPane(contentWrapper);
         scrollPane.setFitToWidth(true);
         scrollPane.getStyleClass().add("main-scroll");
+        boostScrollSpeed(scrollPane);
         root.setCenter(scrollPane);
 
         Scene scene = new Scene(root);
         scene.getStylesheets().addAll(LauncherEngine.getStylesheets(AccountSettingsScreen.class));
         SceneUtils.applyRoundedCorners(scene, root, stage);
         return scene;
+    }
+
+    private static void boostScrollSpeed(ScrollPane sp) {
+        final double[] velocity = {0};
+        final javafx.animation.Timeline[] momentum = {null};
+        sp.getContent().setOnScroll(e -> {
+            velocity[0] += e.getDeltaY() * 1.5;
+            if (momentum[0] != null) momentum[0].stop();
+            javafx.animation.Timeline anim = new javafx.animation.Timeline();
+            momentum[0] = anim;
+            for (int i = 1; i <= 20; i++) {
+                anim.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.millis(i * 16), ev -> {
+                    double contentH  = sp.getContent().getBoundsInLocal().getHeight();
+                    double viewportH = sp.getViewportBounds().getHeight();
+                    double scrollable = contentH - viewportH;
+                    if (scrollable <= 0) return;
+                    sp.setVvalue(sp.getVvalue() - velocity[0] / scrollable);
+                    velocity[0] *= 0.82;
+                }));
+            }
+            anim.setOnFinished(ev -> velocity[0] = 0);
+            anim.play();
+            e.consume();
+        });
     }
 
     private static void loadAvatarImage(StackPane pane, Label letter, String uri) {

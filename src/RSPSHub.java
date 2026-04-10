@@ -109,6 +109,9 @@ public class RSPSHub extends Application {
     // Heartbeat timer
     private Timeline heartbeatTimeline;
 
+    // Debounce flag — prevents stacked fade animations from multiple rapid updateDisplay() calls
+    private boolean displayUpdatePending = false;
+
     // ── LIFECYCLE ────────────────────────────────────────────────────────────
 
     @Override
@@ -253,7 +256,7 @@ public class RSPSHub extends Application {
         SessionHistoryStore.reload();
         StreakStore.reload();
         MessageStore.reload();
-        ApiClient.getBlockedUsers().thenAccept(list -> Platform.runLater(() -> { blockedUsers.clear(); blockedUsers.addAll(list); updateDisplay(); }));
+        ApiClient.getBlockedUsers().thenAccept(list -> Platform.runLater(() -> { blockedUsers.clear(); blockedUsers.addAll(list); updateDisplaySilent(); }));
 
         showingLibrary     = false;
         showingFriends     = false;
@@ -279,7 +282,7 @@ public class RSPSHub extends Application {
             startHeartbeat();
             ApiClient.checkStaff().thenAccept(staff -> Platform.runLater(() -> {
                 LauncherEngine.isStaff = staff;
-                if (staff) updateDisplay();
+                if (staff) updateDisplaySilent();
             }));
             // Sync privacy setting from server
             ApiClient.loadMyPrivacy().thenAccept(p -> Platform.runLater(() -> {
@@ -508,6 +511,7 @@ public class RSPSHub extends Application {
         hubScrollPane = new ScrollPane(serverGrid);
         hubScrollPane.setFitToWidth(true);
         hubScrollPane.getStyleClass().add("main-scroll");
+        boostScrollSpeed(hubScrollPane);
         hubRoot.setCenter(hubScrollPane);
 
         updateDisplay();
@@ -590,18 +594,30 @@ public class RSPSHub extends Application {
     // ── DISPLAY ROUTING ──────────────────────────────────────────────────────
 
     private void updateDisplay() {
-        // Fade out content, rebuild, fade back in
-        FadeTransition contentOut = new FadeTransition(Duration.millis(80), hubScrollPane);
+        // If an update is already queued, skip — the pending one will pick up latest state
+        if (displayUpdatePending) return;
+        displayUpdatePending = true;
+
+        // Fade out → rebuild → fade in (only one animation in flight at a time)
+        FadeTransition contentOut = new FadeTransition(Duration.millis(60), hubScrollPane);
         contentOut.setFromValue(hubScrollPane.getOpacity());
         contentOut.setToValue(0.0);
         contentOut.setOnFinished(ev -> {
+            displayUpdatePending = false;
             rebuildDisplay();
-            FadeTransition contentIn = new FadeTransition(Duration.millis(160), hubScrollPane);
+            FadeTransition contentIn = new FadeTransition(Duration.millis(120), hubScrollPane);
             contentIn.setFromValue(0.0);
             contentIn.setToValue(1.0);
             contentIn.play();
         });
         contentOut.play();
+    }
+
+    /** Silently rebuild the display without the fade animation.
+     *  Use for background data refreshes that shouldn't flash the UI. */
+    private void updateDisplaySilent() {
+        if (hubScrollPane == null) return;
+        rebuildDisplay();
     }
 
     private void rebuildDisplay() {
@@ -1212,6 +1228,7 @@ public class RSPSHub extends Application {
         scroll.setPrefHeight(260);
         scroll.setMaxHeight(260);
         VBox.setVgrow(scroll, Priority.ALWAYS);
+        boostScrollSpeed(scroll);
 
         Button createGroupBtn = new Button("Create Group");
         createGroupBtn.getStyleClass().add("auth-btn");
@@ -1337,6 +1354,7 @@ public class RSPSHub extends Application {
         ScrollPane msgScroll = new ScrollPane(messagesBox);
         msgScroll.setFitToWidth(true);
         msgScroll.getStyleClass().add("main-scroll");
+        boostScrollSpeed(msgScroll);
         // Auto-scroll to bottom when new messages added
         messagesBox.heightProperty().addListener((obs, old, h) -> msgScroll.setVvalue(1.0));
         msgScroll.setVvalue(1.0);
@@ -1445,12 +1463,12 @@ public class RSPSHub extends Application {
         card.setMaxWidth(Double.MAX_VALUE);
 
         StackPane bannerPane = new StackPane();
-        bannerPane.setPrefSize(200, 100);
-        bannerPane.setMinSize(200, 100);
-        bannerPane.setMaxSize(200, 100);
+        bannerPane.setPrefSize(300, 150);
+        bannerPane.setMinSize(300, 150);
+        bannerPane.setMaxSize(300, 150);
         bannerPane.getStyleClass().add("card-banner");
-        // Clip so the image never bleeds outside the 200×100 thumbnail area
-        javafx.scene.shape.Rectangle bannerClip = new javafx.scene.shape.Rectangle(200, 100);
+        // Clip so the image never bleeds outside the thumbnail area
+        javafx.scene.shape.Rectangle bannerClip = new javafx.scene.shape.Rectangle(300, 150);
         bannerClip.setArcWidth(8); bannerClip.setArcHeight(8);
         bannerPane.setClip(bannerClip);
 
@@ -1458,17 +1476,19 @@ public class RSPSHub extends Application {
         bannerLabel.getStyleClass().add("card-banner-placeholder");
         bannerPane.getChildren().add(bannerLabel);
 
-        // Updated to bannerUrl
-        if (server.bannerUrl != null && !server.bannerUrl.isEmpty()) {
+        // Card banner — prefer dedicated card_banner_url, fall back to banner_url
+        String cardBannerSrc = (server.cardBannerUrl != null && !server.cardBannerUrl.isEmpty())
+                ? server.cardBannerUrl : server.bannerUrl;
+        if (cardBannerSrc != null && !cardBannerSrc.isEmpty()) {
             ImageView iv = new ImageView();
-            iv.setFitWidth(200); iv.setFitHeight(100);
-            iv.setPreserveRatio(true);
+            iv.setFitWidth(300); iv.setFitHeight(150);
+            iv.setPreserveRatio(false);
+            iv.setSmooth(true);
             iv.setVisible(false);
-            Image img = new Image(server.bannerUrl, true);
-            img.progressProperty().addListener((obs, old, p) -> {
-                if (p.doubleValue() >= 1.0 && !img.isError()) { iv.setImage(img); iv.setVisible(true); bannerLabel.setVisible(false); }
-            });
             bannerPane.getChildren().add(iv);
+            ImageCache.load(cardBannerSrc, img -> {
+                iv.setImage(img); iv.setVisible(true); bannerLabel.setVisible(false);
+            });
         }
 
         if (server.isNew) {
@@ -1726,6 +1746,36 @@ public class RSPSHub extends Application {
         ParallelTransition anim = new ParallelTransition(fade, slide);
         anim.setDelay(Duration.millis(Math.min(index, 6) * 55L));
         anim.play();
+    }
+
+    // ── UTILITIES ────────────────────────────────────────────────────────────
+
+    /** Fast, smooth scrolling for a ScrollPane. */
+    private static void boostScrollSpeed(ScrollPane sp) {
+        final double[] velocity = {0};
+        final Timeline[] momentum = {null};
+
+        sp.getContent().setOnScroll(e -> {
+            velocity[0] += e.getDeltaY() * 1.5; // pixels of momentum
+
+            if (momentum[0] != null) momentum[0].stop();
+            Timeline anim = new Timeline();
+            momentum[0] = anim;
+
+            for (int i = 1; i <= 20; i++) {
+                anim.getKeyFrames().add(new KeyFrame(Duration.millis(i * 16), ev -> {
+                    double contentH  = sp.getContent().getBoundsInLocal().getHeight();
+                    double viewportH = sp.getViewportBounds().getHeight();
+                    double scrollable = contentH - viewportH;
+                    if (scrollable <= 0) return;
+                    sp.setVvalue(sp.getVvalue() - velocity[0] / scrollable);
+                    velocity[0] *= 0.82; // friction / deceleration
+                }));
+            }
+            anim.setOnFinished(ev -> velocity[0] = 0);
+            anim.play();
+            e.consume();
+        });
     }
 
     // ── STATS CONTENT ────────────────────────────────────────────────────────
