@@ -75,7 +75,7 @@ public class ApiClient {
 
     public static CompletableFuture<List<ServerProfile>> getLiveServers() {
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(BASE_URL + "servers/list.php"))
+        		.uri(URI.create("http://slothscape.duckdns.org:8080/api/servers"))
                 .GET()
                 .build();
 
