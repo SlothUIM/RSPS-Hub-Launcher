@@ -253,6 +253,7 @@ public class RSPSHub extends Application {
         SessionHistoryStore.reload();
         StreakStore.reload();
         MessageStore.reload();
+        ApiClient.getBlockedUsers().thenAccept(list -> Platform.runLater(() -> { blockedUsers.clear(); blockedUsers.addAll(list); updateDisplay(); }));
 
         showingLibrary     = false;
         showingFriends     = false;
@@ -1048,7 +1049,9 @@ public class RSPSHub extends Application {
         });
 
         MenuItem blockItem = new MenuItem("Block");
-        blockItem.setOnAction(e -> { blockedUsers.add(friend.username); updateDisplay(); });
+        blockItem.setOnAction(e -> ApiClient.blockUser(friend.username).thenAccept(ok -> Platform.runLater(() -> {
+            if (ok) { blockedUsers.add(friend.username); updateDisplay(); }
+        })));
 
         MenuButton moreBtn = new MenuButton("···");
         moreBtn.getStyleClass().add("friend-more-btn");

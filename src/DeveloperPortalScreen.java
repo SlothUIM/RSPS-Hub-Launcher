@@ -956,11 +956,6 @@ public class DeveloperPortalScreen {
         visHint.getStyleClass().add("dev-visibility-hint");
         visHint.setWrapText(true);
 
-        CheckBox featuredCheck = new CheckBox("Request featured placement");
-        featuredCheck.getStyleClass().add("settings-checkbox");
-        Label featHint = new Label("Featured servers appear at the top of the store. Subject to review and approval.");
-        featHint.getStyleClass().add("dev-visibility-hint");
-        featHint.setWrapText(true);
 
         Label errorLabel = new Label();
         errorLabel.getStyleClass().add("auth-error");
@@ -1028,7 +1023,7 @@ public class DeveloperPortalScreen {
         return devSection("TAGS & SUBMISSION",
             devRow("Tags",        new VBox(8, tagPane, customTagRow)),
             devRow("Visibility",  new VBox(6, visibleCheck, visHint)),
-            devRow("Featured",    new VBox(6, featuredCheck, featHint)),
+
             errorLabel,
             submitBtn,
             successPanel

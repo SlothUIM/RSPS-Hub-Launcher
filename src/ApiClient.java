@@ -194,6 +194,24 @@ public class ApiClient {
         });
     }
 
+    public static CompletableFuture<Boolean> blockUser(String username) {
+        return fetch(post("users/block.php", Map.of("username", username)).build())
+            .thenApply(obj -> !obj.has("error"));
+    }
+
+    public static CompletableFuture<Boolean> unblockUser(String username) {
+        return fetch(post("users/unblock.php", Map.of("username", username)).build())
+            .thenApply(obj -> !obj.has("error"));
+    }
+
+    public static CompletableFuture<List<String>> getBlockedUsers() {
+        return fetch(get("users/blocked.php").build()).thenApply(obj -> {
+            List<String> list = new ArrayList<>();
+            for (JsonElement el : arr(obj, "blocked")) list.add(el.getAsString());
+            return list;
+        });
+    }
+
     public static CompletableFuture<JsonObject> getUserStats(String username) {
         return fetch(get("users/stats.php?username=" + username).build());
     }

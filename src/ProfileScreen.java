@@ -260,13 +260,23 @@ public class ProfileScreen {
             blockBtn.getStyleClass().add(isBlocked ? "settings-secondary-btn" : "settings-logout-btn");
             blockBtn.setOnAction(e -> {
                 if (blockedUsers.contains(username)) {
-                    blockedUsers.remove(username);
-                    blockBtn.setText("Block User");
-                    blockBtn.getStyleClass().setAll("settings-logout-btn");
+                    // Unblock
+                    ApiClient.unblockUser(username).thenAccept(ok -> javafx.application.Platform.runLater(() -> {
+                        if (ok) {
+                            blockedUsers.remove(username);
+                            blockBtn.setText("Block User");
+                            blockBtn.getStyleClass().setAll("settings-logout-btn");
+                        }
+                    }));
                 } else {
-                    blockedUsers.add(username);
-                    blockBtn.setText("Unblock");
-                    blockBtn.getStyleClass().setAll("settings-secondary-btn");
+                    // Block
+                    ApiClient.blockUser(username).thenAccept(ok -> javafx.application.Platform.runLater(() -> {
+                        if (ok) {
+                            blockedUsers.add(username);
+                            blockBtn.setText("Unblock");
+                            blockBtn.getStyleClass().setAll("settings-secondary-btn");
+                        }
+                    }));
                 }
             });
 
