@@ -14,9 +14,8 @@ import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 
 public class ApiClient {
-    // Make sure your BASE_URL ends with a slash!
-	// Notice the :4567 added here!
-	private static final String BASE_URL = "https://api.rspshub.gg/api/";
+	
+	private static final String BASE_URL = "https://slothscape.duckdns.org/api/";
     private static final HttpClient client = HttpClient.newHttpClient();
 
     /**
@@ -30,7 +29,11 @@ public class ApiClient {
                 .build();
 
         return client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenApply(HttpResponse::body);
+                .thenApply(response -> {
+                    // 👉 THIS IS THE MAGIC LINE: It prints exactly what the server says!
+                    System.out.println("[API X-RAY] Response from " + endpoint + ": " + response.body());
+                    return response.body();
+                });
     }
 
     // ── STORE & SERVERS ─────────────────────────────────────────────────────

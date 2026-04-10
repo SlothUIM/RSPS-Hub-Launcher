@@ -73,9 +73,13 @@ public class RegisterScreen {
                 registerBtn.setDisable(true);
                 errorLabel.setVisible(false);
 
-                String payload = String.format("{\"username\":\"%s\", \"email\":\"%s\", \"password\":\"%s\"}", username, email, password);
+                com.google.gson.JsonObject jsonNode = new com.google.gson.JsonObject();
+                jsonNode.addProperty("username", username);
+                jsonNode.addProperty("email", email);
+                jsonNode.addProperty("password", password);
+                String payload = jsonNode.toString();
 
-                ApiClient.postJson("auth/register.php", payload).thenAccept(response -> {
+                ApiClient.postJson("register.php", payload).thenAccept(response -> {
                     javafx.application.Platform.runLater(() -> {
                         registerBtn.setText("CREATE ACCOUNT");
                         registerBtn.setDisable(false);

@@ -38,15 +38,56 @@ public class LoginScreen {
         TextField usernameField = (TextField) userGroup.getChildren().get(1);
         usernameField.setPromptText("Enter your username");
 
-        // Password
-        VBox passGroup = fieldGroup("PASSWORD", true);
-        PasswordField passwordField = (PasswordField) passGroup.getChildren().get(1);
+        // --- PASSWORD WITH UNHIDER ---
+        VBox passGroup = new VBox(6);
+        Label passLbl = new Label("PASSWORD");
+        passLbl.getStyleClass().add("auth-label");
+
+        StackPane passStack = new StackPane();
+        
+        PasswordField passwordField = new PasswordField();
+        passwordField.getStyleClass().add("auth-field");
         passwordField.setPromptText("Enter your password");
 
-        // Remember Me
+        TextField visiblePasswordField = new TextField();
+        visiblePasswordField.getStyleClass().add("auth-field");
+        visiblePasswordField.setPromptText("Enter your password");
+        visiblePasswordField.setVisible(false);
+
+        // This magically keeps both fields synced up!
+        visiblePasswordField.textProperty().bindBidirectional(passwordField.textProperty());
+
+        Button togglePassBtn = new Button("SHOW");
+        togglePassBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #8b92a5; -fx-font-size: 10px; -fx-cursor: hand; -fx-padding: 0 10 0 0;");
+        StackPane.setAlignment(togglePassBtn, Pos.CENTER_RIGHT);
+
+        togglePassBtn.setOnAction(e -> {
+            boolean isHidden = passwordField.isVisible();
+            passwordField.setVisible(!isHidden);
+            visiblePasswordField.setVisible(isHidden);
+            togglePassBtn.setText(isHidden ? "HIDE" : "SHOW");
+        });
+
+        passStack.getChildren().addAll(passwordField, visiblePasswordField, togglePassBtn);
+        passGroup.getChildren().addAll(passLbl, passStack);
+
+        // --- OPTIONS ROW (Remember Me & Forgot Password) ---
+        BorderPane optionsRow = new BorderPane();
+        
         CheckBox rememberMe = new CheckBox("Remember me");
         rememberMe.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 12px;");
         rememberMe.setSelected(true);
+        
+        Label forgotPassword = new Label("Forgot password?");
+        forgotPassword.getStyleClass().add("auth-link");
+        forgotPassword.setStyle("-fx-font-size: 12px;");
+        forgotPassword.setOnMouseClicked(e -> {
+            // TODO: Route this to a forgot password screen or open a web browser link!
+            System.out.println("Forgot password clicked!"); 
+        });
+
+        optionsRow.setLeft(rememberMe);
+        optionsRow.setRight(forgotPassword);
 
         // Error
         Label errorLabel = new Label();
@@ -60,23 +101,24 @@ public class LoginScreen {
         loginBtn.setMaxWidth(Double.MAX_VALUE);
 
         loginBtn.setOnAction(e -> {
+            // Because they are bound bidirectionally, passwordField always has the correct text
             String username = usernameField.getText().trim();
             String password = passwordField.getText().trim();
             
             if (username.isEmpty() || password.isEmpty()) {
                 showError(errorLabel, "Please fill in all fields.");
             } else {
-                // Disable button so they don't spam click
                 loginBtn.setText("LOGGING IN...");
                 loginBtn.setDisable(true);
                 errorLabel.setVisible(false);
 
-                // Create the JSON string
-                String payload = String.format("{\"username\":\"%s\", \"password\":\"%s\"}", username, password);
+                // Safe JSON Builder
+                com.google.gson.JsonObject jsonNode = new com.google.gson.JsonObject();
+                jsonNode.addProperty("username", username);
+                jsonNode.addProperty("password", password);
+                String payload = jsonNode.toString();
 
-                // Send to the DuckDNS API
-                ApiClient.postJson("auth/login.php", payload).thenAccept(response -> {
-                    // Switch back to the UI thread to update the screen
+                ApiClient.postJson("login.php", payload).thenAccept(response -> {
                     javafx.application.Platform.runLater(() -> {
                         loginBtn.setText("LOGIN");
                         loginBtn.setDisable(false);
@@ -113,9 +155,13 @@ public class LoginScreen {
             }
         });
 
-        // Allow Enter key to submit
+        // Allow Enter key to submit on both visible and hidden fields
         passwordField.setOnAction(e -> loginBtn.fire());
-        usernameField.setOnAction(e -> passwordField.requestFocus());
+        visiblePasswordField.setOnAction(e -> loginBtn.fire());
+        usernameField.setOnAction(e -> {
+            if (passwordField.isVisible()) passwordField.requestFocus();
+            else visiblePasswordField.requestFocus();
+        });
 
         // Register link
         HBox registerRow = new HBox(5);
@@ -127,7 +173,7 @@ public class LoginScreen {
         registerLink.setOnMouseClicked(e -> onShowRegister.run());
         registerRow.getChildren().addAll(noAccount, registerLink);
 
-        card.getChildren().addAll(brand, subtitle, sep, userGroup, passGroup, rememberMe, errorLabel, loginBtn, registerRow);
+        card.getChildren().addAll(brand, subtitle, sep, userGroup, passGroup, optionsRow, errorLabel, loginBtn, registerRow);
         centered.getChildren().add(card);
         root.setCenter(centered);
 
