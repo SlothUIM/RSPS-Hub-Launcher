@@ -11,34 +11,20 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
 
+import java.awt.Desktop;
+import java.net.URI;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ServerDetailScreen {
-
-    // Local review storage per server (keyed by server ID)
-    private static final Map<Integer, List<Review>> reviewStore = new HashMap<>();
-
-    static {
-        reviewStore.put(1, new ArrayList<>(List.of(
-            new Review("Aceplayer147",  5, "NPCs and bosses are well put together.",                                                                              "2026-04-08"),
-            new Review("0din",          5, "Awesome game, really enjoying my time here.",                                                                         "2026-04-07"),
-            new Review("Zap",           5, "Yeah, I plan to keep playing for sure.",                                                                              "2026-04-06"),
-            new Review("coorsman412",   5, "Enjoying raids, they are pretty fun.",                                                                                "2026-04-01"),
-            new Review("daeth",         5, "Trading feels fair, items are priced well.",                                                                          "2026-03-24"),
-            new Review("dark prince",   5, "It was clear what to do when I started, which made it easier to get into the game.",                                  "2026-03-23"),
-            new Review("royalnikolas",  5, "I see people everywhere while I'm training or exploring.",                                                            "2026-03-23"),
-            new Review("shintosaa",     5, "Yeah, there are plenty of updates.",                                                                                  "2026-03-20"),
-            new Review("shintosaa",     5, "I'm extremely motivated to level up.",                                                                                "2026-03-19"),
-            new Review("yuluthu",       5, "Drop catcher, bottomless aggression, exodus staff are the items I'm most proud of in my bank.",                       "2026-03-17"),
-            new Review("Azazo",         5, "Smooth & instant during fast fights.",                                                                                "2026-03-17"),
-            new Review("lian",          4, "Sunday is the most active day.",                                                                                      "2026-03-17")
-        )));
-    }
 
     public static Scene create(Stage stage, ServerProfile server, Runnable onBack) {
         BorderPane root = new BorderPane();
@@ -64,12 +50,7 @@ public class ServerDetailScreen {
         content.getChildren().addAll(
             buildHero(server),
             buildInfoBar(stage, server, onBack),
-            buildDivider(),
-            buildDescriptionSection(server),
-            buildScreenshotsSection(stage, server),
-            buildChangelogSection(server),
-            buildDivider(),
-            buildReviewsSection(server, content)
+            buildContentTabs(stage, server, content)
         );
 
         ScrollPane scrollPane = new ScrollPane(content);
@@ -342,6 +323,206 @@ public class ServerDetailScreen {
 
     // ── DESCRIPTION ──────────────────────────────────────────────────────────
 
+    // ── ABOUT / GALLERY TAB SYSTEM ───────────────────────────────────────────
+
+    private static VBox buildContentTabs(Stage stage, ServerProfile server, VBox content) {
+        // Build both panes up front
+        VBox aboutPane = new VBox(0);
+        aboutPane.getChildren().addAll(
+            buildDescriptionSection(server),
+            buildChangelogSection(server),
+            buildDivider(),
+            buildReviewsSection(server, content)
+        );
+
+        VBox galleryPane = buildGallerySection(stage, server);
+        galleryPane.setVisible(false);
+        galleryPane.setManaged(false);
+
+        // Tab buttons
+        String activeStyle   = "-fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;" +
+            "-fx-background-color: transparent; -fx-border-color: transparent transparent " +
+            LauncherEngine.accentColor + " transparent; -fx-border-width: 0 0 2 0;" +
+            "-fx-padding: 12 20; -fx-cursor: hand;";
+        String inactiveStyle = "-fx-text-fill: #8b92a5; -fx-font-size: 12px; -fx-font-weight: bold;" +
+            "-fx-background-color: transparent; -fx-border-color: transparent;" +
+            "-fx-padding: 12 20; -fx-cursor: hand;";
+
+        int galleryCount = (server.screenshots != null) ? server.screenshots.size() : 0;
+        String galleryLabel = galleryCount > 0 ? "GALLERY  (" + galleryCount + ")" : "GALLERY";
+
+        Button aboutBtn   = new Button("ABOUT THIS SERVER");
+        Button galleryBtn = new Button(galleryLabel);
+        aboutBtn.setStyle(activeStyle);
+        galleryBtn.setStyle(inactiveStyle);
+
+        aboutBtn.setOnAction(e -> {
+            aboutPane.setVisible(true);   aboutPane.setManaged(true);
+            galleryPane.setVisible(false); galleryPane.setManaged(false);
+            aboutBtn.setStyle(activeStyle);
+            galleryBtn.setStyle(inactiveStyle);
+        });
+        galleryBtn.setOnAction(e -> {
+            galleryPane.setVisible(true);  galleryPane.setManaged(true);
+            aboutPane.setVisible(false);   aboutPane.setManaged(false);
+            galleryBtn.setStyle(activeStyle);
+            aboutBtn.setStyle(inactiveStyle);
+        });
+
+        Region tabSpacer = new Region();
+        HBox.setHgrow(tabSpacer, Priority.ALWAYS);
+        HBox tabBar = new HBox(aboutBtn, galleryBtn, tabSpacer);
+        tabBar.setStyle("-fx-border-color: transparent transparent #2a2e39 transparent; -fx-border-width: 0 0 1 0;");
+        tabBar.setPadding(new Insets(0, 40, 0, 40));
+
+        VBox result = new VBox(0, tabBar, aboutPane, galleryPane);
+        return result;
+    }
+
+    private static VBox buildGallerySection(Stage stage, ServerProfile server) {
+        VBox section = new VBox(20);
+        section.setPadding(new Insets(30, 40, 30, 40));
+
+        boolean hasScreenshots = server.screenshots != null && !server.screenshots.isEmpty();
+        if (!hasScreenshots) {
+            Label empty = new Label("No gallery content has been added for this server yet.");
+            empty.getStyleClass().add("auth-muted");
+            section.getChildren().add(empty);
+            return section;
+        }
+
+        List<String> imageUrls = new ArrayList<>();
+        List<String> videoUrls = new ArrayList<>();
+        for (String url : server.screenshots) {
+            if (isYouTubeUrl(url)) videoUrls.add(url);
+            else imageUrls.add(url);
+        }
+
+        // ── Screenshots grid ──
+        if (!imageUrls.isEmpty()) {
+            Label imgHeader = sectionHeader("SCREENSHOTS");
+            section.getChildren().add(imgHeader);
+
+            List<Image> loadedImages = new ArrayList<>();
+            FlowPane grid = new FlowPane(10, 10);
+            grid.setPrefWrapLength(Double.MAX_VALUE);
+
+            for (int i = 0; i < imageUrls.size(); i++) {
+                String url = imageUrls.get(i);
+                final int idx = i;
+
+                StackPane thumb = new StackPane();
+                thumb.setPrefSize(310, 175); thumb.setMinSize(310, 175); thumb.setMaxSize(310, 175);
+                thumb.getStyleClass().add("screenshot-box");
+                thumb.setStyle(thumb.getStyle() + "-fx-cursor: hand;");
+
+                Label placeholder = new Label("Loading...");
+                placeholder.getStyleClass().add("dev-preview-placeholder");
+
+                ImageView iv = new ImageView();
+                iv.setFitWidth(310); iv.setFitHeight(175);
+                iv.setPreserveRatio(false);
+                iv.setVisible(false); iv.setManaged(false);
+
+                Label hoverHint = new Label("🔍  View");
+                hoverHint.setStyle("-fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold;" +
+                    "-fx-background-color: rgba(0,0,0,0.55); -fx-padding: 4 12; -fx-background-radius: 6;");
+                hoverHint.setVisible(false);
+
+                Image img = new Image(url, true);
+                loadedImages.add(img);
+                img.progressProperty().addListener((obs, old, p) -> {
+                    if (p.doubleValue() >= 1.0 && !img.isError()) {
+                        iv.setImage(img);
+                        iv.setVisible(true); iv.setManaged(true);
+                        placeholder.setVisible(false); placeholder.setManaged(false);
+                    }
+                });
+
+                thumb.getChildren().addAll(placeholder, iv, hoverHint);
+                thumb.setOnMouseEntered(e -> hoverHint.setVisible(true));
+                thumb.setOnMouseExited(e -> hoverHint.setVisible(false));
+                thumb.setOnMouseClicked(e -> openLightbox(stage, loadedImages, idx));
+                grid.getChildren().add(thumb);
+            }
+            section.getChildren().add(grid);
+        }
+
+        // ── YouTube videos ──
+        if (!videoUrls.isEmpty()) {
+            Label vidHeader = sectionHeader("VIDEOS");
+            section.getChildren().add(vidHeader);
+
+            FlowPane vidGrid = new FlowPane(10, 10);
+            vidGrid.setPrefWrapLength(Double.MAX_VALUE);
+
+            for (String url : videoUrls) {
+                String videoId = extractYouTubeId(url);
+                String thumbUrl = videoId != null
+                    ? "https://img.youtube.com/vi/" + videoId + "/hqdefault.jpg"
+                    : null;
+
+                StackPane thumb = new StackPane();
+                thumb.setPrefSize(310, 175); thumb.setMinSize(310, 175); thumb.setMaxSize(310, 175);
+                thumb.getStyleClass().add("screenshot-box");
+                thumb.setStyle(thumb.getStyle() + "-fx-cursor: hand;");
+
+                Label placeholder = new Label("Video");
+                placeholder.getStyleClass().add("dev-preview-placeholder");
+
+                if (thumbUrl != null) {
+                    ImageView iv = new ImageView();
+                    iv.setFitWidth(310); iv.setFitHeight(175);
+                    iv.setPreserveRatio(false);
+                    iv.setVisible(false); iv.setManaged(false);
+                    Image img = new Image(thumbUrl, true);
+                    img.progressProperty().addListener((obs, old, p) -> {
+                        if (p.doubleValue() >= 1.0 && !img.isError()) {
+                            iv.setImage(img);
+                            iv.setVisible(true); iv.setManaged(true);
+                            placeholder.setVisible(false); placeholder.setManaged(false);
+                        }
+                    });
+                    thumb.getChildren().add(iv);
+                }
+
+                // Play button overlay
+                Label playBtn = new Label("▶");
+                playBtn.setStyle(
+                    "-fx-text-fill: white; -fx-font-size: 28px;" +
+                    "-fx-background-color: rgba(0,0,0,0.65);" +
+                    "-fx-padding: 10 16; -fx-background-radius: 50;"
+                );
+                thumb.getChildren().addAll(placeholder, playBtn);
+                thumb.setOnMouseClicked(e -> openUrl(url));
+                vidGrid.getChildren().add(thumb);
+            }
+            section.getChildren().add(vidGrid);
+        }
+
+        return section;
+    }
+
+    private static boolean isYouTubeUrl(String url) {
+        return url != null && (url.contains("youtube.com/watch") || url.contains("youtu.be/"));
+    }
+
+    private static String extractYouTubeId(String url) {
+        try {
+            if (url.contains("youtu.be/")) {
+                String id = url.substring(url.indexOf("youtu.be/") + 9);
+                if (id.contains("?")) id = id.substring(0, id.indexOf("?"));
+                return id;
+            }
+            if (url.contains("v=")) {
+                String id = url.substring(url.indexOf("v=") + 2);
+                if (id.contains("&")) id = id.substring(0, id.indexOf("&"));
+                return id;
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
     private static VBox buildDescriptionSection(ServerProfile server) {
         VBox section = new VBox(12);
         section.setPadding(new Insets(10, 40, 30, 40));
@@ -350,9 +531,8 @@ public class ServerDetailScreen {
 
         String fullText = server.description != null ? server.description : "No description provided.";
 
-        Label desc = new Label(fullText);
+        TextFlow desc = buildLinkedTextFlow(fullText);
         desc.getStyleClass().add("detail-description");
-        desc.setWrapText(true);
 
         // Collapsed: show ~4 lines (~90px). Expanded: show full text.
         final double COLLAPSED_H = 90;
@@ -409,6 +589,42 @@ public class ServerDetailScreen {
 
         section.getChildren().addAll(header, descStack, expandBtn);
         return section;
+    }
+
+    // ── URL-LINKIFIED TEXT FLOW ───────────────────────────────────────────────
+
+    private static final Pattern URL_PATTERN = Pattern.compile(
+        "https?://[\\w\\-._~:/?#\\[\\]@!$&'()*+,;=%]+", Pattern.CASE_INSENSITIVE
+    );
+
+    private static TextFlow buildLinkedTextFlow(String text) {
+        TextFlow flow = new TextFlow();
+        flow.setLineSpacing(3);
+
+        Matcher m = URL_PATTERN.matcher(text);
+        int last = 0;
+        while (m.find()) {
+            if (m.start() > last) {
+                Text plain = new Text(text.substring(last, m.start()));
+                plain.setStyle("-fx-fill: #c8cdd8; -fx-font-size: 13px;");
+                flow.getChildren().add(plain);
+            }
+            String url = m.group();
+            Hyperlink link = new Hyperlink(url);
+            link.setStyle(
+                "-fx-text-fill: #ff981f; -fx-border-color: transparent; " +
+                "-fx-padding: 0; -fx-font-size: 13px; -fx-cursor: hand;"
+            );
+            link.setOnAction(e -> openUrl(url));
+            flow.getChildren().add(link);
+            last = m.end();
+        }
+        if (last < text.length()) {
+            Text tail = new Text(text.substring(last));
+            tail.setStyle("-fx-fill: #c8cdd8; -fx-font-size: 13px;");
+            flow.getChildren().add(tail);
+        }
+        return flow;
     }
 
     // ── SCREENSHOTS ──────────────────────────────────────────────────────────
@@ -571,71 +787,67 @@ public class ServerDetailScreen {
     // ── REVIEWS ──────────────────────────────────────────────────────────────
 
     private static VBox buildReviewsSection(ServerProfile server, VBox content) {
-        List<Review> reviews = reviewStore.computeIfAbsent(server.id, k -> new ArrayList<>());
-
         VBox section = new VBox(20);
         section.setPadding(new Insets(30, 40, 60, 40));
 
-        // Header + average rating
-        double avg = reviews.isEmpty() ? 0 : reviews.stream().mapToInt(r -> r.stars).average().orElse(0);
-        HBox ratingHeader = new HBox(16);
-        ratingHeader.setAlignment(Pos.CENTER_LEFT);
-
-        Label header = sectionHeader("REVIEWS");
-        Label avgLabel = new Label(String.format("%.1f / 5", avg));
+        Label header   = sectionHeader("REVIEWS");
+        Label avgLabel = new Label("—");
         avgLabel.getStyleClass().add("detail-avg-rating");
-        Label starsLabel = new Label(buildStarString((int) Math.round(avg)));
+        Label starsLabel = new Label("☆☆☆☆☆");
         starsLabel.getStyleClass().add("detail-stars-display");
-        Label countLabel = new Label("(" + reviews.size() + " reviews)");
+        Label countLabel = new Label("(loading...)");
         countLabel.getStyleClass().add("auth-muted");
 
-        ratingHeader.getChildren().addAll(header, starsLabel, avgLabel, countLabel);
+        HBox ratingHeader = new HBox(16, header, starsLabel, avgLabel, countLabel);
+        ratingHeader.setAlignment(Pos.CENTER_LEFT);
 
-        // Review list
         VBox reviewList = new VBox(12);
-        refreshReviewList(reviewList, reviews);
+        Label loadingLbl = new Label("Loading reviews...");
+        loadingLbl.getStyleClass().add("auth-muted");
+        reviewList.getChildren().add(loadingLbl);
 
-        // Submit form
-        VBox submitForm = buildSubmitForm(server, reviews, reviewList, avg, avgLabel, starsLabel, countLabel);
+        VBox submitForm = buildSubmitForm(server, reviewList, avgLabel, starsLabel, countLabel);
 
         section.getChildren().addAll(ratingHeader, reviewList, buildDivider(), submitForm);
+
+        // Fetch from API
+        ApiClient.getReviews(server.id).thenAccept(reviews ->
+            javafx.application.Platform.runLater(() -> {
+                refreshReviewList(reviewList, reviews);
+                updateRatingHeader(avgLabel, starsLabel, countLabel, reviews);
+            })
+        );
+
         return section;
     }
 
     private static void refreshReviewList(VBox reviewList, List<Review> reviews) {
         reviewList.getChildren().clear();
-        List<Review> visible = reviews.stream().filter(r -> !r.pending).toList();
-        if (visible.isEmpty()) {
+        if (reviews.isEmpty()) {
             Label empty = new Label("No reviews yet. Be the first!");
             empty.getStyleClass().add("auth-muted");
             reviewList.getChildren().add(empty);
             return;
         }
-        for (Review r : visible) {
-            reviewList.getChildren().add(buildReviewCard(r));
+        for (Review r : reviews) reviewList.getChildren().add(buildReviewCard(r));
+    }
+
+    private static void updateRatingHeader(Label avgLabel, Label starsLabel, Label countLabel, List<Review> reviews) {
+        if (reviews.isEmpty()) {
+            avgLabel.setText("—"); starsLabel.setText("☆☆☆☆☆");
+            countLabel.setText("(no reviews yet)");
+        } else {
+            double avg = reviews.stream().mapToInt(r -> r.stars).average().orElse(0);
+            avgLabel.setText(String.format("%.1f / 5", avg));
+            starsLabel.setText(buildStarString((int) Math.round(avg)));
+            countLabel.setText("(" + reviews.size() + " review" + (reviews.size() == 1 ? "" : "s") + ")");
         }
     }
 
     // ── MODERATION API (used by DeveloperPortalScreen) ───────────────────────
-
-    /** Returns all pending reviews across every server, as server-name → review pairs. */
-    public static Map<Integer, List<Review>> getPendingReviews() {
-        Map<Integer, List<Review>> result = new HashMap<>();
-        for (var entry : reviewStore.entrySet()) {
-            List<Review> pending = entry.getValue().stream().filter(r -> r.pending).toList();
-            if (!pending.isEmpty()) result.put(entry.getKey(), pending);
-        }
-        return result;
-    }
-
-    public static void approveReview(int serverId, Review review) {
-        review.pending = false;
-    }
-
-    public static void rejectReview(int serverId, Review review) {
-        List<Review> list = reviewStore.get(serverId);
-        if (list != null) list.remove(review);
-    }
+    public static Map<Integer, List<Review>> getPendingReviews() { return new java.util.HashMap<>(); }
+    public static void approveReview(int serverId, Review review) {}
+    public static void rejectReview(int serverId, Review review) {}
 
     private static HBox buildReviewCard(Review r) {
         HBox card = new HBox(16);
@@ -672,8 +884,8 @@ public class ServerDetailScreen {
         return card;
     }
 
-    private static VBox buildSubmitForm(ServerProfile server, List<Review> reviews,
-                                        VBox reviewList, double avg,
+    private static VBox buildSubmitForm(ServerProfile server,
+                                        VBox reviewList,
                                         Label avgLabel, Label starsLabel, Label countLabel) {
         VBox form = new VBox(14);
 
@@ -719,50 +931,42 @@ public class ServerDetailScreen {
         submitBtn.setOnAction(e -> {
             if (selectedRating[0] == 0) {
                 errorLabel.setText("Please select a star rating.");
-                errorLabel.setVisible(true);
-                errorLabel.setManaged(true);
+                errorLabel.setVisible(true); errorLabel.setManaged(true);
                 return;
             }
             String text = commentField.getText().trim();
             if (text.isEmpty()) {
                 errorLabel.setText("Please write a comment.");
-                errorLabel.setVisible(true);
-                errorLabel.setManaged(true);
+                errorLabel.setVisible(true); errorLabel.setManaged(true);
                 return;
             }
 
-            Review newReview = new Review(
-                LauncherEngine.currentUsername.isEmpty() ? "Anonymous" : LauncherEngine.currentUsername,
-                selectedRating[0],
-                text,
-                java.time.LocalDate.now().toString()
+            submitBtn.setDisable(true);
+            submitBtn.setText("SUBMITTING...");
+            errorLabel.setVisible(false); errorLabel.setManaged(false);
+
+            ApiClient.submitReview(server.id, selectedRating[0], text).thenAccept(result ->
+                javafx.application.Platform.runLater(() -> {
+                    submitBtn.setDisable(false);
+                    submitBtn.setText("SUBMIT REVIEW");
+                    if ("ok".equals(result)) {
+                        commentField.clear();
+                        selectedRating[0] = 0;
+                        updateStarPicker(starLabels, 0, 0);
+                        // Refresh from API so the new review shows
+                        ApiClient.getReviews(server.id).thenAccept(reviews ->
+                            javafx.application.Platform.runLater(() -> {
+                                refreshReviewList(reviewList, reviews);
+                                updateRatingHeader(avgLabel, starsLabel, countLabel, reviews);
+                            })
+                        );
+                    } else {
+                        errorLabel.setText(result);
+                        errorLabel.setStyle("-fx-text-fill: #e05252; -fx-font-size: 12px;");
+                        errorLabel.setVisible(true); errorLabel.setManaged(true);
+                    }
+                })
             );
-
-            if (containsProfanity(text)) {
-                newReview.pending = true;
-                reviews.add(0, newReview);
-                errorLabel.setText("⚠  Your review contains inappropriate language and is under review by the server owner.");
-                errorLabel.setStyle("-fx-text-fill: #e09020; -fx-font-size: 12px;");
-                errorLabel.setVisible(true);
-                errorLabel.setManaged(true);
-            } else {
-                reviews.add(0, newReview);
-                errorLabel.setVisible(false);
-                errorLabel.setManaged(false);
-            }
-
-            refreshReviewList(reviewList, reviews);
-
-            // Update average (only count approved reviews)
-            double newAvg = reviews.stream().filter(r -> !r.pending).mapToInt(r -> r.stars).average().orElse(0);
-            long approved = reviews.stream().filter(r -> !r.pending).count();
-            avgLabel.setText(String.format("%.1f / 5", newAvg));
-            starsLabel.setText(buildStarString((int) Math.round(newAvg)));
-            countLabel.setText("(" + approved + " reviews)");
-
-            commentField.clear();
-            selectedRating[0] = 0;
-            updateStarPicker(starLabels, 0, 0);
         });
 
         form.getChildren().addAll(formHeader, starPicker, commentField, errorLabel, submitBtn);

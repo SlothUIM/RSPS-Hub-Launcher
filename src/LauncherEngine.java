@@ -44,57 +44,113 @@ public class LauncherEngine {
     public static boolean hasCompletedOnboarding = false;
     public static List<String> preferredTags = new ArrayList<>();
     public static String profilePrivacy = "public"; // "public", "friends", "private"
+    public static List<String> groups = new ArrayList<>();
+    public static Map<String, List<String>> groupMembers = new HashMap<>();
 
-    private static final Path SETTINGS_PATH = Paths.get(System.getProperty("user.home"), ".rsps_hub", "settings.json");
-    private static final Path ACCENT_CSS_PATH = Paths.get(System.getProperty("user.home"), ".rsps_hub", "accent.css");
+    // Global (machine-wide) settings path
+    private static final Path SETTINGS_PATH    = Paths.get(System.getProperty("user.home"), ".rsps_hub", "settings.json");
+    private static final Path ACCENT_CSS_PATH  = Paths.get(System.getProperty("user.home"), ".rsps_hub", "accent.css");
 
-    private static class SettingsData {
-        String downloadPath, statusMessage, accentColor, profilePrivacy, avatarImagePath, savedUsername;
-        boolean minimizeOnLaunch, autoUpdateClients, lightMode, autoLaunch;
-        List<String> favouriteServers, preferredTags;
-        Map<String, String> serverNotes;
-        Boolean friendActivityNotifications, notifFriendRequests, notifFriendOnline, notifServerUpdates, notifSystem, notifStreakReminder, hasCompletedOnboarding;
+    // Per-user settings path — dynamic based on logged-in account
+    private static Path userSettingsPath() {
+        if (currentUsername == null || currentUsername.isEmpty()) return null;
+        return Paths.get(System.getProperty("user.home"), ".rsps_hub", currentUsername, "profile_settings.json");
     }
 
+    // ── Global settings (machine-wide, not account-specific) ─────────────────
+    private static class GlobalSettings {
+        String downloadPath;
+        boolean minimizeOnLaunch, autoUpdateClients, lightMode, autoLaunch, hasCompletedOnboarding;
+    }
+
+    // ── Per-user settings (one file per account) ──────────────────────────────
+    private static class UserSettings {
+        String statusMessage, accentColor, profilePrivacy, avatarImagePath;
+        List<String> favouriteServers, preferredTags, groups;
+        Map<String, String> serverNotes;
+        Map<String, List<String>> groupMembers;
+        Boolean friendActivityNotifications, notifFriendRequests, notifFriendOnline,
+                notifServerUpdates, notifSystem, notifStreakReminder;
+    }
+
+    /** Save both global and per-user settings. */
     public static void saveSettings() {
         try {
-            SettingsData d = new SettingsData();
-            d.downloadPath = downloadPath; d.statusMessage = statusMessage; d.minimizeOnLaunch = minimizeOnLaunch;
-            d.autoUpdateClients = autoUpdateClients; d.lightMode = lightMode; d.autoLaunch = autoLaunch;
-            d.accentColor = accentColor; d.avatarImagePath = avatarImagePath; d.savedUsername = currentUsername; d.favouriteServers = new ArrayList<>(favouriteServers);
-            d.serverNotes = serverNotes; d.friendActivityNotifications = friendActivityNotifications;
-            d.notifFriendRequests = notifFriendRequests; d.notifFriendOnline = notifFriendOnline;
-            d.notifServerUpdates = notifServerUpdates; d.notifSystem = notifSystem;
-            d.notifStreakReminder = notifStreakReminder; d.hasCompletedOnboarding = hasCompletedOnboarding;
-            d.preferredTags = new ArrayList<>(preferredTags); d.profilePrivacy = profilePrivacy;
+            // Global
+            GlobalSettings g = new GlobalSettings();
+            g.downloadPath = downloadPath; g.minimizeOnLaunch = minimizeOnLaunch;
+            g.autoUpdateClients = autoUpdateClients; g.lightMode = lightMode;
+            g.autoLaunch = autoLaunch; g.hasCompletedOnboarding = hasCompletedOnboarding;
             Files.createDirectories(SETTINGS_PATH.getParent());
-            Files.writeString(SETTINGS_PATH, new Gson().toJson(d));
-        } catch (Exception e) { System.err.println("Failed to save settings: " + e.getMessage()); }
+            Files.writeString(SETTINGS_PATH, new Gson().toJson(g));
+        } catch (Exception e) { System.err.println("Failed to save global settings: " + e.getMessage()); }
+
+        saveUserSettings();
     }
 
+    /** Save only per-user settings (called when username is set). */
+    public static void saveUserSettings() {
+        Path p = userSettingsPath();
+        if (p == null) return;
+        try {
+            UserSettings u = new UserSettings();
+            u.statusMessage = statusMessage; u.accentColor = accentColor;
+            u.profilePrivacy = profilePrivacy; u.avatarImagePath = avatarImagePath;
+            u.favouriteServers = new ArrayList<>(favouriteServers);
+            u.serverNotes = serverNotes; u.preferredTags = new ArrayList<>(preferredTags);
+            u.groups = new ArrayList<>(groups); u.groupMembers = new HashMap<>(groupMembers);
+            u.friendActivityNotifications = friendActivityNotifications;
+            u.notifFriendRequests = notifFriendRequests; u.notifFriendOnline = notifFriendOnline;
+            u.notifServerUpdates = notifServerUpdates; u.notifSystem = notifSystem;
+            u.notifStreakReminder = notifStreakReminder;
+            Files.createDirectories(p.getParent());
+            Files.writeString(p, new Gson().toJson(u));
+        } catch (Exception e) { System.err.println("Failed to save user settings: " + e.getMessage()); }
+    }
+
+    /** Load global (machine-wide) settings — call before login. */
     public static void loadSettings() {
         try {
             if (!Files.exists(SETTINGS_PATH)) return;
-            SettingsData d = new Gson().fromJson(Files.readString(SETTINGS_PATH), SettingsData.class);
-            if (d.downloadPath != null) downloadPath = d.downloadPath;
-            if (d.statusMessage != null) statusMessage = d.statusMessage;
-            if (d.accentColor != null) accentColor = d.accentColor;
-            // Only restore avatar if it belongs to the current logged-in user
-            if (d.avatarImagePath != null && currentUsername.equals(d.savedUsername)) avatarImagePath = d.avatarImagePath;
-            if (d.favouriteServers != null) favouriteServers = new LinkedHashSet<>(d.favouriteServers);
-            if (d.serverNotes != null) serverNotes = d.serverNotes;
-            if (d.friendActivityNotifications != null) friendActivityNotifications = d.friendActivityNotifications;
-            if (d.notifFriendRequests != null) notifFriendRequests = d.notifFriendRequests;
-            if (d.notifFriendOnline != null) notifFriendOnline = d.notifFriendOnline;
-            if (d.notifServerUpdates != null) notifServerUpdates = d.notifServerUpdates;
-            if (d.notifSystem != null) notifSystem = d.notifSystem;
-            if (d.notifStreakReminder != null) notifStreakReminder = d.notifStreakReminder;
-            if (d.hasCompletedOnboarding != null) hasCompletedOnboarding = d.hasCompletedOnboarding;
-            if (d.preferredTags != null) preferredTags = d.preferredTags;
-            if (d.profilePrivacy != null) profilePrivacy = d.profilePrivacy;
-            minimizeOnLaunch = d.minimizeOnLaunch; autoUpdateClients = d.autoUpdateClients;
-            lightMode = d.lightMode; autoLaunch = d.autoLaunch;
-        } catch (Exception e) { System.err.println("Failed to load settings: " + e.getMessage()); }
+            GlobalSettings g = new Gson().fromJson(Files.readString(SETTINGS_PATH), GlobalSettings.class);
+            if (g.downloadPath != null) downloadPath = g.downloadPath;
+            minimizeOnLaunch = g.minimizeOnLaunch; autoUpdateClients = g.autoUpdateClients;
+            lightMode = g.lightMode; autoLaunch = g.autoLaunch;
+            hasCompletedOnboarding = g.hasCompletedOnboarding;
+        } catch (Exception e) { System.err.println("Failed to load global settings: " + e.getMessage()); }
+    }
+
+    /** Load per-user settings — call after currentUsername is set. */
+    public static void loadUserSettings() {
+        // Reset user-specific fields to defaults first so old account's data doesn't bleed through
+        statusMessage = ""; accentColor = "#9b5de5"; profilePrivacy = "public";
+        avatarImagePath = null; favouriteServers = new LinkedHashSet<>();
+        serverNotes = new HashMap<>(); preferredTags = new ArrayList<>();
+        groups = new ArrayList<>(); groupMembers = new HashMap<>();
+        friendActivityNotifications = true; notifFriendRequests = true;
+        notifFriendOnline = true; notifServerUpdates = true;
+        notifSystem = true; notifStreakReminder = true;
+
+        Path p = userSettingsPath();
+        if (p == null || !Files.exists(p)) return;
+        try {
+            UserSettings u = new Gson().fromJson(Files.readString(p), UserSettings.class);
+            if (u.statusMessage  != null) statusMessage  = u.statusMessage;
+            if (u.accentColor    != null) accentColor    = u.accentColor;
+            if (u.profilePrivacy != null) profilePrivacy = u.profilePrivacy;
+            if (u.avatarImagePath != null) avatarImagePath = u.avatarImagePath;
+            if (u.favouriteServers != null) favouriteServers = new LinkedHashSet<>(u.favouriteServers);
+            if (u.serverNotes    != null) serverNotes    = u.serverNotes;
+            if (u.preferredTags  != null) preferredTags  = u.preferredTags;
+            if (u.groups         != null) groups         = new ArrayList<>(u.groups);
+            if (u.groupMembers   != null) groupMembers   = new HashMap<>(u.groupMembers);
+            if (u.friendActivityNotifications != null) friendActivityNotifications = u.friendActivityNotifications;
+            if (u.notifFriendRequests != null) notifFriendRequests = u.notifFriendRequests;
+            if (u.notifFriendOnline   != null) notifFriendOnline   = u.notifFriendOnline;
+            if (u.notifServerUpdates  != null) notifServerUpdates  = u.notifServerUpdates;
+            if (u.notifSystem         != null) notifSystem         = u.notifSystem;
+            if (u.notifStreakReminder  != null) notifStreakReminder  = u.notifStreakReminder;
+        } catch (Exception e) { System.err.println("Failed to load user settings: " + e.getMessage()); }
     }
 
     public static List<String> getStylesheets(Class<?> cls) {
@@ -107,7 +163,7 @@ public class LauncherEngine {
 
     public static String getAccentCssUrl() { return ACCENT_CSS_PATH.toUri().toString() + "#" + System.currentTimeMillis(); }
 
-    public static void setAccentColor(String hex) { accentColor = hex; writeAccentCss(); saveSettings(); }
+    public static void setAccentColor(String hex) { accentColor = hex; writeAccentCss(); saveUserSettings(); }
 
     public static String darkenHex(String hex, double factor) {
         try {
@@ -210,6 +266,7 @@ public class LauncherEngine {
     }
 
     /** @deprecated Use clientFileName */
+    @Deprecated
     public static String jarFileName(ServerProfile server) { return clientFileName(server); }
 
     /** True if the server distributes a native .exe launcher rather than a JAR. */

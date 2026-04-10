@@ -242,6 +242,25 @@ public class ApiClient {
         });
     }
 
+    public static CompletableFuture<List<ServerProfile>> getPendingServers() {
+        return fetch(get("servers/pending.php").build()).thenApply(obj -> {
+            List<ServerProfile> list = new ArrayList<>();
+            for (JsonElement el : arr(obj, "servers"))
+                list.add(gson.fromJson(el, ServerProfile.class));
+            return list;
+        });
+    }
+
+    public static CompletableFuture<Boolean> approveServer(int id) {
+        return fetch(post("servers/approve.php", Map.of("id", id)).build())
+            .thenApply(obj -> !obj.has("error"));
+    }
+
+    public static CompletableFuture<Boolean> rejectServer(int id) {
+        return fetch(post("servers/reject.php", Map.of("id", id)).build())
+            .thenApply(obj -> !obj.has("error"));
+    }
+
     public static CompletableFuture<Boolean> updateServer(int id, Map<String, Object> fields) {
         Map<String, Object> payload = new HashMap<>(fields);
         payload.put("id", id);
@@ -303,8 +322,25 @@ public class ApiClient {
     }
 
     public static CompletableFuture<String> updatePrivacy(String privacy) {
-        return fetch(post("users/update_privacy.php", Map.of("privacy", privacy)).build())
-            .thenApply(obj -> obj.has("error") ? obj.get("error").getAsString() : "ok");
+        HttpRequest req;
+        try {
+            req = post("users/update_privacy.php", Map.of("privacy", privacy)).build();
+        } catch (Exception e) {
+            System.err.println("updatePrivacy build failed: " + e.getMessage());
+            return CompletableFuture.completedFuture("error");
+        }
+        return http.sendAsync(req, HttpResponse.BodyHandlers.ofString())
+            .thenApply(res -> {
+                System.out.println("updatePrivacy (" + res.statusCode() + "): " + res.body());
+                try {
+                    JsonObject obj = new JsonParser().parse(res.body()).getAsJsonObject();
+                    return obj.has("error") ? obj.get("error").getAsString() : "ok";
+                } catch (Exception e) { return "parse error"; }
+            })
+            .exceptionally(ex -> {
+                System.err.println("updatePrivacy failed: " + ex.getMessage());
+                return "error";
+            });
     }
 
     public static CompletableFuture<String> loadMyPrivacy() {
@@ -324,6 +360,38 @@ public class ApiClient {
                 catch (Exception e) { return new JsonObject(); }
             })
             .exceptionally(ex -> { System.err.println("API error: " + ex.getMessage()); return new JsonObject(); });
+    }
+
+    // -- reviews --
+
+    public static CompletableFuture<List<Review>> getReviews(int serverId) {
+        var req = HttpRequest.newBuilder()
+            .uri(URI.create(BASE + "reviews/list.php?server_id=" + serverId))
+            .timeout(Duration.ofSeconds(15))
+            .GET().build();
+        return http.sendAsync(req, HttpResponse.BodyHandlers.ofString())
+            .thenApply(res -> {
+                List<Review> list = new ArrayList<>();
+                try {
+                    JsonObject obj = new JsonParser().parse(res.body()).getAsJsonObject();
+                    for (JsonElement el : arr(obj, "reviews")) {
+                        JsonObject r = el.getAsJsonObject();
+                        Review rev = new Review(
+                            str(r, "username"), r.get("stars").getAsInt(),
+                            str(r, "comment"),  str(r, "date")
+                        );
+                        list.add(rev);
+                    }
+                } catch (Exception ignored) {}
+                return list;
+            })
+            .exceptionally(ex -> new ArrayList<>());
+    }
+
+    public static CompletableFuture<String> submitReview(int serverId, int stars, String comment) {
+        return fetch(post("reviews/submit.php", Map.of(
+            "server_id", serverId, "stars", stars, "comment", comment
+        )).build()).thenApply(obj -> obj.has("error") ? obj.get("error").getAsString() : "ok");
     }
 
     public static String avatarUrl(String username) {

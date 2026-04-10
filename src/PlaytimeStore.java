@@ -3,12 +3,27 @@ import java.nio.file.*;
 import java.util.*;
 
 public class PlaytimeStore {
-    private static final Path PATH = Paths.get(System.getProperty("user.home"), ".rsps_hub", "playtime.json");
 
-    private static Map<String, Long> minutesPlayed = new HashMap<>();
-    private static Map<String, Integer> launchCount = new HashMap<>();
+    private static Map<String, Long>    minutesPlayed = new HashMap<>();
+    private static Map<String, Integer> launchCount   = new HashMap<>();
 
-    static { load(); }
+    private static Path getPath() {
+        String user = LauncherEngine.currentUsername;
+        if (user == null || user.isEmpty()) return null;
+        return Paths.get(System.getProperty("user.home"), ".rsps_hub", user, "playtime.json");
+    }
+
+    public static void reload() {
+        minutesPlayed = new HashMap<>();
+        launchCount   = new HashMap<>();
+        Path p = getPath();
+        if (p == null || !Files.exists(p)) return;
+        try {
+            Data d = new Gson().fromJson(Files.readString(p), Data.class);
+            if (d != null && d.minutesPlayed != null) minutesPlayed = d.minutesPlayed;
+            if (d != null && d.launchCount   != null) launchCount   = d.launchCount;
+        } catch (Exception e) { System.err.println("PlaytimeStore load: " + e.getMessage()); }
+    }
 
     public static void recordSession(String serverName, long minutes) {
         if (minutes < 1) return;
@@ -47,21 +62,14 @@ public class PlaytimeStore {
     private static class Data { Map<String, Long> minutesPlayed; Map<String, Integer> launchCount; }
 
     public static void save() {
+        Path p = getPath();
+        if (p == null) return;
         try {
-            Files.createDirectories(PATH.getParent());
+            Files.createDirectories(p.getParent());
             Data d = new Data();
             d.minutesPlayed = minutesPlayed;
-            d.launchCount = launchCount;
-            Files.writeString(PATH, new Gson().toJson(d));
-        } catch (Exception e) { System.err.println("PlaytimeStore save failed: " + e.getMessage()); }
-    }
-
-    public static void load() {
-        try {
-            if (!Files.exists(PATH)) return;
-            Data d = new Gson().fromJson(Files.readString(PATH), Data.class);
-            if (d.minutesPlayed != null) minutesPlayed = d.minutesPlayed;
-            if (d.launchCount != null) launchCount = d.launchCount;
-        } catch (Exception e) { System.err.println("PlaytimeStore load failed: " + e.getMessage()); }
+            d.launchCount   = launchCount;
+            Files.writeString(p, new Gson().toJson(d));
+        } catch (Exception e) { System.err.println("PlaytimeStore save: " + e.getMessage()); }
     }
 }

@@ -59,7 +59,10 @@ public class DeveloperPortalScreen {
         introSub.getStyleClass().add("dev-intro-sub");
         introSub.setWrapText(true);
 
-        if (LauncherEngine.isStaff) content.getChildren().add(buildStaffManageSection(stage));
+        if (LauncherEngine.isStaff) {
+            content.getChildren().add(buildPendingSubmissionsSection(stage));
+            content.getChildren().add(buildStaffManageSection(stage));
+        }
 
         content.getChildren().add(buildOwnerManageSection(stage));
 
@@ -93,6 +96,111 @@ public class DeveloperPortalScreen {
         return buildEditorFor(stage, ApiClient::getMyServers, false,
             "✏  MY SERVER",
             "Your server will appear here once it's been approved. You can update branding, descriptions, and links at any time.");
+    }
+
+    // ── SECTION STAFF: PENDING SUBMISSIONS ───────────────────────────────────
+
+    private static VBox buildPendingSubmissionsSection(Stage stage) {
+        VBox section = new VBox(14);
+        section.setPadding(new Insets(24, 28, 24, 28));
+        section.setStyle("-fx-background-color: #1a1d24; -fx-background-radius: 10; -fx-border-color: #2a2e39; -fx-border-radius: 10; -fx-border-width: 1;");
+
+        Label title = new Label("📋  PENDING SERVER SUBMISSIONS  (STAFF ONLY)");
+        title.setStyle("-fx-text-fill: #ff981f; -fx-font-size: 13px; -fx-font-weight: bold;");
+
+        VBox list = new VBox(10);
+        Label loading = new Label("Loading submissions...");
+        loading.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 13px;");
+        list.getChildren().add(loading);
+
+        Runnable[] refreshRef = {null};
+
+        Runnable refresh = () -> {
+            list.getChildren().clear();
+            ApiClient.getPendingServers().thenAccept(servers -> Platform.runLater(() -> {
+                if (servers.isEmpty()) {
+                    Label none = new Label("No pending submissions.");
+                    none.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 13px;");
+                    list.getChildren().add(none);
+                    return;
+                }
+                for (ServerProfile s : servers) {
+                    VBox card = new VBox(6);
+                    card.setPadding(new Insets(12, 16, 12, 16));
+                    card.setStyle("-fx-background-color: #21252e; -fx-background-radius: 8; -fx-border-color: #2a2e39; -fx-border-radius: 8; -fx-border-width: 1;");
+
+                    Label nameL = new Label(s.name != null ? s.name : "(unnamed)");
+                    nameL.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 14px; -fx-font-weight: bold;");
+
+                    Label byL = new Label("Submitted by: " + (s.submittedBy != null ? s.submittedBy : "unknown"));
+                    byL.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 12px;");
+
+                    Label descL = new Label(s.description != null && s.description.length() > 120
+                        ? s.description.substring(0, 120) + "..." : (s.description != null ? s.description : ""));
+                    descL.setStyle("-fx-text-fill: #c0c5d0; -fx-font-size: 12px;");
+                    descL.setWrapText(true);
+
+                    Label xpL = new Label("XP Rate: " + (s.xpRate != null ? s.xpRate : "—") +
+                        "  |  JAR: " + (s.jarUrl != null && !s.jarUrl.isEmpty() ? s.jarUrl : "—"));
+                    xpL.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 11px;");
+                    xpL.setWrapText(true);
+
+                    Button approveBtn = new Button("✓ Approve");
+                    approveBtn.setStyle("-fx-background-color: #2a7a2a; -fx-text-fill: #ffffff; -fx-font-size: 12px; -fx-cursor: hand; -fx-background-radius: 6; -fx-padding: 6 14 6 14;");
+
+                    Button rejectBtn = new Button("✗ Reject");
+                    rejectBtn.setStyle("-fx-background-color: #7a2a2a; -fx-text-fill: #ffffff; -fx-font-size: 12px; -fx-cursor: hand; -fx-background-radius: 6; -fx-padding: 6 14 6 14;");
+
+                    Label statusL = new Label("");
+                    statusL.setStyle("-fx-font-size: 11px;");
+
+                    approveBtn.setOnAction(e -> {
+                        approveBtn.setDisable(true); rejectBtn.setDisable(true);
+                        ApiClient.approveServer(s.id).thenAccept(ok -> Platform.runLater(() -> {
+                            if (ok) {
+                                statusL.setText("✓ Approved");
+                                statusL.setStyle("-fx-text-fill: #4caf50; -fx-font-size: 11px;");
+                                if (refreshRef[0] != null) refreshRef[0].run();
+                            } else {
+                                statusL.setText("Failed to approve.");
+                                statusL.setStyle("-fx-text-fill: #f44336; -fx-font-size: 11px;");
+                                approveBtn.setDisable(false); rejectBtn.setDisable(false);
+                            }
+                        }));
+                    });
+
+                    rejectBtn.setOnAction(e -> {
+                        approveBtn.setDisable(true); rejectBtn.setDisable(true);
+                        ApiClient.rejectServer(s.id).thenAccept(ok -> Platform.runLater(() -> {
+                            if (ok) {
+                                statusL.setText("✗ Rejected");
+                                statusL.setStyle("-fx-text-fill: #f44336; -fx-font-size: 11px;");
+                                if (refreshRef[0] != null) refreshRef[0].run();
+                            } else {
+                                statusL.setText("Failed to reject.");
+                                statusL.setStyle("-fx-text-fill: #f44336; -fx-font-size: 11px;");
+                                approveBtn.setDisable(false); rejectBtn.setDisable(false);
+                            }
+                        }));
+                    });
+
+                    HBox btnRow = new HBox(8, approveBtn, rejectBtn, statusL);
+                    btnRow.setAlignment(Pos.CENTER_LEFT);
+
+                    card.getChildren().addAll(nameL, byL, descL, xpL, btnRow);
+                    list.getChildren().add(card);
+                }
+            }));
+        };
+        refreshRef[0] = refresh;
+        refresh.run();
+
+        Button refreshBtn = new Button("↻ Refresh");
+        refreshBtn.setStyle("-fx-background-color: #2a2e39; -fx-text-fill: #c0c5d0; -fx-font-size: 11px; -fx-cursor: hand; -fx-background-radius: 6; -fx-padding: 5 12 5 12;");
+        refreshBtn.setOnAction(e -> refresh.run());
+
+        section.getChildren().addAll(title, refreshBtn, list);
+        return section;
     }
 
     // ── SECTION STAFF: MANAGE SERVERS ────────────────────────────────────────
@@ -889,7 +997,7 @@ public class DeveloperPortalScreen {
                 serverName, description, jarUrl, xp
             );
 
-            ApiClient.postJson("submit_server", payload).thenAccept(response -> {
+            ApiClient.postJson("servers/submit.php", payload).thenAccept(response -> {
                 javafx.application.Platform.runLater(() -> {
                     submitBtn.setText("SUBMIT SERVER");
                     submitBtn.setDisable(false);

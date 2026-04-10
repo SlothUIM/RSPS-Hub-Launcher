@@ -41,8 +41,7 @@ public class RSPSHub extends Application {
     // Data
     private List<ServerProfile> allServers;
     private List<Friend> friends = new ArrayList<>();
-    private List<String> groups  = new ArrayList<>();
-    private Map<String, List<String>> groupMembers = new HashMap<>(); // groupName -> member usernames
+    // groups and groupMembers are stored in LauncherEngine (per-user, persisted to disk)
 
     // UI state
     private String activeTag                   = "All";
@@ -246,6 +245,15 @@ public class RSPSHub extends Application {
     // ── HUB SCENE ────────────────────────────────────────────────────────────
 
     private void showHub(Stage stage) {
+        // Reload all per-user data whenever we enter the hub
+        // (covers both first login and account switching)
+        LauncherEngine.loadUserSettings();
+        LauncherEngine.writeAccentCss();
+        PlaytimeStore.reload();
+        SessionHistoryStore.reload();
+        StreakStore.reload();
+        MessageStore.reload();
+
         showingLibrary     = false;
         showingFriends     = false;
         showingMessaging   = false;
@@ -812,7 +820,7 @@ public class RSPSHub extends Application {
         }
 
         serverGrid.getChildren().add(friendsGroupHeader("GROUP CHATS"));
-        for (String group : groups) serverGrid.getChildren().add(createGroupRow(group));
+        for (String group : LauncherEngine.groups) serverGrid.getChildren().add(createGroupRow(group));
         serverGrid.getChildren().add(buildNewGroupForm());
     }
 
@@ -1052,7 +1060,7 @@ public class RSPSHub extends Application {
         Label avatar = new Label("#");
         avatar.getStyleClass().add("group-avatar");
 
-        List<String> members = groupMembers.getOrDefault(groupName, new ArrayList<>());
+        List<String> members = LauncherEngine.groupMembers.getOrDefault(groupName, new ArrayList<>());
         Label name = new Label(groupName);
         name.getStyleClass().add("friend-name");
 
@@ -1072,9 +1080,9 @@ public class RSPSHub extends Application {
         deleteBtn.getStyleClass().add("settings-secondary-btn");
         deleteBtn.setStyle("-fx-text-fill: #ff4444;");
         deleteBtn.setOnAction(e -> {
-            groups.remove(groupName);
-            groupMembers.remove(groupName);
-            LauncherEngine.saveSettings();
+            LauncherEngine.groups.remove(groupName);
+            LauncherEngine.groupMembers.remove(groupName);
+            LauncherEngine.saveUserSettings();
             if (groupName.equals(activeConversation) && isGroupConversation) {
                 activeConversation = null;
                 isGroupConversation = false;
@@ -1183,8 +1191,9 @@ public class RSPSHub extends Application {
                 .filter(CheckBox::isSelected)
                 .map(cb -> (String) cb.getUserData())
                 .collect(Collectors.toList());
-            groups.add(name);
-            groupMembers.put(name, selected);
+            LauncherEngine.groups.add(name);
+            LauncherEngine.groupMembers.put(name, selected);
+            LauncherEngine.saveUserSettings();
             MessageStore.getMessages(name);
             dialog.close();
             updateDisplay();
@@ -1235,7 +1244,7 @@ public class RSPSHub extends Application {
 
         // Group chat: show members + Add Member button below top bar
         if (isGroupConversation) {
-            List<String> members = groupMembers.computeIfAbsent(activeConversation, k -> new ArrayList<>());
+            List<String> members = LauncherEngine.groupMembers.computeIfAbsent(activeConversation, k -> new ArrayList<>());
 
             FlowPane memberChips = new FlowPane(6, 6);
             memberChips.setAlignment(Pos.CENTER_LEFT);
@@ -1640,7 +1649,7 @@ public class RSPSHub extends Application {
         long played = PlaytimeStore.getMinutes(serverName);
         long toNext = ServerSkillSystem.minutesToNextLevel(serverName);
         String playedStr = played < 60 ? played + "m" : (played / 60) + "h " + (played % 60) + "m";
-        String nextStr   = level >= 99 ? "MAX" : (toNext < 60 ? toNext + "m" : (toNext / 60) + "h " + (toNext % 60) + "m to next");
+        String nextStr   = level >= 99 ? "MAX" : (toNext < 60 ? toNext + "m to next level" : (toNext / 60) + "h " + (toNext % 60) + "m to next level");
         Label xpLbl = new Label(playedStr + " played");
         xpLbl.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 11px;");
         Label nextLbl = new Label(level >= 99 ? "MAX LEVEL" : nextStr);
@@ -1659,15 +1668,16 @@ public class RSPSHub extends Application {
 
         popup.getContent().add(box);
 
-        // Animate XP bar fill after popup shows
-        popup.setOnShown(e -> {
-            double targetW = 220.0 * Math.min(1.0, progress);
+        // Animate XP bar fill after popup shows — use actual track width
+        popup.setOnShown(e -> Platform.runLater(() -> {
+            double trackW  = track.getWidth();
+            double targetW = trackW * Math.min(1.0, progress);
             Timeline barAnim = new Timeline(
-                new KeyFrame(Duration.ZERO,       new KeyValue(fill.prefWidthProperty(), 0)),
+                new KeyFrame(Duration.ZERO,        new KeyValue(fill.prefWidthProperty(), 0)),
                 new KeyFrame(Duration.millis(500), new KeyValue(fill.prefWidthProperty(), targetW))
             );
             barAnim.play();
-        });
+        }));
 
         return popup;
     }
