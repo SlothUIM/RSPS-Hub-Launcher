@@ -286,7 +286,10 @@ public class LauncherEngine {
             System.out.println("Downloading " + server.name + "...");
 
             URL jarUrl = new URL(server.jarUrl);
-            HttpURLConnection conn = (HttpURLConnection) jarUrl.openConnection();
+            HttpURLConnection conn = (HttpURLConnection) jarUrl.openConnection(java.net.Proxy.NO_PROXY);
+            conn.setConnectTimeout(15000);
+            conn.setReadTimeout(60000);
+            conn.setRequestProperty("User-Agent", "RSPSHub-Launcher/1.0");
             conn.connect();
             long contentLength = conn.getContentLengthLong();
 
@@ -367,7 +370,7 @@ public class LauncherEngine {
             Path jarPath = Paths.get(downloadPath, server.name.replaceAll(" ", "_"), clientFileName(server));
             if (!Files.exists(jarPath)) return false;
             long localSize = Files.size(jarPath);
-            HttpURLConnection conn = (HttpURLConnection) new URL(server.jarUrl).openConnection();
+            HttpURLConnection conn = (HttpURLConnection) new URL(server.jarUrl).openConnection(java.net.Proxy.NO_PROXY);
             conn.setRequestMethod("HEAD");
             conn.setConnectTimeout(4000);
             conn.setReadTimeout(4000);

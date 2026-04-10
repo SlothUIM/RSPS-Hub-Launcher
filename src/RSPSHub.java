@@ -424,8 +424,30 @@ public class RSPSHub extends Application {
             sessionTimerLabel.setManaged(false);
         }
 
-        Button discordJoinBtn = new Button("Discord");
+        // Discord logo button
+        ImageView discordIv = new ImageView();
+        try {
+            java.io.InputStream dis = RSPSHub.class.getResourceAsStream("/discord_logo.png");
+            if (dis != null) {
+                discordIv.setImage(new Image(dis));
+            } else {
+                // fallback: load from file next to jar
+                java.io.File df = new java.io.File("discord_logo.png");
+                if (df.exists()) discordIv.setImage(new Image(df.toURI().toString()));
+            }
+        } catch (Exception ignored) {}
+        discordIv.setFitWidth(28);
+        discordIv.setFitHeight(28);
+        discordIv.setPreserveRatio(true);
+        discordIv.setSmooth(true);
+        // Clip to circle
+        javafx.scene.shape.Circle discordClip = new javafx.scene.shape.Circle(14, 14, 14);
+        discordIv.setClip(discordClip);
+
+        Button discordJoinBtn = new Button();
+        discordJoinBtn.setGraphic(discordIv);
         discordJoinBtn.getStyleClass().add("nav-discord-btn");
+        discordJoinBtn.setTooltip(new Tooltip("Join our Discord"));
         discordJoinBtn.setOnAction(e -> {
             try { java.awt.Desktop.getDesktop().browse(new java.net.URI("https://discord.gg/grt9C4GJcj")); }
             catch (Exception ex) { System.err.println("Failed to open Discord: " + ex.getMessage()); }
