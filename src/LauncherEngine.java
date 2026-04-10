@@ -49,7 +49,7 @@ public class LauncherEngine {
     private static final Path ACCENT_CSS_PATH = Paths.get(System.getProperty("user.home"), ".rsps_hub", "accent.css");
 
     private static class SettingsData {
-        String downloadPath, statusMessage, accentColor, profilePrivacy, avatarImagePath;
+        String downloadPath, statusMessage, accentColor, profilePrivacy, avatarImagePath, savedUsername;
         boolean minimizeOnLaunch, autoUpdateClients, lightMode, autoLaunch;
         List<String> favouriteServers, preferredTags;
         Map<String, String> serverNotes;
@@ -61,7 +61,7 @@ public class LauncherEngine {
             SettingsData d = new SettingsData();
             d.downloadPath = downloadPath; d.statusMessage = statusMessage; d.minimizeOnLaunch = minimizeOnLaunch;
             d.autoUpdateClients = autoUpdateClients; d.lightMode = lightMode; d.autoLaunch = autoLaunch;
-            d.accentColor = accentColor; d.avatarImagePath = avatarImagePath; d.favouriteServers = new ArrayList<>(favouriteServers);
+            d.accentColor = accentColor; d.avatarImagePath = avatarImagePath; d.savedUsername = currentUsername; d.favouriteServers = new ArrayList<>(favouriteServers);
             d.serverNotes = serverNotes; d.friendActivityNotifications = friendActivityNotifications;
             d.notifFriendRequests = notifFriendRequests; d.notifFriendOnline = notifFriendOnline;
             d.notifServerUpdates = notifServerUpdates; d.notifSystem = notifSystem;
@@ -79,7 +79,8 @@ public class LauncherEngine {
             if (d.downloadPath != null) downloadPath = d.downloadPath;
             if (d.statusMessage != null) statusMessage = d.statusMessage;
             if (d.accentColor != null) accentColor = d.accentColor;
-            if (d.avatarImagePath != null) avatarImagePath = d.avatarImagePath;
+            // Only restore avatar if it belongs to the current logged-in user
+            if (d.avatarImagePath != null && currentUsername.equals(d.savedUsername)) avatarImagePath = d.avatarImagePath;
             if (d.favouriteServers != null) favouriteServers = new LinkedHashSet<>(d.favouriteServers);
             if (d.serverNotes != null) serverNotes = d.serverNotes;
             if (d.friendActivityNotifications != null) friendActivityNotifications = d.friendActivityNotifications;

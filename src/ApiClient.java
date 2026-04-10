@@ -21,6 +21,7 @@ public class ApiClient {
     private static final String BASE = "http://api.therspshub.com/api/";
     private static final HttpClient http = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(10))
+        .version(java.net.http.HttpClient.Version.HTTP_1_1)
         .build();
     private static final Gson gson = new Gson();
 
@@ -299,6 +300,30 @@ public class ApiClient {
     public static CompletableFuture<String> updateEmail(String email) {
         return fetch(post("users/update_email.php", Map.of("email", email)).build())
             .thenApply(obj -> obj.has("error") ? obj.get("error").getAsString() : "ok");
+    }
+
+    public static CompletableFuture<String> updatePrivacy(String privacy) {
+        return fetch(post("users/update_privacy.php", Map.of("privacy", privacy)).build())
+            .thenApply(obj -> obj.has("error") ? obj.get("error").getAsString() : "ok");
+    }
+
+    public static CompletableFuture<String> loadMyPrivacy() {
+        return fetch(get("users/me.php").build())
+            .thenApply(obj -> obj.has("privacy") ? obj.get("privacy").getAsString() : "public");
+    }
+
+    public static CompletableFuture<JsonObject> getUserProfile(String username) {
+        var req = HttpRequest.newBuilder()
+            .uri(URI.create(BASE + "users/profile.php?username=" + username))
+            .timeout(Duration.ofSeconds(15))
+            .header("Authorization", "Bearer " + LauncherEngine.sessionToken)
+            .GET().build();
+        return http.sendAsync(req, HttpResponse.BodyHandlers.ofString())
+            .thenApply(res -> {
+                try { return new JsonParser().parse(res.body()).getAsJsonObject(); }
+                catch (Exception e) { return new JsonObject(); }
+            })
+            .exceptionally(ex -> { System.err.println("API error: " + ex.getMessage()); return new JsonObject(); });
     }
 
     public static String avatarUrl(String username) {

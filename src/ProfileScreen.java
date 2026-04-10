@@ -307,17 +307,7 @@ public class ProfileScreen {
         }
 
         if (isPrivate) {
-            // Full lock — show nothing beyond name/status
-            VBox lockBox = new VBox(10);
-            lockBox.setAlignment(Pos.CENTER);
-            Label lockIcon = new Label("🔒");
-            lockIcon.setStyle("-fx-font-size: 36px;");
-            Label lockMsg = new Label("This profile is private.");
-            lockMsg.setStyle("-fx-text-fill: white; -fx-font-size: 15px; -fx-font-weight: bold;");
-            Label lockSub = new Label("Only their name and status are visible.");
-            lockSub.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 12px;");
-            lockBox.getChildren().addAll(lockIcon, lockMsg, lockSub);
-            content.getChildren().add(lockBox);
+            // Private — show only name + action buttons, nothing else
         } else if (isFriendsOnly) {
             // Partial lock — friends-only profile viewed by non-friend
             VBox lockBox = new VBox(10);

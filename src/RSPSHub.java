@@ -183,7 +183,7 @@ public class RSPSHub extends Application {
         stage.setScene(AccountSettingsScreen.create(
             stage,
             () -> showHub(stage),
-            () -> { allServers = null; LauncherEngine.currentUsername = ""; LauncherEngine.avatarImagePath = null; showLoginScreen(stage); },
+            () -> { allServers = null; LauncherEngine.currentUsername = ""; LauncherEngine.sessionToken = ""; LauncherEngine.avatarImagePath = null; friends.clear(); friendRequests.clear(); showLoginScreen(stage); },
             () -> showDevPortal(stage)
         ));
     }
@@ -202,16 +202,28 @@ public class RSPSHub extends Application {
     }
 
     private void showProfile(Stage stage, String username) {
-        Friend friend = friends.stream().filter(f -> f.username.equals(username)).findFirst().orElse(null);
-        boolean online    = friend != null && friend.online;
-        String  status    = friend != null && friend.statusMessage != null ? friend.statusMessage : "";
-        boolean isFriend  = friend != null;
-        String  privacy   = "public";
-        stage.setScene(ProfileScreen.create(stage, username, online, status, blockedUsers,
-            privacy, isFriend,
-            () -> { showHub(stage); showingFriends = true; setActiveTab(friendsTab); updateDisplay(); },
-            () -> { showHub(stage); openConversation(username, false); }
-        ));
+        boolean isOwnProfile = username.equals(LauncherEngine.currentUsername);
+        if (isOwnProfile) {
+            stage.setScene(ProfileScreen.create(stage, username, true, LauncherEngine.statusMessage,
+                blockedUsers, LauncherEngine.profilePrivacy, false,
+                () -> { showHub(stage); showingFriends = true; setActiveTab(friendsTab); updateDisplay(); },
+                () -> { showHub(stage); openConversation(username, false); }
+            ));
+            return;
+        }
+        // Fetch real privacy + friend status from backend before showing profile
+        ApiClient.getUserProfile(username).thenAccept(obj -> Platform.runLater(() -> {
+            String privacy  = obj.has("privacy")   ? obj.get("privacy").getAsString()   : "public";
+            boolean isFriend= obj.has("is_friend") && obj.get("is_friend").getAsBoolean();
+            boolean online  = obj.has("online")    && obj.get("online").getAsBoolean();
+            Friend f = friends.stream().filter(fr -> fr.username.equals(username)).findFirst().orElse(null);
+            String status = f != null && f.statusMessage != null ? f.statusMessage : "";
+            stage.setScene(ProfileScreen.create(stage, username, online, status, blockedUsers,
+                privacy, isFriend,
+                () -> { showHub(stage); showingFriends = true; setActiveTab(friendsTab); updateDisplay(); },
+                () -> { showHub(stage); openConversation(username, false); }
+            ));
+        }));
     }
 
     private void openConversation(String conversationId, boolean isGroup) {
@@ -259,6 +271,11 @@ public class RSPSHub extends Application {
             ApiClient.checkStaff().thenAccept(staff -> Platform.runLater(() -> {
                 LauncherEngine.isStaff = staff;
                 if (staff) updateDisplay();
+            }));
+            // Sync privacy setting from server
+            ApiClient.loadMyPrivacy().thenAccept(p -> Platform.runLater(() -> {
+                LauncherEngine.profilePrivacy = p;
+                LauncherEngine.saveSettings();
             }));
         }
 
@@ -1051,7 +1068,22 @@ public class RSPSHub extends Application {
         openBtn.getStyleClass().add("settings-secondary-btn");
         openBtn.setOnAction(e -> openConversation(groupName, true));
 
-        row.getChildren().addAll(avatar, info, openBtn);
+        Button deleteBtn = new Button("Delete");
+        deleteBtn.getStyleClass().add("settings-secondary-btn");
+        deleteBtn.setStyle("-fx-text-fill: #ff4444;");
+        deleteBtn.setOnAction(e -> {
+            groups.remove(groupName);
+            groupMembers.remove(groupName);
+            LauncherEngine.saveSettings();
+            if (groupName.equals(activeConversation) && isGroupConversation) {
+                activeConversation = null;
+                isGroupConversation = false;
+                hubRoot.setCenter(hubScrollPane);
+            }
+            updateDisplay();
+        });
+
+        row.getChildren().addAll(avatar, info, openBtn, deleteBtn);
         return row;
     }
 
@@ -1769,38 +1801,13 @@ public class RSPSHub extends Application {
         serverGrid.setSpacing(10);
         serverGrid.setPadding(new Insets(30, 40, 40, 40));
 
-        // ── Server filter pills ───────────────────────────────────────────────
-        List<String> serverNames = new ArrayList<>();
-        serverNames.add("All Servers");
-        if (allServers != null) allServers.forEach(s -> serverNames.add(s.name));
-
-        HBox filterPills = new HBox(8);
-        filterPills.setAlignment(Pos.CENTER_LEFT);
-        filterPills.setPadding(new Insets(0, 0, 4, 0));
-        List<Button> pillBtns = new ArrayList<>();
-        for (String sName : serverNames) {
-            Button pill = new Button(sName);
-            boolean active = sName.equals(leaderboardServer);
-            pill.getStyleClass().add(active ? "filter-btn-active" : "filter-btn");
-            pill.setOnAction(e -> {
-                leaderboardServer = sName;
-                pillBtns.forEach(b -> b.getStyleClass().setAll("filter-btn"));
-                pill.getStyleClass().setAll("filter-btn-active");
-                // Rebuild table rows only (keep header)
-                serverGrid.getChildren().removeIf(n -> n.getUserData() != null && n.getUserData().equals("row"));
-                buildLeaderboardRows();
-            });
-            pillBtns.add(pill);
-            filterPills.getChildren().add(pill);
-        }
-
         Label sub = new Label("Top players by total playtime");
         sub.getStyleClass().add("settings-about-sub");
 
         Separator sep = new Separator();
         sep.setStyle("-fx-background-color: #2a2e39;");
 
-        serverGrid.getChildren().addAll(filterPills, sub, sep);
+        serverGrid.getChildren().addAll(sub, sep);
         buildLeaderboardRows();
     }
 
@@ -1808,18 +1815,17 @@ public class RSPSHub extends Application {
         serverGrid.getChildren().removeIf(n -> n.getUserData() != null && n.getUserData().equals("row"));
 
         String yourName = LauncherEngine.currentUsername.isEmpty() ? "You" : LauncherEngine.currentUsername;
-        boolean filterAll = leaderboardServer.equals("All Servers");
 
         record LeaderEntry(int rank, String username, String topServer, long minutes, boolean isYou) {}
 
         List<LeaderEntry> entries = new ArrayList<>();
-        if (filterAll) {
-            long yourMin = PlaytimeStore.getTotalMinutes();
-            String yourTop = PlaytimeStore.getMostPlayed();
-            entries.add(new LeaderEntry(0, yourName, yourTop != null ? yourTop : "—", yourMin, true));
-        } else {
-            long yourMin = PlaytimeStore.getMinutes(leaderboardServer);
-            entries.add(new LeaderEntry(0, yourName, leaderboardServer, yourMin, true));
+        // Add yourself
+        long yourMin = PlaytimeStore.getTotalMinutes();
+        String yourTop = PlaytimeStore.getMostPlayed();
+        entries.add(new LeaderEntry(0, yourName, yourTop != null ? yourTop : "—", yourMin, true));
+        // Add friends (playtime not yet synced from server — shown as 0 until backend supports it)
+        for (Friend f : friends) {
+            entries.add(new LeaderEntry(0, f.username, "—", 0, false));
         }
 
         entries.sort(java.util.Comparator.comparingLong(LeaderEntry::minutes).reversed());
@@ -1830,7 +1836,6 @@ public class RSPSHub extends Application {
 
         boolean anyRows = false;
         for (var entry : entries) {
-            if (!filterAll && entry.minutes() == 0 && !entry.isYou()) continue;
             anyRows = true;
 
             HBox row = new HBox(16);

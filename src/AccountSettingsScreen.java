@@ -201,6 +201,7 @@ public class AccountSettingsScreen {
             pb.setOnAction(e -> {
                 LauncherEngine.profilePrivacy = privKeys[idx];
                 LauncherEngine.saveSettings();
+                ApiClient.updatePrivacy(privKeys[idx]);
                 privHint.setText(privHints[idx]);
                 for (int j = 0; j < privBtns.size(); j++) {
                     String r = j == 0 ? "8 0 0 8" : j == privBtns.size() - 1 ? "0 8 8 0" : "0";
