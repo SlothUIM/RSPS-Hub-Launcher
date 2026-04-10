@@ -199,11 +199,21 @@ public class LauncherEngine {
         }
     }
 
-    public static String jarFileName(ServerProfile server) {
+    /** Returns the local filename for the downloaded client (jar or exe). */
+    public static String clientFileName(ServerProfile server) {
         if (server.jarUrl == null || server.jarUrl.isEmpty()) return "client.jar";
-        String raw = server.jarUrl.replaceAll("\\?.*", ""); 
+        String raw  = server.jarUrl.replaceAll("\\?.*", "");
         String name = raw.substring(raw.lastIndexOf('/') + 1);
-        return name.endsWith(".jar") ? name : "client.jar";
+        if (name.endsWith(".jar") || name.endsWith(".exe")) return name;
+        return "client.jar";
+    }
+
+    /** @deprecated Use clientFileName */
+    public static String jarFileName(ServerProfile server) { return clientFileName(server); }
+
+    /** True if the server distributes a native .exe launcher rather than a JAR. */
+    public static boolean isExeLauncher(ServerProfile server) {
+        return clientFileName(server).endsWith(".exe");
     }
 
     public static boolean downloadClient(ServerProfile server) { return downloadClient(server, null, null); }
@@ -213,7 +223,7 @@ public class LauncherEngine {
         try {
             Path serverFolder = Paths.get(downloadPath, server.name.replaceAll(" ", "_"));
             Files.createDirectories(serverFolder);
-            jarPath = serverFolder.resolve(jarFileName(server));
+            jarPath = serverFolder.resolve(clientFileName(server));
 
             System.out.println("Downloading " + server.name + "...");
 
@@ -245,27 +255,34 @@ public class LauncherEngine {
         }
     }
 
-    /** THE MAGIC SANDBOX LAUNCHER! */
+    /** Launches the game client — auto-detects JAR vs native EXE from the URL. */
     public static Process launchGame(ServerProfile server) {
         try {
-            Path baseFolder = Paths.get(downloadPath, server.name.replaceAll(" ", "_"));
-            Path sandboxDir = baseFolder.resolve("Instance"); // This isolates the cache!
-            
-            if (!Files.exists(sandboxDir)) {
-                Files.createDirectories(sandboxDir);
+            Path baseFolder  = Paths.get(downloadPath, server.name.replaceAll(" ", "_"));
+            Path clientPath  = baseFolder.resolve(clientFileName(server));
+            ProcessBuilder pb;
+
+            if (isExeLauncher(server)) {
+                // Native launcher (.exe) — run directly, no JVM flags needed.
+                // The descendant tracker in beginSession() will still catch any
+                // child java.exe processes the launcher spawns.
+                pb = new ProcessBuilder(clientPath.toAbsolutePath().toString());
+                pb.directory(baseFolder.toFile());
+            } else {
+                // JAR — sandbox via -Duser.home so each server stores its cache
+                // in its own Instance/ folder, keeping clients isolated.
+                Path sandboxDir = baseFolder.resolve("Instance");
+                if (!Files.exists(sandboxDir)) Files.createDirectories(sandboxDir);
+
+                pb = new ProcessBuilder(
+                    "java",
+                    "-Duser.home=" + sandboxDir.toAbsolutePath().toString(),
+                    "-jar",
+                    clientPath.getFileName().toString()
+                );
+                pb.directory(baseFolder.toFile());
             }
 
-            Path jarPath = baseFolder.resolve(jarFileName(server));
-
-            // Injecting the Duser.home variable to trick the client
-            ProcessBuilder pb = new ProcessBuilder(
-                "java", 
-                "-Duser.home=" + sandboxDir.toAbsolutePath().toString(),
-                "-jar", 
-                jarPath.getFileName().toString()
-            );
-            
-            pb.directory(baseFolder.toFile()); 
             return pb.start();
         } catch (Exception e) {
             e.printStackTrace();
@@ -274,8 +291,8 @@ public class LauncherEngine {
     }
 
     public static boolean isDownloaded(ServerProfile server) {
-        Path jarPath = Paths.get(downloadPath, server.name.replaceAll(" ", "_"), jarFileName(server));
-        return Files.exists(jarPath);
+        Path clientPath = Paths.get(downloadPath, server.name.replaceAll(" ", "_"), clientFileName(server));
+        return Files.exists(clientPath);
     }
 
     public static boolean uninstallServer(ServerProfile server) {
@@ -289,7 +306,7 @@ public class LauncherEngine {
 
     public static boolean isUpdateAvailable(ServerProfile server) {
         try {
-            Path jarPath = Paths.get(downloadPath, server.name.replaceAll(" ", "_"), jarFileName(server));
+            Path jarPath = Paths.get(downloadPath, server.name.replaceAll(" ", "_"), clientFileName(server));
             if (!Files.exists(jarPath)) return false;
             long localSize = Files.size(jarPath);
             HttpURLConnection conn = (HttpURLConnection) new URL(server.jarUrl).openConnection();

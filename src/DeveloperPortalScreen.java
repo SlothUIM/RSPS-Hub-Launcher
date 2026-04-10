@@ -1,4 +1,5 @@
 import javafx.animation.PauseTransition;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -9,9 +10,12 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import java.io.File;
 import javafx.util.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -55,6 +59,10 @@ public class DeveloperPortalScreen {
         introSub.getStyleClass().add("dev-intro-sub");
         introSub.setWrapText(true);
 
+        if (LauncherEngine.isStaff) content.getChildren().add(buildStaffManageSection(stage));
+
+        content.getChildren().add(buildOwnerManageSection(stage));
+
         content.getChildren().addAll(new VBox(8, introTitle, introSub),
             buildClaimSection(),
             buildBrandingSection(),
@@ -77,6 +85,450 @@ public class DeveloperPortalScreen {
         scene.getStylesheets().addAll(LauncherEngine.getStylesheets(DeveloperPortalScreen.class));
         SceneUtils.applyRoundedCorners(scene, root, stage);
         return scene;
+    }
+
+    // ── OWNER: MY SERVER EDITOR ──────────────────────────────────────────────
+
+    private static VBox buildOwnerManageSection(Stage stage) {
+        return buildEditorFor(stage, ApiClient::getMyServers, false,
+            "✏  MY SERVER",
+            "Your server will appear here once it's been approved. You can update branding, descriptions, and links at any time.");
+    }
+
+    // ── SECTION STAFF: MANAGE SERVERS ────────────────────────────────────────
+
+    private static VBox buildStaffManageSection(Stage stage) {
+        return buildEditorFor(stage, ApiClient::getAllServers, true,
+            "⚙  MANAGE SERVERS  (STAFF ONLY)", null);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static VBox buildEditorFor(
+            Stage stage,
+            java.util.function.Supplier<java.util.concurrent.CompletableFuture<List<ServerProfile>>> loader,
+            boolean isStaff,
+            String sectionTitle,
+            String emptyHint) {
+        List<ServerProfile>[] serverList = new List[]{new ArrayList<>()};
+        String[] localBanner = {null};
+        String[] localIcon   = {null};
+
+        Label loadingLbl = new Label("Loading servers...");
+        loadingLbl.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 13px;");
+
+        ComboBox<String> serverPicker = new ComboBox<>();
+        serverPicker.setPromptText("Select a server to edit...");
+        serverPicker.setMaxWidth(Double.MAX_VALUE);
+        serverPicker.setStyle("-fx-background-color: #1a1d24; -fx-border-color: #2a2e39; -fx-text-fill: white; -fx-prompt-text-fill: #8b92a5;");
+
+        // ── ALL EDIT FIELDS ───────────────────────────────────────────────────
+        TextField editName    = styledField("Server name");
+        TextField editTagline = styledField("Short tagline");
+        TextField editTags    = styledField("Economy,Ironman,PvP");
+        TextField editAccent  = styledField("#rrggbb");
+        TextField editPlayers = styledField("0");
+        editPlayers.setPrefWidth(100); editPlayers.setMaxWidth(100);
+        CheckBox editVisible  = new CheckBox("Visible in store"); editVisible.getStyleClass().add("settings-checkbox");
+        CheckBox editApproved = new CheckBox("Approved");         editApproved.getStyleClass().add("settings-checkbox");
+        TextField editBanner  = styledField("Banner / hero image URL  (or pick a file)");
+        TextField editIcon    = styledField("Icon image URL  (or pick a file)");
+        TextArea  editDesc    = new TextArea();
+        editDesc.getStyleClass().add("dev-textarea"); editDesc.setWrapText(true); editDesc.setPrefRowCount(5); editDesc.setMaxWidth(Double.MAX_VALUE);
+        TextField editJar     = styledField("JAR download URL");
+        TextField editWebsite = styledField("Website URL");
+        TextField editDiscord = styledField("Discord invite URL");
+        ComboBox<String> editXpRate = new ComboBox<>();
+        editXpRate.getItems().addAll("1x (Vanilla)", "5x", "10x", "25x", "50x", "100x", "Custom / Varies");
+        editXpRate.setValue("Custom / Varies");
+        editXpRate.setMaxWidth(Double.MAX_VALUE);
+        editXpRate.setStyle("-fx-background-color: #1a1d24; -fx-border-color: #2a2e39; -fx-text-fill: white;");
+
+        // ══ STORE CARD PREVIEW components ═════════════════════════════════════
+        Label cardBannerLbl = new Label(""); cardBannerLbl.getStyleClass().add("card-banner-placeholder");
+        ImageView cardBannerIV = new ImageView();
+        cardBannerIV.setFitWidth(200); cardBannerIV.setFitHeight(100); cardBannerIV.setPreserveRatio(false); cardBannerIV.setVisible(false);
+        StackPane cardBannerPane = new StackPane(cardBannerLbl, cardBannerIV);
+        cardBannerPane.setPrefSize(200, 100); cardBannerPane.setMinSize(200, 100); cardBannerPane.setMaxSize(200, 100);
+        cardBannerPane.getStyleClass().add("card-banner");
+
+        Label cardTitle   = new Label(); cardTitle.getStyleClass().add("card-title");
+        Label cardDescLbl = new Label(); cardDescLbl.getStyleClass().add("card-desc"); cardDescLbl.setWrapText(true);
+        FlowPane cardTagBox = new FlowPane(6, 4);
+        Region cardSpacer = new Region(); VBox.setVgrow(cardSpacer, Priority.ALWAYS);
+        VBox cardInfo = new VBox(5, cardTitle, cardDescLbl, cardSpacer, cardTagBox); HBox.setHgrow(cardInfo, Priority.ALWAYS);
+        Label cardPlayers = new Label("🟢 0 Online"); cardPlayers.getStyleClass().add("player-count");
+        Button cardPlayBtn = new Button("PLAY"); cardPlayBtn.getStyleClass().add("play-button"); cardPlayBtn.setMouseTransparent(true); cardPlayBtn.setPrefWidth(110);
+        VBox cardActions = new VBox(8, cardPlayers, cardPlayBtn); cardActions.setAlignment(Pos.CENTER_RIGHT); cardActions.setMinWidth(120); cardActions.setMaxWidth(120);
+        HBox cardRow = new HBox(20, cardBannerPane, cardInfo, cardActions);
+        cardRow.getStyleClass().add("server-card"); cardRow.setPadding(new Insets(15)); cardRow.setAlignment(Pos.CENTER_LEFT); cardRow.setMaxWidth(Double.MAX_VALUE);
+        VBox cardWrapper = new VBox(cardRow); cardWrapper.getStyleClass().add("server-card-wrapper"); cardWrapper.setMaxWidth(Double.MAX_VALUE);
+        Label cardPreviewHdr = new Label("STORE CARD PREVIEW");
+        cardPreviewHdr.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 11px; -fx-font-weight: bold;");
+        VBox storePreview = new VBox(10, cardPreviewHdr, cardWrapper);
+        storePreview.setStyle("-fx-padding: 16 0 0 0; -fx-border-color: #2a2e39; -fx-border-width: 1 0 0 0;");
+
+        // ══ DETAIL PAGE PREVIEW — mirrors ServerDetailScreen exactly ══════════
+        // Hero: 130px tall, clipped, fitHeight banner (not cover-crop)
+        final int PREV_HERO_H = 130;
+        StackPane heroPreviewPane = new StackPane();
+        heroPreviewPane.setMinHeight(PREV_HERO_H); heroPreviewPane.setPrefHeight(PREV_HERO_H); heroPreviewPane.setMaxHeight(PREV_HERO_H);
+        heroPreviewPane.setMaxWidth(Double.MAX_VALUE);
+        heroPreviewPane.setStyle("-fx-background-color: #0f1115; -fx-background-radius: 8 8 0 0;");
+        Rectangle heroClip = new Rectangle(); heroClip.setHeight(PREV_HERO_H); heroClip.widthProperty().bind(heroPreviewPane.widthProperty());
+        heroPreviewPane.setClip(heroClip);
+
+        Label heroBannerPlaceholder = new Label("No banner yet — upload one in the Store Card tab");
+        heroBannerPlaceholder.setStyle("-fx-text-fill: #555d6e; -fx-font-size: 12px;");
+
+        // fitHeight mode — matches actual detail page rendering
+        ImageView heroBannerIV = new ImageView();
+        heroBannerIV.setPreserveRatio(true);
+        heroBannerIV.setFitHeight(PREV_HERO_H);
+        heroBannerIV.setSmooth(true);
+        heroBannerIV.setVisible(false);
+
+        Region heroGradient = new Region();
+        heroGradient.setManaged(false);
+        heroGradient.setStyle("-fx-background-color: linear-gradient(to bottom, transparent 30%, #0f1115 100%);");
+        heroGradient.prefWidthProperty().bind(heroPreviewPane.widthProperty()); heroGradient.setPrefHeight(PREV_HERO_H);
+
+        heroPreviewPane.getChildren().addAll(heroBannerPlaceholder, heroBannerIV, heroGradient);
+
+        // Icon — lives in info bar with translateY(-36), same as actual detail page
+        StackPane detailIconPane = new StackPane();
+        detailIconPane.setStyle("-fx-background-color: #1a1d24; -fx-background-radius: 8; -fx-border-color: #2a2e39; -fx-border-radius: 8; -fx-border-width: 2;");
+        detailIconPane.setPrefSize(72, 72); detailIconPane.setMinSize(72, 72); detailIconPane.setMaxSize(72, 72);
+        Label detailIconLbl = new Label("?"); detailIconLbl.setStyle("-fx-text-fill: #9b5de5; -fx-font-weight: bold; -fx-font-size: 22px;");
+        ImageView detailIconIV = new ImageView(); detailIconIV.setFitWidth(72); detailIconIV.setFitHeight(72); detailIconIV.setPreserveRatio(false); detailIconIV.setVisible(false);
+        detailIconPane.getChildren().addAll(detailIconLbl, detailIconIV);
+        detailIconPane.setTranslateY(-36);  // float up into the hero, matching actual page
+
+        // Info bar below hero
+        Label detailPreviewName    = new Label("Server Name"); detailPreviewName.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 20px;");
+        Label detailPreviewTagline = new Label(); detailPreviewTagline.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 13px;");
+        FlowPane detailTagBox = new FlowPane(6, 4);
+        VBox detailTextCol = new VBox(4, detailPreviewName, detailPreviewTagline, detailTagBox); HBox.setHgrow(detailTextCol, Priority.ALWAYS);
+
+        Label previewPlayers = new Label("🟢 0 Online"); previewPlayers.getStyleClass().add("player-count");
+        Button previewPlayBtn = new Button("PLAY"); previewPlayBtn.getStyleClass().add("play-button"); previewPlayBtn.setMouseTransparent(true); previewPlayBtn.setPrefWidth(140);
+        Button previewDiscordBtn = new Button("Discord"); previewDiscordBtn.setStyle("-fx-background-color: #2a2e39; -fx-text-fill: #c8cdd8; -fx-background-radius: 6; -fx-padding: 7 14;"); previewDiscordBtn.setMouseTransparent(true);
+        Button previewWebsiteBtn = new Button("Website");  previewWebsiteBtn.setStyle("-fx-background-color: #2a2e39; -fx-text-fill: #c8cdd8; -fx-background-radius: 6; -fx-padding: 7 14;"); previewWebsiteBtn.setMouseTransparent(true);
+        HBox previewLinks = new HBox(8, previewDiscordBtn, previewWebsiteBtn);
+        VBox detailRightCol = new VBox(8, previewPlayers, previewPlayBtn, previewLinks); detailRightCol.setAlignment(Pos.CENTER_RIGHT);
+
+        HBox detailInfoBar = new HBox(16, detailIconPane, detailTextCol, detailRightCol);
+        detailInfoBar.setPadding(new Insets(12, 16, 16, 16)); detailInfoBar.setAlignment(Pos.CENTER_LEFT);
+        detailInfoBar.setStyle("-fx-background-color: #0f1115;");
+
+        VBox detailPreviewBox = new VBox(0, heroPreviewPane, detailInfoBar);
+        detailPreviewBox.setStyle("-fx-background-color: #0f1115; -fx-background-radius: 8; -fx-border-color: #2a2e39; -fx-border-radius: 8; -fx-border-width: 1;");
+        detailPreviewBox.setMaxWidth(Double.MAX_VALUE);
+
+        Label detailPreviewHdr = new Label("DETAIL PAGE PREVIEW");
+        detailPreviewHdr.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 11px; -fx-font-weight: bold;");
+        VBox detailPreview = new VBox(10, detailPreviewHdr, detailPreviewBox);
+        detailPreview.setStyle("-fx-padding: 16 0 0 0; -fx-border-color: #2a2e39; -fx-border-width: 1 0 0 0;");
+
+        // ── ICON small preview (for store card tab) ────────────────────────────
+        StackPane iconPreviewPane = new StackPane();
+        iconPreviewPane.setStyle("-fx-background-color: #2a2e39; -fx-background-radius: 8; -fx-border-color: #3a3f4e; -fx-border-radius: 8; -fx-border-width: 1;");
+        iconPreviewPane.setPrefSize(72, 72); iconPreviewPane.setMinSize(72, 72); iconPreviewPane.setMaxSize(72, 72);
+        Label iconSmallPlaceholder = new Label("ICON"); iconSmallPlaceholder.setStyle("-fx-text-fill: #555d6e; -fx-font-size: 11px;");
+        ImageView iconSmallIV = new ImageView(); iconSmallIV.setFitWidth(72); iconSmallIV.setFitHeight(72); iconSmallIV.setPreserveRatio(false); iconSmallIV.setVisible(false);
+        iconPreviewPane.getChildren().addAll(iconSmallPlaceholder, iconSmallIV);
+
+        // ══ SHARED IMAGE CONSUMERS ═════════════════════════════════════════════
+        java.util.function.Consumer<Image> applyBannerImage = img -> {
+            cardBannerIV.setImage(img); heroBannerIV.setImage(img);
+            img.progressProperty().addListener((o, ov, p) -> {
+                if (p.doubleValue() >= 1.0 && !img.isError()) Platform.runLater(() -> {
+                    cardBannerIV.setVisible(true); cardBannerLbl.setVisible(false);
+                    heroBannerIV.setVisible(true); heroBannerPlaceholder.setVisible(false);
+                });
+            });
+            img.errorProperty().addListener((o, ov, err) -> { if (err) Platform.runLater(() -> {
+                cardBannerIV.setVisible(false); cardBannerLbl.setVisible(true);
+                heroBannerIV.setVisible(false); heroBannerPlaceholder.setVisible(true);
+            }); });
+        };
+
+        java.util.function.Consumer<Image> applyIconImage = img -> {
+            iconSmallIV.setImage(img); detailIconIV.setImage(img);
+            img.progressProperty().addListener((o, ov, p) -> {
+                if (p.doubleValue() >= 1.0 && !img.isError()) Platform.runLater(() -> {
+                    iconSmallIV.setVisible(true); iconSmallPlaceholder.setVisible(false);
+                    detailIconIV.setVisible(true); detailIconLbl.setVisible(false);
+                });
+            });
+            img.errorProperty().addListener((o, ov, err) -> { if (err) Platform.runLater(() -> {
+                iconSmallIV.setVisible(false); iconSmallPlaceholder.setVisible(true);
+                detailIconIV.setVisible(false); detailIconLbl.setVisible(true);
+            }); });
+        };
+
+        // ── BANNER FILE PICKER ────────────────────────────────────────────────
+        Button bannerPickBtn = new Button("📁  Choose File...");
+        bannerPickBtn.getStyleClass().add("settings-secondary-btn");
+        bannerPickBtn.setOnAction(e -> {
+            FileChooser fc = new FileChooser(); fc.setTitle("Choose Banner Image");
+            fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Images", "*.jpg", "*.jpeg", "*.png", "*.gif", "*.webp"));
+            File file = fc.showOpenDialog(stage); if (file == null) return;
+            localBanner[0] = file.getAbsolutePath(); editBanner.setText("");
+            editBanner.setPromptText("📁  " + file.getName() + "  (will upload on save)");
+            applyBannerImage.accept(new Image(file.toURI().toString(), true));
+        });
+        PauseTransition bannerPause = new PauseTransition(Duration.millis(700));
+        editBanner.textProperty().addListener((obs, old, url) -> {
+            bannerPause.setOnFinished(ev -> { String u = url.trim(); if (!u.startsWith("http")) return; localBanner[0] = null; applyBannerImage.accept(new Image(u, true)); });
+            bannerPause.playFromStart();
+        });
+        HBox bannerInputRow = new HBox(10, editBanner, bannerPickBtn); bannerInputRow.setAlignment(Pos.CENTER_LEFT); HBox.setHgrow(editBanner, Priority.ALWAYS);
+
+        // ── ICON FILE PICKER ──────────────────────────────────────────────────
+        Button iconPickBtn = new Button("📁  Choose File...");
+        iconPickBtn.getStyleClass().add("settings-secondary-btn");
+        iconPickBtn.setOnAction(e -> {
+            FileChooser fc = new FileChooser(); fc.setTitle("Choose Icon Image");
+            fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Images", "*.jpg", "*.jpeg", "*.png", "*.gif", "*.webp"));
+            File file = fc.showOpenDialog(stage); if (file == null) return;
+            localIcon[0] = file.getAbsolutePath(); editIcon.setText("");
+            editIcon.setPromptText("📁  " + file.getName() + "  (will upload on save)");
+            applyIconImage.accept(new Image(file.toURI().toString(), true));
+        });
+        PauseTransition iconPause = new PauseTransition(Duration.millis(700));
+        editIcon.textProperty().addListener((obs, old, url) -> {
+            iconPause.setOnFinished(ev -> { String u = url.trim(); if (!u.startsWith("http")) return; localIcon[0] = null; applyIconImage.accept(new Image(u, true)); });
+            iconPause.playFromStart();
+        });
+        HBox iconInputRow = new HBox(10, editIcon, iconPickBtn, iconPreviewPane); iconInputRow.setAlignment(Pos.CENTER_LEFT); HBox.setHgrow(editIcon, Priority.ALWAYS);
+
+        // ── LIVE PREVIEW LISTENERS ────────────────────────────────────────────
+        editName.textProperty().addListener((obs, old, v) -> {
+            cardTitle.setText(v);
+            detailPreviewName.setText(v.isEmpty() ? "Server Name" : v);
+            if (!cardBannerIV.isVisible()) cardBannerLbl.setText(v);
+            if (!detailIconIV.isVisible()) detailIconLbl.setText(v.isEmpty() ? "?" : v.substring(0, 1).toUpperCase());
+        });
+        editTagline.textProperty().addListener((obs, old, v) -> detailPreviewTagline.setText(v));
+        editDesc.textProperty().addListener((obs, old, v) -> {
+            String flat = v.replace("\n", " ").replace("\r", "").replaceAll("\\s+", " ").trim();
+            cardDescLbl.setText(flat.length() > 240 ? flat.substring(0, 240).trim() + "…" : flat);
+        });
+        editTags.textProperty().addListener((obs, old, v) -> {
+            cardTagBox.getChildren().clear(); detailTagBox.getChildren().clear();
+            for (String t : v.split(",")) {
+                String tag = t.trim(); if (tag.isEmpty()) continue;
+                Label p1 = new Label(tag.toUpperCase()); p1.getStyleClass().add("tag-pill");
+                Label p2 = new Label(tag.toUpperCase()); p2.getStyleClass().add("tag-pill");
+                cardTagBox.getChildren().add(p1); detailTagBox.getChildren().add(p2);
+            }
+        });
+        editPlayers.textProperty().addListener((obs, old, v) -> {
+            String txt; try { txt = "🟢 " + Integer.parseInt(v.trim()) + " Online"; } catch (NumberFormatException ex2) { txt = "🟢 0 Online"; }
+            cardPlayers.setText(txt); previewPlayers.setText(txt);
+        });
+        editAccent.textProperty().addListener((obs, old, v) -> {
+            String safe = v.trim().matches("#[0-9a-fA-F]{6}") ? v.trim() : LauncherEngine.accentColor;
+            cardPlayBtn.setStyle("-fx-background-color: " + safe + ";");
+            previewPlayBtn.setStyle("-fx-background-color: " + safe + ";");
+        });
+
+        // ══ TAB BAR ════════════════════════════════════════════════════════════
+        String tabActiveStyle   = "-fx-background-color: #9b5de5; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 12px; -fx-padding: 9 26; -fx-cursor: hand; -fx-background-radius: 6 0 0 6;";
+        String tabInactiveStyle = "-fx-background-color: #2a2e39; -fx-text-fill: #8b92a5; -fx-font-weight: bold; -fx-font-size: 12px; -fx-padding: 9 26; -fx-cursor: hand; -fx-background-radius: 0 6 6 0;";
+        Button tabStore  = new Button("STORE CARD");
+        Button tabDetail = new Button("DETAIL PAGE");
+        tabStore.setStyle(tabActiveStyle);
+        tabDetail.setStyle(tabInactiveStyle);
+
+        // ── STORE CARD TAB FIELDS ─────────────────────────────────────────────
+        VBox storeCardPane = new VBox(16);
+        storeCardPane.getChildren().addAll(
+            devRow("Name *",       editName),
+            devRow("Tagline",      editTagline),
+            devRow("Tags",         editTags),
+            devRow("Accent Color", editAccent),
+            devRow("Banner",       new VBox(8, bannerInputRow)),
+            devRow("Icon",         iconInputRow)
+        );
+        if (isStaff) {
+            storeCardPane.getChildren().addAll(
+                devRow("Players",  editPlayers),
+                devRow("Status",   new HBox(20, editVisible, editApproved))
+            );
+        }
+        storeCardPane.getChildren().add(storePreview);
+
+        // ── DETAIL PAGE TAB FIELDS ────────────────────────────────────────────
+        VBox detailPagePane = new VBox(16,
+            devRow("Description *", editDesc),
+            devRow("JAR URL *",     editJar),
+            devRow("Website",       editWebsite),
+            devRow("Discord",       editDiscord),
+            devRow("XP Rate",       editXpRate),
+            detailPreview
+        );
+        detailPagePane.setVisible(false); detailPagePane.setManaged(false);
+
+        tabStore.setOnAction(e -> {
+            tabStore.setStyle(tabActiveStyle);
+            tabDetail.setStyle(tabInactiveStyle);
+            storeCardPane.setVisible(true);  storeCardPane.setManaged(true);
+            detailPagePane.setVisible(false); detailPagePane.setManaged(false);
+        });
+        tabDetail.setOnAction(e -> {
+            tabDetail.setStyle(tabActiveStyle.replace("6 0 0 6", "0 6 6 0"));
+            tabStore.setStyle(tabInactiveStyle.replace("0 6 6 0", "6 0 0 6"));
+            storeCardPane.setVisible(false); storeCardPane.setManaged(false);
+            detailPagePane.setVisible(true);  detailPagePane.setManaged(true);
+        });
+        HBox tabBar = new HBox(0, tabStore, tabDetail);
+        tabBar.setPadding(new Insets(0, 0, 4, 0));
+
+        // ── SAVE + TOGGLE VISIBILITY (staff only) ────────────────────────────
+        Label saveStatus = new Label(); saveStatus.setVisible(false); saveStatus.setManaged(false);
+        Button saveBtn = new Button("SAVE CHANGES"); saveBtn.getStyleClass().add("auth-btn"); saveBtn.setPrefWidth(180);
+        Button toggleVisBtn = new Button("HIDE FROM STORE");
+        toggleVisBtn.setStyle("-fx-background-color: #4a2a2a; -fx-text-fill: #e05252; -fx-background-radius: 6; -fx-padding: 8 16; -fx-cursor: hand;");
+        toggleVisBtn.setVisible(isStaff); toggleVisBtn.setManaged(isStaff);
+        HBox actionRow = new HBox(12, saveBtn, toggleVisBtn); actionRow.setAlignment(Pos.CENTER_LEFT);
+
+        VBox formBox = new VBox(16, tabBar, storeCardPane, detailPagePane, saveStatus, actionRow);
+        formBox.setVisible(false); formBox.setManaged(false);
+
+        // ── POPULATE ON SERVER SELECT ─────────────────────────────────────────
+        serverPicker.setOnAction(e -> {
+            int idx = serverPicker.getSelectionModel().getSelectedIndex();
+            if (idx < 0 || idx >= serverList[0].size()) return;
+            ServerProfile s = serverList[0].get(idx);
+            localBanner[0] = null; localIcon[0] = null;
+            editBanner.setPromptText("Banner / hero image URL  (or pick a file)");
+            editIcon.setPromptText("Icon image URL  (or pick a file)");
+            editBanner.setText(s.bannerUrl   != null ? s.bannerUrl   : "");
+            editIcon.setText(s.iconUrl       != null ? s.iconUrl     : "");
+            editName.setText(s.name          != null ? s.name        : "");
+            editTagline.setText(s.tagline    != null ? s.tagline     : "");
+            editDesc.setText(s.description   != null ? s.description : "");
+            editJar.setText(s.jarUrl         != null ? s.jarUrl      : "");
+            editWebsite.setText(s.websiteUrl != null ? s.websiteUrl  : "");
+            editDiscord.setText(s.discordUrl != null ? s.discordUrl  : "");
+            editAccent.setText(s.accentColor != null ? s.accentColor : "");
+            editTags.setText(s.tags != null ? String.join(",", s.tags) : "");
+            editXpRate.setValue(s.xpRate     != null ? s.xpRate      : "Custom / Varies");
+            editPlayers.setText(String.valueOf(s.playersOnline));
+            editVisible.setSelected(s.visible  == 1);
+            editApproved.setSelected(s.approved == 1);
+
+            if (s.bannerUrl != null && !s.bannerUrl.isEmpty()) {
+                applyBannerImage.accept(new Image(s.bannerUrl, true));
+            } else {
+                cardBannerIV.setVisible(false); cardBannerLbl.setText(s.name != null ? s.name : ""); cardBannerLbl.setVisible(true);
+                heroBannerIV.setVisible(false); heroBannerPlaceholder.setVisible(true);
+            }
+            if (s.iconUrl != null && !s.iconUrl.isEmpty()) {
+                applyIconImage.accept(new Image(s.iconUrl, true));
+            } else {
+                iconSmallIV.setVisible(false); iconSmallPlaceholder.setVisible(true);
+                detailIconIV.setVisible(false); detailIconLbl.setVisible(true);
+                detailIconLbl.setText(s.name != null && !s.name.isEmpty() ? s.name.substring(0, 1).toUpperCase() : "?");
+            }
+
+            boolean vis = s.visible == 1;
+            toggleVisBtn.setText(vis ? "HIDE FROM STORE" : "SHOW IN STORE");
+            toggleVisBtn.setStyle(vis
+                ? "-fx-background-color: #4a2a2a; -fx-text-fill: #e05252; -fx-background-radius: 6; -fx-padding: 8 16; -fx-cursor: hand;"
+                : "-fx-background-color: #2a4a2a; -fx-text-fill: #4caf50; -fx-background-radius: 6; -fx-padding: 8 16; -fx-cursor: hand;"
+            );
+            saveStatus.setVisible(false); saveStatus.setManaged(false);
+            formBox.setVisible(true); formBox.setManaged(true);
+        });
+
+        // ── SAVE (all fields from both tabs) ──────────────────────────────────
+        saveBtn.setOnAction(e -> {
+            int idx = serverPicker.getSelectionModel().getSelectedIndex();
+            if (idx < 0 || idx >= serverList[0].size()) return;
+            ServerProfile s = serverList[0].get(idx);
+            int players = 0; try { players = Integer.parseInt(editPlayers.getText().trim()); } catch (NumberFormatException ex2) {}
+
+            Map<String, Object> fields = new HashMap<>();
+            fields.put("name",           editName.getText().trim());
+            fields.put("tagline",        editTagline.getText().trim());
+            fields.put("description",    editDesc.getText().trim());
+            fields.put("jar_url",        editJar.getText().trim());
+            fields.put("banner_url",     editBanner.getText().trim());
+            fields.put("icon_url",       editIcon.getText().trim());
+            fields.put("website_url",    editWebsite.getText().trim());
+            fields.put("discord_url",    editDiscord.getText().trim());
+            fields.put("accent_color",   editAccent.getText().trim());
+            fields.put("tags",           editTags.getText().trim());
+            fields.put("xp_rate",        editXpRate.getValue());
+            fields.put("players_online", players);
+            fields.put("visible",        editVisible.isSelected()  ? 1 : 0);
+            fields.put("approved",       editApproved.isSelected() ? 1 : 0);
+
+            saveBtn.setDisable(true); saveStatus.setVisible(false); saveStatus.setManaged(false);
+            String bannerPath = localBanner[0]; String iconPath = localIcon[0];
+            java.util.concurrent.CompletableFuture<Void> chain = java.util.concurrent.CompletableFuture.completedFuture(null);
+
+            if (bannerPath != null) {
+                chain = chain.thenCompose(v -> {
+                    Platform.runLater(() -> saveBtn.setText("UPLOADING BANNER..."));
+                    return ApiClient.uploadBanner(s.id, bannerPath).thenAccept(url -> { if (url != null) fields.put("banner_url", url); localBanner[0] = null; });
+                });
+            }
+            if (iconPath != null) {
+                chain = chain.thenCompose(v -> {
+                    Platform.runLater(() -> saveBtn.setText("UPLOADING ICON..."));
+                    return ApiClient.uploadIcon(s.id, iconPath).thenAccept(url -> { if (url != null) fields.put("icon_url", url); localIcon[0] = null; });
+                });
+            }
+            chain.thenAccept(v -> Platform.runLater(() -> {
+                if (fields.get("banner_url") instanceof String bu && !bu.isEmpty()) editBanner.setText(bu);
+                if (fields.get("icon_url")   instanceof String iu && !iu.isEmpty()) editIcon.setText(iu);
+                saveBtn.setText("SAVING...");
+                ApiClient.updateServer(s.id, fields).thenAccept(ok -> Platform.runLater(() -> {
+                    saveBtn.setDisable(false); saveBtn.setText("SAVE CHANGES");
+                    saveStatus.setText(ok ? "✓  All changes saved." : "✗  Save failed — check connection.");
+                    saveStatus.setStyle("-fx-font-size: 12px; -fx-text-fill: " + (ok ? "#4caf50" : "#e05252") + ";");
+                    saveStatus.setVisible(true); saveStatus.setManaged(true);
+                }));
+            }));
+        });
+
+        toggleVisBtn.setOnAction(e -> {
+            editVisible.setSelected(!editVisible.isSelected());
+            boolean vis = editVisible.isSelected();
+            toggleVisBtn.setText(vis ? "HIDE FROM STORE" : "SHOW IN STORE");
+            toggleVisBtn.setStyle(vis
+                ? "-fx-background-color: #4a2a2a; -fx-text-fill: #e05252; -fx-background-radius: 6; -fx-padding: 8 16; -fx-cursor: hand;"
+                : "-fx-background-color: #2a4a2a; -fx-text-fill: #4caf50; -fx-background-radius: 6; -fx-padding: 8 16; -fx-cursor: hand;"
+            );
+            saveBtn.fire();
+        });
+
+        // ── LOAD SERVER LIST ──────────────────────────────────────────────────
+        loader.get().thenAccept(servers -> Platform.runLater(() -> {
+            serverList[0] = servers;
+            loadingLbl.setVisible(false); loadingLbl.setManaged(false);
+            for (ServerProfile sv : servers) {
+                String label = sv.name != null ? sv.name : "(unnamed)";
+                if (isStaff && sv.approved == 0) label += "  [PENDING]";
+                if (isStaff && sv.visible  == 0) label += "  [HIDDEN]";
+                serverPicker.getItems().add(label);
+            }
+            if (servers.isEmpty()) {
+                loadingLbl.setText(emptyHint != null ? emptyHint : "No servers found.");
+                loadingLbl.setWrapText(true);
+                loadingLbl.setVisible(true); loadingLbl.setManaged(true);
+                serverPicker.setVisible(false); serverPicker.setManaged(false);
+            }
+        }));
+
+        return devSection(sectionTitle,
+            loadingLbl,
+            serverPicker,
+            formBox
+        );
     }
 
     // ── SECTION 0: CLAIM SERVER ──────────────────────────────────────────────

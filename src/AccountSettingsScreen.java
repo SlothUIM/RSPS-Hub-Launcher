@@ -122,11 +122,40 @@ public class AccountSettingsScreen {
         nameField.setMaxWidth(Double.MAX_VALUE);
         nameField.textProperty().addListener((obs, old, val) -> { LauncherEngine.currentUsername = val; LauncherEngine.saveSettings(); });
 
-        TextField emailField = new TextField("Connect backend to save email");
+        TextField emailField = new TextField();
+        emailField.setPromptText("Loading...");
         emailField.getStyleClass().add("auth-field");
         emailField.setMaxWidth(Double.MAX_VALUE);
-        emailField.setEditable(false);
-        emailField.setOpacity(0.4);
+
+        Label emailStatus = new Label();
+        emailStatus.setVisible(false);
+        emailStatus.setManaged(false);
+        emailStatus.setStyle("-fx-font-size: 11px;");
+
+        // Load real email from backend
+        ApiClient.getMyEmail().thenAccept(email -> javafx.application.Platform.runLater(() -> {
+            emailField.setText(email);
+            emailField.setPromptText("your@email.com");
+        }));
+
+        // Save on focus lost if changed
+        emailField.focusedProperty().addListener((obs, wasFocused, focused) -> {
+            if (wasFocused && !focused) {
+                String val = emailField.getText().trim();
+                if (val.isEmpty()) return;
+                ApiClient.updateEmail(val).thenAccept(result -> javafx.application.Platform.runLater(() -> {
+                    if ("ok".equals(result)) {
+                        emailStatus.setText("✓  Saved");
+                        emailStatus.setStyle("-fx-font-size: 11px; -fx-text-fill: #4caf50;");
+                    } else {
+                        emailStatus.setText("✗  " + result);
+                        emailStatus.setStyle("-fx-font-size: 11px; -fx-text-fill: #e05252;");
+                    }
+                    emailStatus.setVisible(true);
+                    emailStatus.setManaged(true);
+                }));
+            }
+        });
 
         TextField statusField = new TextField(LauncherEngine.statusMessage != null ? LauncherEngine.statusMessage : "");
         statusField.getStyleClass().add("auth-field");
@@ -186,7 +215,7 @@ public class AccountSettingsScreen {
 
         return section("PROFILE", avatarBox,
             settingRow("Display Name", nameField),
-            settingRow("Email", emailField),
+            settingRow("Email", new VBox(4, emailField, emailStatus)),
             settingRow("Status", statusField),
             presetRow,
             settingRow("Profile Visibility", privBox));

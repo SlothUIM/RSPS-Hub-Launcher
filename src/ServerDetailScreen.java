@@ -24,11 +24,19 @@ public class ServerDetailScreen {
     private static final Map<Integer, List<Review>> reviewStore = new HashMap<>();
 
     static {
-        // Mock reviews so the page isn't empty on first load
         reviewStore.put(1, new ArrayList<>(List.of(
-            new Review("PKMaster99",  5, "Best server I've played in years. Active community and great updates.", "2024-03-10"),
-            new Review("IronmanJoe",  4, "Really fun, love the ironman mode. Could use more end-game content.", "2024-02-28"),
-            new Review("ZulrahGrind", 3, "Good server but the economy needs some work. Still worth trying.", "2024-02-14")
+            new Review("Aceplayer147",  5, "NPCs and bosses are well put together.",                                                                              "2026-04-08"),
+            new Review("0din",          5, "Awesome game, really enjoying my time here.",                                                                         "2026-04-07"),
+            new Review("Zap",           5, "Yeah, I plan to keep playing for sure.",                                                                              "2026-04-06"),
+            new Review("coorsman412",   5, "Enjoying raids, they are pretty fun.",                                                                                "2026-04-01"),
+            new Review("daeth",         5, "Trading feels fair, items are priced well.",                                                                          "2026-03-24"),
+            new Review("dark prince",   5, "It was clear what to do when I started, which made it easier to get into the game.",                                  "2026-03-23"),
+            new Review("royalnikolas",  5, "I see people everywhere while I'm training or exploring.",                                                            "2026-03-23"),
+            new Review("shintosaa",     5, "Yeah, there are plenty of updates.",                                                                                  "2026-03-20"),
+            new Review("shintosaa",     5, "I'm extremely motivated to level up.",                                                                                "2026-03-19"),
+            new Review("yuluthu",       5, "Drop catcher, bottomless aggression, exodus staff are the items I'm most proud of in my bank.",                       "2026-03-17"),
+            new Review("Azazo",         5, "Smooth & instant during fast fights.",                                                                                "2026-03-17"),
+            new Review("lian",          4, "Sunday is the most active day.",                                                                                      "2026-03-17")
         )));
     }
 
@@ -55,7 +63,7 @@ public class ServerDetailScreen {
 
         content.getChildren().addAll(
             buildHero(server),
-            buildInfoBar(stage, server),
+            buildInfoBar(stage, server, onBack),
             buildDivider(),
             buildDescriptionSection(server),
             buildScreenshotsSection(stage, server),
@@ -77,20 +85,30 @@ public class ServerDetailScreen {
 
     // ── HERO BANNER ──────────────────────────────────────────────────────────
 
+    static final int HERO_H = 130;  // banner height — accessible by buildInfoBar
+
     private static StackPane buildHero(ServerProfile server) {
         StackPane hero = new StackPane();
-        hero.setMinHeight(220);
-        hero.setMaxHeight(220);
-        hero.setPrefHeight(220);
+        hero.setMinHeight(HERO_H);
+        hero.setMaxHeight(HERO_H);
+        hero.setPrefHeight(HERO_H);
         hero.getStyleClass().add("detail-hero");
 
-        // Banner image (Updated to bannerUrl)
+        // Clip the whole hero — icon lives in the info bar below, so no overlap issue
+        Rectangle heroClip = new Rectangle();
+        heroClip.setHeight(HERO_H);
+        heroClip.widthProperty().bind(hero.widthProperty());
+        hero.setClip(heroClip);
+
+        // Banner — fit-height mode: image is always exactly HERO_H px tall at its
+        // natural aspect ratio, centred horizontally. Wide landscape images fill the
+        // hero edge-to-edge; logos/square images sit centred with dark bg on sides.
+        // For a full-bleed look upload a ~1280×360 (or wider) landscape image.
         if (server.bannerUrl != null && !server.bannerUrl.isEmpty()) {
             ImageView bannerImg = new ImageView();
-            bannerImg.setPreserveRatio(false);
-            bannerImg.setFitHeight(220);
-            bannerImg.setManaged(false);
-            bannerImg.fitWidthProperty().bind(hero.widthProperty());
+            bannerImg.setPreserveRatio(true);
+            bannerImg.setFitHeight(HERO_H);
+            bannerImg.setSmooth(true);
             Image img = new Image(server.bannerUrl, true);
             img.progressProperty().addListener((obs, old, p) -> {
                 if (p.doubleValue() >= 1.0 && !img.isError()) bannerImg.setImage(img);
@@ -98,60 +116,58 @@ public class ServerDetailScreen {
             hero.getChildren().add(bannerImg);
         }
 
-        // Gradient overlay so text is readable over banner
+        // Gradient fade at the bottom
         Region overlay = new Region();
         overlay.setManaged(false);
         String gradientEnd = LauncherEngine.lightMode ? "#f0f2f5" : "#0f1115";
         overlay.setStyle("-fx-background-color: linear-gradient(to bottom, transparent 30%, " + gradientEnd + " 100%);");
         overlay.prefWidthProperty().bind(hero.widthProperty());
-        overlay.prefHeightProperty().bind(hero.heightProperty());
+        overlay.setPrefHeight(HERO_H);
         hero.getChildren().add(overlay);
-
-        // Server icon bottom-left
-        StackPane iconPane = new StackPane();
-        iconPane.getStyleClass().add("detail-icon-box");
-        iconPane.setPrefSize(80, 80);
-        iconPane.setMinSize(80, 80);
-        iconPane.setMaxSize(80, 80);
-
-        Label iconPlaceholder = new Label(server.name.substring(0, 1).toUpperCase());
-        iconPlaceholder.getStyleClass().add("detail-icon-placeholder");
-
-        // Updated to iconUrl
-        if (server.iconUrl != null && !server.iconUrl.isEmpty()) {
-            ImageView iconImg = new ImageView();
-            iconImg.setFitWidth(80);
-            iconImg.setFitHeight(80);
-            iconImg.setPreserveRatio(false);
-            iconImg.setManaged(false);
-            Image img = new Image(server.iconUrl, true);
-            img.progressProperty().addListener((obs, old, p) -> {
-                if (p.doubleValue() >= 1.0 && !img.isError()) {
-                    iconImg.setImage(img);
-                    iconPlaceholder.setVisible(false);
-                }
-            });
-            iconPane.getChildren().addAll(iconPlaceholder, iconImg);
-        } else {
-            iconPane.getChildren().add(iconPlaceholder);
-        }
-
-        VBox heroBottom = new VBox(iconPane);
-        heroBottom.setAlignment(Pos.BOTTOM_LEFT);
-        heroBottom.setPadding(new Insets(0, 0, -30, 40));
-        heroBottom.setMouseTransparent(true);
-        hero.getChildren().add(heroBottom);
 
         return hero;
     }
 
+    /** Builds the icon pane (80×80). Called by buildInfoBar so the icon
+     *  lives outside the clipped hero and can visually float upward via translateY. */
+    private static StackPane buildIconPane(ServerProfile server) {
+        StackPane iconPane = new StackPane();
+        iconPane.getStyleClass().add("detail-icon-box");
+        iconPane.setPrefSize(80, 80); iconPane.setMinSize(80, 80); iconPane.setMaxSize(80, 80);
+
+        Label placeholder = new Label(server.name.substring(0, 1).toUpperCase());
+        placeholder.getStyleClass().add("detail-icon-placeholder");
+
+        if (server.iconUrl != null && !server.iconUrl.isEmpty()) {
+            ImageView iconImg = new ImageView();
+            iconImg.setFitWidth(80); iconImg.setFitHeight(80);
+            iconImg.setPreserveRatio(false); iconImg.setManaged(false);
+            Image img = new Image(server.iconUrl, true);
+            img.progressProperty().addListener((obs, old, p) -> {
+                if (p.doubleValue() >= 1.0 && !img.isError()) {
+                    iconImg.setImage(img); placeholder.setVisible(false);
+                }
+            });
+            iconPane.getChildren().addAll(placeholder, iconImg);
+        } else {
+            iconPane.getChildren().add(placeholder);
+        }
+        return iconPane;
+    }
+
     // ── INFO BAR (name, play button, links) ─────────────────────────────────
 
-    private static HBox buildInfoBar(Stage stage, ServerProfile server) {
+    private static HBox buildInfoBar(Stage stage, ServerProfile server, Runnable onBack) {
         HBox bar = new HBox(20);
-        bar.setPadding(new Insets(40, 40, 24, 140)); // left padding to clear icon
+        bar.setPadding(new Insets(12, 40, 24, 40));
         bar.setAlignment(Pos.CENTER_LEFT);
         bar.getStyleClass().add("detail-info-bar");
+
+        // Icon — lives here so it's outside the clipped hero.
+        // Negative translateY pulls it up to visually straddle the hero boundary.
+        StackPane iconPane = buildIconPane(server);
+        iconPane.setTranslateY(-36);  // float up into the hero area
+        bar.getChildren().add(iconPane);
 
         // Left: name + tagline + tags
         VBox left = new VBox(6);
@@ -227,18 +243,19 @@ public class ServerDetailScreen {
         updatePlayBtn.setManaged(false);
         updatePlayBtn.setPrefWidth(160);
 
-        // Shared launch logic
+        // Shared launch logic — delegates to RSPSHub.beginSession for full tracking
+        // with ProcessHandle descendant watching (handles launcher JARs that spawn
+        // a child game process and then exit themselves).
         Runnable launchNow = () -> {
-            LauncherEngine.activeServer = server.name;
             if (LauncherEngine.minimizeOnLaunch) stage.setIconified(true);
             Process proc = LauncherEngine.launchGame(server);
             if (proc != null) {
-                long start = System.currentTimeMillis();
-                new Thread(() -> {
-                    try { proc.waitFor(); } catch (InterruptedException ignored) {}
-                    long mins = (System.currentTimeMillis() - start) / 60000;
-                    PlaytimeStore.recordSession(server.name, mins);
-                }, "playtime-tracker").start();
+                long startEpoch = System.currentTimeMillis() / 1000;
+                DiscordRPC.setActivity(server.name, startEpoch);
+                // Start tracking — timer will show in hub navbar
+                RSPSHub.beginSession(server.name, proc, stage);
+                // Navigate back to hub so the session timer is visible to the user
+                javafx.application.Platform.runLater(onBack);
             }
         };
 
@@ -308,16 +325,16 @@ public class ServerDetailScreen {
         HBox socialRow = new HBox(8);
         socialRow.setAlignment(Pos.CENTER_RIGHT);
         
-        // Updated to discordUrl
         if (server.discordUrl != null && !server.discordUrl.isEmpty()) {
             Button discordBtn = new Button("Discord");
             discordBtn.getStyleClass().add("detail-social-btn");
+            discordBtn.setOnAction(e -> openUrl(server.discordUrl));
             socialRow.getChildren().add(discordBtn);
         }
-        // Updated to websiteUrl
         if (server.websiteUrl != null && !server.websiteUrl.isEmpty()) {
             Button webBtn = new Button("Website");
             webBtn.getStyleClass().add("detail-social-btn");
+            webBtn.setOnAction(e -> openUrl(server.websiteUrl));
             socialRow.getChildren().add(webBtn);
         }
 
@@ -333,11 +350,67 @@ public class ServerDetailScreen {
         section.setPadding(new Insets(10, 40, 30, 40));
 
         Label header = sectionHeader("ABOUT THIS SERVER");
-        Label desc = new Label(server.description != null ? server.description : "No description provided.");
+
+        String fullText = server.description != null ? server.description : "No description provided.";
+
+        Label desc = new Label(fullText);
         desc.getStyleClass().add("detail-description");
         desc.setWrapText(true);
 
-        section.getChildren().addAll(header, desc);
+        // Collapsed: show ~4 lines (~90px). Expanded: show full text.
+        final double COLLAPSED_H = 90;
+        desc.setMaxHeight(COLLAPSED_H);
+        desc.setMinHeight(COLLAPSED_H);
+        desc.setPrefHeight(COLLAPSED_H);
+        // Clip so text doesn't visually overflow when collapsed
+        Rectangle descClip = new Rectangle();
+        descClip.setWidth(9999);
+        descClip.setHeight(COLLAPSED_H);
+        desc.setClip(descClip);
+
+        // Fade-out gradient at the bottom of collapsed text
+        Region fadeOut = new Region();
+        fadeOut.setStyle("-fx-background-color: linear-gradient(to bottom, transparent 0%, #0f1115 100%);");
+        fadeOut.setPrefHeight(36);
+        fadeOut.setMaxHeight(36);
+        fadeOut.setMaxWidth(Double.MAX_VALUE);
+        fadeOut.setMouseTransparent(true);
+
+        StackPane descStack = new StackPane(desc, fadeOut);
+        StackPane.setAlignment(fadeOut, Pos.BOTTOM_CENTER);
+        descStack.setMaxHeight(COLLAPSED_H);
+        descStack.setMinHeight(COLLAPSED_H);
+
+        boolean[] expanded = {false};
+        Button expandBtn = new Button("▼  Read more");
+        expandBtn.setStyle(
+            "-fx-background-color: transparent; -fx-text-fill: #9b5de5;" +
+            "-fx-font-size: 12px; -fx-cursor: hand; -fx-padding: 0;"
+        );
+        expandBtn.setOnAction(e -> {
+            expanded[0] = !expanded[0];
+            if (expanded[0]) {
+                desc.setMaxHeight(Double.MAX_VALUE);
+                desc.setMinHeight(0);
+                desc.setPrefHeight(Region.USE_COMPUTED_SIZE);
+                desc.setClip(null);
+                descStack.setMaxHeight(Double.MAX_VALUE);
+                descStack.setMinHeight(0);
+                fadeOut.setVisible(false);
+                expandBtn.setText("▲  Show less");
+            } else {
+                desc.setMaxHeight(COLLAPSED_H);
+                desc.setMinHeight(COLLAPSED_H);
+                desc.setPrefHeight(COLLAPSED_H);
+                desc.setClip(descClip);
+                descStack.setMaxHeight(COLLAPSED_H);
+                descStack.setMinHeight(COLLAPSED_H);
+                fadeOut.setVisible(true);
+                expandBtn.setText("▼  Read more");
+            }
+        });
+
+        section.getChildren().addAll(header, descStack, expandBtn);
         return section;
     }
 
@@ -831,5 +904,13 @@ public class ServerDetailScreen {
             if (BANNED_WORDS.contains(word)) return true;
         }
         return false;
+    }
+
+    private static void openUrl(String url) {
+        try {
+            java.awt.Desktop.getDesktop().browse(new java.net.URI(url));
+        } catch (Exception e) {
+            System.err.println("Failed to open URL: " + e.getMessage());
+        }
     }
 }

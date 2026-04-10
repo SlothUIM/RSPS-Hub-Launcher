@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
 
 import com.google.gson.Gson;
@@ -220,9 +221,84 @@ public class ApiClient {
         });
     }
 
+    // -- staff server management --
+
+    public static CompletableFuture<List<ServerProfile>> getMyServers() {
+        return fetch(get("servers/mine.php").build()).thenApply(obj -> {
+            List<ServerProfile> list = new ArrayList<>();
+            for (JsonElement el : arr(obj, "servers"))
+                list.add(gson.fromJson(el, ServerProfile.class));
+            return list;
+        });
+    }
+
+    public static CompletableFuture<List<ServerProfile>> getAllServers() {
+        return fetch(get("servers/all.php").build()).thenApply(obj -> {
+            List<ServerProfile> list = new ArrayList<>();
+            for (JsonElement el : arr(obj, "servers"))
+                list.add(gson.fromJson(el, ServerProfile.class));
+            return list;
+        });
+    }
+
+    public static CompletableFuture<Boolean> updateServer(int id, Map<String, Object> fields) {
+        Map<String, Object> payload = new HashMap<>(fields);
+        payload.put("id", id);
+        return fetch(post("servers/update.php", payload).build())
+            .thenApply(obj -> !obj.has("error"));
+    }
+
+    public static CompletableFuture<String> uploadIcon(int serverId, String filePath) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                byte[] bytes = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(filePath));
+                return java.util.Base64.getEncoder().encodeToString(bytes);
+            } catch (Exception e) {
+                System.err.println("Icon read failed: " + e.getMessage());
+                return null;
+            }
+        }).thenCompose(b64 -> {
+            if (b64 == null) return CompletableFuture.completedFuture(null);
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("image", b64);
+            payload.put("server_id", serverId);
+            return fetch(post("servers/upload_icon.php", payload).build())
+                .thenApply(obj -> obj.has("url") ? obj.get("url").getAsString() : null);
+        });
+    }
+
+    public static CompletableFuture<String> uploadBanner(int serverId, String filePath) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                byte[] bytes = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(filePath));
+                return java.util.Base64.getEncoder().encodeToString(bytes);
+            } catch (Exception e) {
+                System.err.println("Banner read failed: " + e.getMessage());
+                return null;
+            }
+        }).thenCompose(b64 -> {
+            if (b64 == null) return CompletableFuture.completedFuture(null);
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("image", b64);
+            payload.put("server_id", serverId);
+            return fetch(post("servers/upload_banner.php", payload).build())
+                .thenApply(obj -> obj.has("url") ? obj.get("url").getAsString() : null);
+        });
+    }
+
     public static CompletableFuture<Boolean> checkStaff() {
         return fetch(get("users/me.php").build())
             .thenApply(obj -> obj.has("is_staff") && obj.get("is_staff").getAsBoolean());
+    }
+
+    public static CompletableFuture<String> getMyEmail() {
+        return fetch(get("users/me.php").build())
+            .thenApply(obj -> str(obj, "email"));
+    }
+
+    public static CompletableFuture<String> updateEmail(String email) {
+        return fetch(post("users/update_email.php", Map.of("email", email)).build())
+            .thenApply(obj -> obj.has("error") ? obj.get("error").getAsString() : "ok");
     }
 
     public static String avatarUrl(String username) {

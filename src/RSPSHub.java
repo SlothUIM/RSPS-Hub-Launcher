@@ -66,9 +66,10 @@ public class RSPSHub extends Application {
     // Navbar tab refs
     private Button storeTab, libraryTab, friendsTab, statsTab, leaderboardTab;
 
-    // Session timer
-    private Label    sessionTimerLabel;
-    private Timeline sessionTimeline;
+    // Session timer — static so ServerDetailScreen can also drive them
+    static Label    sessionTimerLabel;
+    static Timeline sessionTimeline;
+    static Stage    sessionStage;   // stored so endSession can un-minimize
 
     // Top control refs (toggled per tab)
     private VBox topControls;
@@ -1355,10 +1356,17 @@ public class RSPSHub extends Application {
         card.setPadding(new Insets(15));
         card.setAlignment(Pos.CENTER_LEFT);
         card.setCursor(Cursor.HAND);
+        card.setMaxWidth(Double.MAX_VALUE);
 
         StackPane bannerPane = new StackPane();
         bannerPane.setPrefSize(200, 100);
+        bannerPane.setMinSize(200, 100);
+        bannerPane.setMaxSize(200, 100);
         bannerPane.getStyleClass().add("card-banner");
+        // Clip so the image never bleeds outside the 200×100 thumbnail area
+        javafx.scene.shape.Rectangle bannerClip = new javafx.scene.shape.Rectangle(200, 100);
+        bannerClip.setArcWidth(8); bannerClip.setArcHeight(8);
+        bannerPane.setClip(bannerClip);
 
         Label bannerLabel = new Label(server.name);
         bannerLabel.getStyleClass().add("card-banner-placeholder");
@@ -1398,16 +1406,24 @@ public class RSPSHub extends Application {
         Label title = new Label(server.name);
         title.getStyleClass().add("card-title");
 
-        Label desc = new Label(server.description);
+        String rawDesc = server.description != null ? server.description : "";
+        // Flatten newlines, cap at 240 chars (~3 lines at card width)
+        String flatDesc = rawDesc.replace("\n", " ").replace("\r", "").replaceAll("\\s+", " ").trim();
+        String shortDesc = flatDesc.length() > 240 ? flatDesc.substring(0, 240).trim() + "…" : flatDesc;
+        Label desc = new Label(shortDesc);
         desc.setWrapText(true);
         desc.getStyleClass().add("card-desc");
-        desc.setMaxWidth(400);
+        desc.setMaxWidth(Double.MAX_VALUE);
 
         HBox tagBox = new HBox(5);
         if (server.tags != null)
             for (String t : server.tags) { Label p = new Label(t.toUpperCase()); p.getStyleClass().add("tag-pill"); tagBox.getChildren().add(p); }
 
-        info.getChildren().addAll(title, desc, tagBox);
+        // Spacer pushes tags to the bottom of the card
+        Region infoSpacer = new Region();
+        VBox.setVgrow(infoSpacer, Priority.ALWAYS);
+
+        info.getChildren().addAll(title, desc, infoSpacer, tagBox);
         HBox.setHgrow(info, Priority.ALWAYS);
 
         String existingNote = LauncherEngine.serverNotes.get(server.name);
@@ -1501,6 +1517,7 @@ public class RSPSHub extends Application {
 
         VBox wrapper = new VBox(card, xpTrack);
         wrapper.getStyleClass().add("server-card-wrapper");
+        wrapper.setMaxWidth(Double.MAX_VALUE);
         return wrapper;
     }
 
@@ -2062,55 +2079,96 @@ public class RSPSHub extends Application {
     // ── PLAY HANDLER ─────────────────────────────────────────────────────────
 
     private void launchAndTrack(ServerProfile server, Stage stage) {
-        LauncherEngine.activeServer = server.name;
         if (LauncherEngine.minimizeOnLaunch) stage.setIconified(true);
         Process proc = LauncherEngine.launchGame(server);
         if (proc != null) {
-            long start = System.currentTimeMillis();
-            long startEpoch = start / 1000;
+            long startEpoch = System.currentTimeMillis() / 1000;
             DiscordRPC.setActivity(server.name, startEpoch);
+            beginSession(server.name, proc, stage);
+        }
+    }
 
-            // Start session timer in navbar
+    /**
+     * Starts session tracking for a launched game process.
+     * Uses ProcessHandle descendant tracking so that self-updating launcher JARs
+     * (which spawn the actual game as a child then exit) are tracked correctly.
+     * The timer only stops when every spawned process has exited — it cannot be
+     * manually extended, making it safe for reward-based playtime systems.
+     */
+    static void beginSession(String serverName, Process proc, Stage stage) {
+        LauncherEngine.activeServer = serverName;
+        sessionStage = stage;
+        long start = System.currentTimeMillis();
+
+        // Start the navbar timer on the FX thread
+        Platform.runLater(() -> {
             if (sessionTimerLabel != null) {
                 sessionTimerLabel.setText("\u25B6 0:00:00");
                 sessionTimerLabel.setVisible(true);
                 sessionTimerLabel.setManaged(true);
-                final long[] elapsed = {0};
-                sessionTimeline = new Timeline(new KeyFrame(Duration.seconds(1), ev -> {
-                    elapsed[0]++;
-                    long h = elapsed[0] / 3600;
-                    long m = (elapsed[0] % 3600) / 60;
-                    long s = elapsed[0] % 60;
-                    sessionTimerLabel.setText(String.format("\u25B6 %d:%02d:%02d", h, m, s));
-                }));
-                sessionTimeline.setCycleCount(Timeline.INDEFINITE);
-                sessionTimeline.play();
             }
+            if (sessionTimeline != null) sessionTimeline.stop();
+            final long[] elapsed = {0};
+            sessionTimeline = new Timeline(new KeyFrame(Duration.seconds(1), ev -> {
+                elapsed[0]++;
+                long h = elapsed[0] / 3600, m = (elapsed[0] % 3600) / 60, s = elapsed[0] % 60;
+                if (sessionTimerLabel != null)
+                    sessionTimerLabel.setText(String.format("\u25B6 %d:%02d:%02d", h, m, s));
+            }));
+            sessionTimeline.setCycleCount(Timeline.INDEFINITE);
+            sessionTimeline.play();
+        });
 
-            new Thread(() -> {
-                try { proc.waitFor(); } catch (InterruptedException ignored) {}
-                long mins = (System.currentTimeMillis() - start) / 60000;
-                PlaytimeStore.recordSession(server.name, mins);
-                SessionHistoryStore.add(server.name, mins);
-                StreakStore.recordPlay(server.name);
-                // Push updated stats to server
+        new Thread(() -> {
+            // ── Descendant tracking ────────────────────────────────────────────
+            // Many RSPS clients are self-updating launcher JARs: they download cache,
+            // spawn the real game as a child process, then exit themselves.
+            // We collect all descendant ProcessHandles while the initial proc is alive,
+            // so we can keep waiting even after the launcher JAR exits.
+            java.util.Set<ProcessHandle> watched = new java.util.LinkedHashSet<>();
+            watched.add(proc.toHandle());
+
+            // Poll every 500 ms while the launcher process is alive
+            while (proc.isAlive()) {
+                proc.toHandle().descendants().forEach(watched::add);
+                try { Thread.sleep(500); } catch (InterruptedException ignored) { break; }
+            }
+            // One final snapshot after exit (child may appear in the last moment)
+            try { proc.toHandle().descendants().forEach(watched::add); } catch (Exception ignored) {}
+
+            // Now wait for every tracked process (initial + all descendants) to exit
+            for (ProcessHandle ph : watched) {
+                if (ph.isAlive()) {
+                    try { ph.onExit().get(); } catch (Exception ignored) {}
+                }
+            }
+            // ──────────────────────────────────────────────────────────────────
+
+            long mins = (System.currentTimeMillis() - start) / 60000;
+
+            // Only record sessions of at least 1 minute to filter out accidents
+            if (mins >= 1) {
+                PlaytimeStore.recordSession(serverName, mins);
+                SessionHistoryStore.add(serverName, mins);
+                StreakStore.recordPlay(serverName);
                 ApiClient.updateStats(
                     PlaytimeStore.getTotalMinutes(),
                     PlaytimeStore.getTotalServersPlayed(),
                     PlaytimeStore.getMostPlayed()
                 );
-                Platform.runLater(() -> {
-                    LauncherEngine.activeServer = null;
-                    DiscordRPC.setBrowsing("Browsing the store");
-                    if (sessionTimeline != null) { sessionTimeline.stop(); sessionTimeline = null; }
-                    if (sessionTimerLabel != null) {
-                        sessionTimerLabel.setVisible(false);
-                        sessionTimerLabel.setManaged(false);
-                    }
-                    if (LauncherEngine.minimizeOnLaunch) stage.setIconified(false);
-                });
-            }, "playtime-tracker").start();
-        }
+            }
+
+            Platform.runLater(() -> {
+                LauncherEngine.activeServer = null;
+                DiscordRPC.setBrowsing("Browsing the store");
+                if (sessionTimeline != null) { sessionTimeline.stop(); sessionTimeline = null; }
+                if (sessionTimerLabel != null) {
+                    sessionTimerLabel.setVisible(false);
+                    sessionTimerLabel.setManaged(false);
+                }
+                if (LauncherEngine.minimizeOnLaunch && stage != null) stage.setIconified(false);
+            });
+        }, "playtime-tracker").start();
     }
 
     void handlePlayAction(ServerProfile server, Stage stage, Button playBtn, Runnable onDownloadComplete) {
