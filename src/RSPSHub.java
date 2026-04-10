@@ -70,6 +70,7 @@ public class RSPSHub extends Application {
     static Label    sessionTimerLabel;
     static Timeline sessionTimeline;
     static Stage    sessionStage;   // stored so endSession can un-minimize
+    static long     sessionStart;   // epoch ms when current session began
 
     // Top control refs (toggled per tab)
     private VBox topControls;
@@ -119,10 +120,6 @@ public class RSPSHub extends Application {
         primaryStage.setHeight(800);
         primaryStage.setMinWidth(1050);
         primaryStage.setMinHeight(600);
-
-        if (LauncherEngine.notifSystem) {
-            notifications.add(new AppNotif(NotifType.SYSTEM, "Welcome to RSPS Hub", "Browse servers, track your playtime and level up!", "Today"));
-        }
 
         // Attach resize support and maximize corner fix to every new scene
         primaryStage.sceneProperty().addListener((obs, old, scene) -> {
@@ -344,11 +341,6 @@ public class RSPSHub extends Application {
             statusLbl.getStyleClass().add("nav-status-message");
             userInfo.getChildren().add(statusLbl);
         }
-        if (LauncherEngine.activeServer != null && !LauncherEngine.activeServer.isEmpty()) {
-            Label presenceLbl = new Label("▶ " + LauncherEngine.activeServer);
-            presenceLbl.getStyleClass().add("nav-rich-presence");
-            userInfo.getChildren().add(presenceLbl);
-        }
         HBox accountWidget = new HBox(10, avatarCircle, userInfo);
         accountWidget.setAlignment(Pos.CENTER);
         accountWidget.getStyleClass().add("nav-account-widget");
@@ -379,11 +371,32 @@ public class RSPSHub extends Application {
         StackPane.setAlignment(downloadBadge, Pos.TOP_RIGHT);
         downloadBtn.setOnAction(e -> showDownloadsPopup(downloadBtn));
 
-        // Session timer (shown while a game is running)
+        // Session timer (shown while a game is running).
+        // showHub() is called every time we navigate back, so we must resume
+        // the timer if a session is already in progress.
         sessionTimerLabel = new Label();
         sessionTimerLabel.getStyleClass().add("session-timer-label");
-        sessionTimerLabel.setVisible(false);
-        sessionTimerLabel.setManaged(false);
+
+        if (LauncherEngine.activeServer != null && sessionStart > 0) {
+            // Session is live — restore timer with correct elapsed time
+            if (sessionTimeline != null) sessionTimeline.stop();
+            long alreadyElapsed = (System.currentTimeMillis() - sessionStart) / 1000;
+            final long[] elapsed = {alreadyElapsed};
+            long h = elapsed[0] / 3600, m = (elapsed[0] % 3600) / 60, s = elapsed[0] % 60;
+            sessionTimerLabel.setText(String.format("\u25B6 %d:%02d:%02d", h, m, s));
+            sessionTimerLabel.setVisible(true);
+            sessionTimerLabel.setManaged(true);
+            sessionTimeline = new Timeline(new KeyFrame(Duration.seconds(1), ev -> {
+                elapsed[0]++;
+                long hh = elapsed[0] / 3600, mm = (elapsed[0] % 3600) / 60, ss = elapsed[0] % 60;
+                sessionTimerLabel.setText(String.format("\u25B6 %d:%02d:%02d", hh, mm, ss));
+            }));
+            sessionTimeline.setCycleCount(Timeline.INDEFINITE);
+            sessionTimeline.play();
+        } else {
+            sessionTimerLabel.setVisible(false);
+            sessionTimerLabel.setManaged(false);
+        }
 
         Region navSpacer = new Region();
         HBox.setHgrow(navSpacer, Priority.ALWAYS);
@@ -1376,8 +1389,8 @@ public class RSPSHub extends Application {
         if (server.bannerUrl != null && !server.bannerUrl.isEmpty()) {
             ImageView iv = new ImageView();
             iv.setFitWidth(200); iv.setFitHeight(100);
-            iv.setPreserveRatio(false);
-            iv.setManaged(false); iv.setVisible(false);
+            iv.setPreserveRatio(true);
+            iv.setVisible(false);
             Image img = new Image(server.bannerUrl, true);
             img.progressProperty().addListener((obs, old, p) -> {
                 if (p.doubleValue() >= 1.0 && !img.isError()) { iv.setImage(img); iv.setVisible(true); bannerLabel.setVisible(false); }
@@ -1470,6 +1483,21 @@ public class RSPSHub extends Application {
         String milestoneColor = ServerSkillSystem.getMilestoneColor(skillLevel);
         Label levelBadge = new Label("Lv. " + skillLevel);
         levelBadge.setStyle("-fx-background-color: rgba(0,0,0,0.4); -fx-text-fill: " + milestoneColor + "; -fx-font-size: 11px; -fx-font-weight: bold; -fx-padding: 3 9; -fx-background-radius: 10; -fx-cursor: hand;");
+
+        boolean[] overPopup = {false};
+        Popup[]   popupRef  = {null};
+        levelBadge.setOnMouseEntered(e -> {
+            if (popupRef[0] != null && popupRef[0].isShowing()) return;
+            Popup p = buildLevelPopup(server.name, skillLevel, skillProgress, milestoneColor, overPopup, popupRef);
+            popupRef[0] = p;
+            Bounds b = levelBadge.localToScreen(levelBadge.getBoundsInLocal());
+            p.show(levelBadge, b.getMinX(), b.getMaxY() + 6);
+        });
+        levelBadge.setOnMouseExited(e -> {
+            javafx.animation.PauseTransition delay = new javafx.animation.PauseTransition(javafx.util.Duration.millis(180));
+            delay.setOnFinished(ev -> { if (!overPopup[0] && popupRef[0] != null) { popupRef[0].hide(); popupRef[0] = null; } });
+            delay.play();
+        });
 
         // Updated to use playersOnline
         Label players = new Label("\uD83D\uDFE2 " + server.playersOnline + " Online");
@@ -2099,6 +2127,7 @@ public class RSPSHub extends Application {
         LauncherEngine.activeServer = serverName;
         sessionStage = stage;
         long start = System.currentTimeMillis();
+        sessionStart = start;
 
         // Start the navbar timer on the FX thread
         Platform.runLater(() -> {
@@ -2171,6 +2200,14 @@ public class RSPSHub extends Application {
         }, "playtime-tracker").start();
     }
 
+    private void refreshDownloadBadge() {
+        if (downloadBadge == null) return;
+        int n = activeDownloads.size();
+        downloadBadge.setText(String.valueOf(n));
+        downloadBadge.setVisible(n > 0);
+        downloadBadge.setManaged(n > 0);
+    }
+
     void handlePlayAction(ServerProfile server, Stage stage, Button playBtn, Runnable onDownloadComplete) {
         if (!LauncherEngine.isDownloaded(server)) {
             playBtn.setDisable(true);
@@ -2178,7 +2215,7 @@ public class RSPSHub extends Application {
 
             DownloadItem item = new DownloadItem(server.name);
             activeDownloads.add(item);
-            Platform.runLater(this::updateDisplay);
+            Platform.runLater(this::refreshDownloadBadge);
             item.status.set("Downloading");
 
             // cancelledFlag[0] mirrors item.cancelled so the download loop can read it
@@ -2211,7 +2248,7 @@ public class RSPSHub extends Application {
                         try { Thread.sleep(3000); } catch (InterruptedException ignored) {}
                         Platform.runLater(() -> {
                             activeDownloads.remove(item);
-                            updateDisplay();
+                            refreshDownloadBadge();
                         });
                     }).start();
                     updateDisplay();

@@ -100,10 +100,7 @@ public class ServerDetailScreen {
         heroClip.widthProperty().bind(hero.widthProperty());
         hero.setClip(heroClip);
 
-        // Banner — fit-height mode: image is always exactly HERO_H px tall at its
-        // natural aspect ratio, centred horizontally. Wide landscape images fill the
-        // hero edge-to-edge; logos/square images sit centred with dark bg on sides.
-        // For a full-bleed look upload a ~1280×360 (or wider) landscape image.
+        // Banner — same as Exora: natural ratio, height locked to HERO_H, centred.
         if (server.bannerUrl != null && !server.bannerUrl.isEmpty()) {
             ImageView bannerImg = new ImageView();
             bannerImg.setPreserveRatio(true);
