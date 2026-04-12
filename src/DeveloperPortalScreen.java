@@ -21,6 +21,12 @@ import java.util.Map;
 
 public class DeveloperPortalScreen {
 
+    /** Set before opening the portal to auto-select a server in the staff manage section. */
+    public static String pendingEditServerName = null;
+
+    /** Called with the deleted server ID after a successful delete. Set before opening the portal. */
+    public static java.util.function.Consumer<Integer> onServerDeletedCallback = null;
+
     // --- Critical Input Fields (Scoped here so the submit button can read them) ---
     private static TextField nameField;
     private static TextArea descArea;
@@ -402,7 +408,7 @@ public class DeveloperPortalScreen {
         PauseTransition cardBannerPause = new PauseTransition(Duration.millis(700));
         editCardBanner.textProperty().addListener((obs, old, url) -> {
             cardBannerPause.setOnFinished(ev -> {
-                String u = url.trim(); if (!u.startsWith("http")) return;
+                String u = url.trim(); if (!u.startsWith("https://")) return;
                 localCardBanner[0] = null;
                 ImageCache.load(u, img -> applyCardBannerImage.accept(img));
             });
@@ -428,7 +434,7 @@ public class DeveloperPortalScreen {
         PauseTransition bannerPause = new PauseTransition(Duration.millis(700));
         editBanner.textProperty().addListener((obs, old, url) -> {
             bannerPause.setOnFinished(ev -> {
-                String u = url.trim(); if (!u.startsWith("http")) return;
+                String u = url.trim(); if (!u.startsWith("https://")) return;
                 localBanner[0] = null;
                 ImageCache.load(u, img -> applyBannerImage.accept(img));
             });
@@ -452,7 +458,7 @@ public class DeveloperPortalScreen {
         });
         PauseTransition iconPause = new PauseTransition(Duration.millis(700));
         editIcon.textProperty().addListener((obs, old, url) -> {
-            iconPause.setOnFinished(ev -> { String u = url.trim(); if (!u.startsWith("http")) return; localIcon[0] = null; applyIconImage.accept(new Image(u, true)); });
+            iconPause.setOnFinished(ev -> { String u = url.trim(); if (!u.startsWith("https://")) return; localIcon[0] = null; applyIconImage.accept(new Image(u, true)); });
             iconPause.playFromStart();
         });
         HBox iconInputRow = new HBox(10, editIcon, iconPickBtn, iconPreviewPane); iconInputRow.setAlignment(Pos.CENTER_LEFT); HBox.setHgrow(editIcon, Priority.ALWAYS);
@@ -544,13 +550,21 @@ public class DeveloperPortalScreen {
         HBox tabBar = new HBox(0, tabStore, tabDetail);
         tabBar.setPadding(new Insets(0, 0, 4, 0));
 
-        // ── SAVE + TOGGLE VISIBILITY (staff only) ────────────────────────────
+        // ── SAVE + TOGGLE VISIBILITY + DELETE (staff only) ───────────────────
         Label saveStatus = new Label(); saveStatus.setVisible(false); saveStatus.setManaged(false);
         Button saveBtn = new Button("SAVE CHANGES"); saveBtn.getStyleClass().add("auth-btn"); saveBtn.setPrefWidth(180);
         Button toggleVisBtn = new Button("HIDE FROM STORE");
         toggleVisBtn.setStyle("-fx-background-color: #4a2a2a; -fx-text-fill: #e05252; -fx-background-radius: 6; -fx-padding: 8 16; -fx-cursor: hand;");
         toggleVisBtn.setVisible(isStaff); toggleVisBtn.setManaged(isStaff);
-        HBox actionRow = new HBox(12, saveBtn, toggleVisBtn); actionRow.setAlignment(Pos.CENTER_LEFT);
+
+        Button deleteBtn = new Button("🗑  DELETE");
+        deleteBtn.setStyle("-fx-background-color: #3a0a0a; -fx-text-fill: #e05252; -fx-border-color: #6a1a1a; -fx-border-width: 1; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 8 16; -fx-cursor: hand;");
+        deleteBtn.setVisible(isStaff); deleteBtn.setManaged(isStaff);
+
+        // Spacer to push delete to the right
+        Region actionSpacer = new Region(); HBox.setHgrow(actionSpacer, Priority.ALWAYS);
+        HBox actionRow = new HBox(12, saveBtn, toggleVisBtn, actionSpacer, deleteBtn);
+        actionRow.setAlignment(Pos.CENTER_LEFT);
 
         VBox formBox = new VBox(16, tabBar, storeCardPane, detailPagePane, saveStatus, actionRow);
         formBox.setVisible(false); formBox.setManaged(false);
@@ -683,6 +697,49 @@ public class DeveloperPortalScreen {
             saveBtn.fire();
         });
 
+        deleteBtn.setOnAction(e -> {
+            int idx = serverPicker.getSelectionModel().getSelectedIndex();
+            if (idx < 0 || idx >= serverList[0].size()) return;
+            ServerProfile s = serverList[0].get(idx);
+
+            // Confirm dialog before deleting
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+            confirm.setTitle("Delete Server");
+            confirm.setHeaderText("Delete \"" + s.name + "\"?");
+            confirm.setContentText("This permanently removes the server from the database. This cannot be undone.");
+            DialogPane dp = confirm.getDialogPane();
+            dp.getStylesheets().addAll(javafx.application.Application.getUserAgentStylesheet() != null
+                ? java.util.List.of() : java.util.List.of());
+            dp.setStyle("-fx-background-color: #1a1d24; -fx-border-color: #2a2e39;");
+            javafx.scene.Node hp = dp.lookup(".header-panel");
+            if (hp != null) hp.setStyle("-fx-background-color: #12141a;");
+            javafx.scene.Node hl = dp.lookup(".header-panel .label");
+            if (hl != null) hl.setStyle("-fx-text-fill: #e8eaf0; -fx-font-size: 14px;");
+            javafx.scene.Node cl = dp.lookup(".content.label");
+            if (cl != null) cl.setStyle("-fx-text-fill: #9ba3b2;");
+
+            confirm.showAndWait().ifPresent(btn -> {
+                if (btn != ButtonType.OK) return;
+                deleteBtn.setDisable(true);
+                deleteBtn.setText("Deleting...");
+                ApiClient.deleteServer(s.id).thenAccept(ok -> Platform.runLater(() -> {
+                    if (ok) {
+                        serverPicker.getItems().remove(idx);
+                        serverList[0].remove(idx);
+                        serverPicker.getSelectionModel().clearSelection();
+                        formBox.setVisible(false); formBox.setManaged(false);
+                        if (onServerDeletedCallback != null) { onServerDeletedCallback.accept(s.id); onServerDeletedCallback = null; }
+                    } else {
+                        saveStatus.setText("✗  Delete failed.");
+                        saveStatus.setStyle("-fx-font-size: 12px; -fx-text-fill: #e05252;");
+                        saveStatus.setVisible(true); saveStatus.setManaged(true);
+                    }
+                    deleteBtn.setDisable(false);
+                    deleteBtn.setText("🗑  DELETE");
+                }));
+            });
+        });
+
         // ── LOAD SERVER LIST ──────────────────────────────────────────────────
         loader.get().thenAccept(servers -> Platform.runLater(() -> {
             serverList[0] = servers;
@@ -698,6 +755,17 @@ public class DeveloperPortalScreen {
                 loadingLbl.setWrapText(true);
                 loadingLbl.setVisible(true); loadingLbl.setManaged(true);
                 serverPicker.setVisible(false); serverPicker.setManaged(false);
+            }
+            // Auto-select server if navigated here via "Edit Server" button
+            if (isStaff && pendingEditServerName != null) {
+                String target = pendingEditServerName;
+                pendingEditServerName = null;
+                for (int i = 0; i < servers.size(); i++) {
+                    if (target.equals(servers.get(i).name)) {
+                        serverPicker.getSelectionModel().select(i);
+                        break;
+                    }
+                }
             }
         }));
 
@@ -1106,7 +1174,7 @@ public class DeveloperPortalScreen {
         urlField.textProperty().addListener((obs, old, url) -> {
             pause.setOnFinished(e -> {
                 String trimmed = url.trim();
-                if (trimmed.startsWith("http")) {
+                if (trimmed.startsWith("https://")) {
                     Image img = new Image(trimmed, true);
                     imageView.setImage(img);
                     img.progressProperty().addListener((o, ov, progress) -> {

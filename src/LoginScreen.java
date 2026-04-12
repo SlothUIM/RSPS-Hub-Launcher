@@ -184,18 +184,26 @@ public class LoginScreen {
     }
 
     private static final Path SESSION_FILE = Paths.get(System.getProperty("user.home"), ".rsps_hub", "session.dat");
+    private static final byte[] SESSION_KEY = "RSPSHubSecureKey2026!".getBytes();
+
+    private static byte[] xorBytes(byte[] data) {
+        byte[] result = new byte[data.length];
+        for (int i = 0; i < data.length; i++) result[i] = (byte)(data[i] ^ SESSION_KEY[i % SESSION_KEY.length]);
+        return result;
+    }
 
     public static void saveSession(String username, String token) {
         try {
             Files.createDirectories(SESSION_FILE.getParent());
-            Files.writeString(SESSION_FILE, username + "\n" + token);
+            String content = username + "\n" + token;
+            Files.write(SESSION_FILE, xorBytes(content.getBytes()));
         } catch (Exception ignored) {}
     }
 
     public static String[] loadSession() {
         try {
             if (Files.exists(SESSION_FILE)) {
-                String[] parts = Files.readString(SESSION_FILE).split("\n");
+                String[] parts = new String(xorBytes(Files.readAllBytes(SESSION_FILE))).split("\n");
                 if (parts.length == 2) return parts;
             }
         } catch (Exception ignored) {}

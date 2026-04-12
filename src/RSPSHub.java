@@ -8,6 +8,9 @@ import javafx.animation.TranslateTransition;
 import javafx.geometry.Bounds;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.CycleMethod;
+import javafx.scene.paint.LinearGradient;
+import javafx.scene.paint.Stop;
 import javafx.stage.Popup;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -34,6 +37,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class RSPSHub extends Application {
@@ -111,17 +115,46 @@ public class RSPSHub extends Application {
 
     // Debounce flag — prevents stacked fade animations from multiple rapid updateDisplay() calls
     private boolean displayUpdatePending = false;
+    private double  savedHubScroll       = -1; // -1 = no restore pending
+
+    // ── Desktop shortcut (created on first run, avoids OneDrive install trigger) ──
+
+    private void createDesktopShortcutIfNeeded() {
+        if (!System.getProperty("os.name", "").toLowerCase().contains("windows")) return;
+        try {
+            String appDir = new java.io.File(
+                RSPSHub.class.getProtectionDomain().getCodeSource().getLocation().toURI()
+            ).getParentFile().getParent(); // go up from lib/ to install root
+            String exe  = appDir + "\\RSPS Hub.exe";
+            String ico  = appDir + "\\app_icon.ico";
+            String desktop = javax.swing.filechooser.FileSystemView.getFileSystemView()
+                .getHomeDirectory().getAbsolutePath();
+            String lnk = desktop + "\\RSPS Hub.lnk";
+            if (new java.io.File(lnk).exists()) return; // already created
+            if (!new java.io.File(exe).exists()) return; // not installed via installer
+            String ps = String.format(
+                "$ws=$([Runtime.InteropServices.Marshal]::GetActiveObject('WScript.Shell'));" +
+                "trap{$ws=New-Object -ComObject WScript.Shell};" +
+                "$s=$ws.CreateShortcut('%s');$s.TargetPath='%s';" +
+                "$s.IconLocation='%s,0';$s.Save()",
+                lnk, exe, ico);
+            new ProcessBuilder("powershell", "-NoProfile", "-WindowStyle", "Hidden",
+                "-ExecutionPolicy", "Bypass", "-Command", ps)
+                .start();
+        } catch (Exception ignored) {}
+    }
 
     // ── LIFECYCLE ────────────────────────────────────────────────────────────
 
     @Override
     public void start(Stage primaryStage) {
+        createDesktopShortcutIfNeeded();
         primaryStage.initStyle(StageStyle.TRANSPARENT);
         primaryStage.setTitle("RSPS Hub Launcher");
-        primaryStage.setWidth(1200);
-        primaryStage.setHeight(800);
-        primaryStage.setMinWidth(1050);
-        primaryStage.setMinHeight(600);
+        primaryStage.setWidth(1400);
+        primaryStage.setHeight(860);
+        primaryStage.setMinWidth(1200);
+        primaryStage.setMinHeight(650);
 
         // Attach resize support and maximize corner fix to every new scene
         primaryStage.sceneProperty().addListener((obs, old, scene) -> {
@@ -141,6 +174,7 @@ public class RSPSHub extends Application {
                 // showHub() will call init() → loadSettings() → writeAccentCss() with the real values.
                 LauncherEngine.hasCompletedOnboarding = true;
                 showHub(primaryStage);
+                checkForUpdateAsync(primaryStage);
             } else {
                 showLoginScreen(primaryStage);
             }
@@ -159,6 +193,7 @@ public class RSPSHub extends Application {
                 // Check if they've already done onboarding
                 if (LauncherEngine.hasCompletedOnboarding) {
                     showHub(stage);
+                    checkForUpdateAsync(stage);
                 } else {
                     // If not, show it, but make sure the finish button SAVES the state
                     stage.setScene(OnboardingScreen.create(stage, () -> {
@@ -166,6 +201,7 @@ public class RSPSHub extends Application {
                         LauncherEngine.saveSettings();                // CRITICAL: This writes to your PC
                         applyPreferredTagsOnNextLoad = true;
                         showHub(stage);
+                        checkForUpdateAsync(stage);
                     }));
                 }
             },
@@ -191,11 +227,19 @@ public class RSPSHub extends Application {
     }
 
     private void showDevPortal(Stage stage) {
+        DeveloperPortalScreen.onServerDeletedCallback = deletedId -> {
+            if (allServers != null) allServers.removeIf(s -> s.id == deletedId);
+            rebuildDisplay();
+        };
         stage.setScene(DeveloperPortalScreen.create(stage, () -> showSettings(stage)));
     }
 
     private void showServerDetail(Stage stage, ServerProfile server) {
-        Scene next = ServerDetailScreen.create(stage, server, () -> showHub(stage));
+        if (hubScrollPane != null) savedHubScroll = hubScrollPane.getVvalue();
+        Scene next = ServerDetailScreen.create(stage, server, () -> showHub(stage), () -> {
+            DeveloperPortalScreen.pendingEditServerName = server.name;
+            showDevPortal(stage);
+        });
         stage.setScene(next);
     }
 
@@ -621,6 +665,12 @@ public class RSPSHub extends Application {
     }
 
     private void rebuildDisplay() {
+        // Restore scroll position if navigating back from a detail page
+        if (savedHubScroll >= 0) {
+            final double target = savedHubScroll;
+            savedHubScroll = -1;
+            Platform.runLater(() -> Platform.runLater(() -> hubScrollPane.setVvalue(target)));
+        }
         serverGrid.getChildren().clear();
         serverGrid.setSpacing(20);
         serverGrid.setPadding(new Insets(30));
@@ -1489,6 +1539,51 @@ public class RSPSHub extends Application {
             ImageCache.load(cardBannerSrc, img -> {
                 iv.setImage(img); iv.setVisible(true); bannerLabel.setVisible(false);
             });
+        } else {
+            // Default RSPS Hub card banner
+            java.net.URL defRes = RSPSHub.class.getResource("default_card_banner.png");
+            if (defRes != null) {
+                ImageView iv = new ImageView(new javafx.scene.image.Image(defRes.toExternalForm()));
+                iv.setFitWidth(300); iv.setFitHeight(150);
+                iv.setPreserveRatio(false); iv.setSmooth(true);
+                bannerPane.getChildren().add(iv);
+                bannerLabel.setVisible(false);
+            }
+            // Shimmer sweep
+            javafx.scene.shape.Rectangle shimmer = new javafx.scene.shape.Rectangle(160, 150);
+            shimmer.setFill(new LinearGradient(0, 0, 1, 0, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.TRANSPARENT),
+                new Stop(0.35, Color.rgb(72, 149, 239, 0.04)),
+                new Stop(0.5,  Color.rgb(72, 149, 239, 0.10)),
+                new Stop(0.65, Color.rgb(72, 149, 239, 0.04)),
+                new Stop(1.0, Color.TRANSPARENT)
+            ));
+            shimmer.setMouseTransparent(true);
+            Timeline shimmerAnim = new Timeline(
+                new KeyFrame(Duration.ZERO,        new KeyValue(shimmer.translateXProperty(), -160)),
+                new KeyFrame(Duration.seconds(2.2), new KeyValue(shimmer.translateXProperty(), 460))
+            );
+            shimmerAnim.setCycleCount(Timeline.INDEFINITE);
+            shimmerAnim.play();
+            bannerPane.getChildren().add(shimmer);
+
+            // Blue left-edge pulse
+            javafx.scene.shape.Rectangle pulse = new javafx.scene.shape.Rectangle(80, 150);
+            pulse.setTranslateX(-40);
+            pulse.setFill(new LinearGradient(0, 0, 1, 0, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.TRANSPARENT),
+                new Stop(0.7, Color.rgb(72, 149, 239, 0.10)),
+                new Stop(1.0, Color.TRANSPARENT)
+            ));
+            pulse.setMouseTransparent(true);
+            Timeline pulseAnim = new Timeline(
+                new KeyFrame(Duration.ZERO,        new KeyValue(pulse.opacityProperty(), 0.3)),
+                new KeyFrame(Duration.seconds(1.6), new KeyValue(pulse.opacityProperty(), 1.0)),
+                new KeyFrame(Duration.seconds(3.2), new KeyValue(pulse.opacityProperty(), 0.3))
+            );
+            pulseAnim.setCycleCount(Timeline.INDEFINITE);
+            pulseAnim.play();
+            bannerPane.getChildren().add(pulse);
         }
 
         if (server.isNew) {
@@ -2204,6 +2299,16 @@ public class RSPSHub extends Application {
     // ── PLAY HANDLER ─────────────────────────────────────────────────────────
 
     private void launchAndTrack(ServerProfile server, Stage stage) {
+        int required = LauncherEngine.getRequiredJavaMajor(server);
+        int current  = LauncherEngine.getCurrentJavaMajor();
+        if (required > current && LauncherEngine.getManagedJavaExe(required - 44) == null) {
+            showRuntimeDownloadDialog(server, stage, required - 44);
+            return;
+        }
+        doLaunch(server, stage);
+    }
+
+    private void doLaunch(ServerProfile server, Stage stage) {
         if (LauncherEngine.minimizeOnLaunch) stage.setIconified(true);
         Process proc = LauncherEngine.launchGame(server);
         if (proc != null) {
@@ -2211,6 +2316,90 @@ public class RSPSHub extends Application {
             DiscordRPC.setActivity(server.name, startEpoch);
             beginSession(server.name, proc, stage);
         }
+    }
+
+    private void showRuntimeDownloadDialog(ServerProfile server, Stage parentStage, int javaVersion) {
+        boolean[] cancelled = {false};
+
+        Stage dlStage = new Stage();
+        dlStage.initModality(Modality.APPLICATION_MODAL);
+        dlStage.initOwner(parentStage);
+        dlStage.initStyle(StageStyle.UNDECORATED);
+
+        VBox root = new VBox(16);
+        root.setStyle("-fx-background-color: #1a1d24; -fx-border-color: #2a2e39; -fx-border-width: 1;");
+        root.setPadding(new Insets(28));
+        root.setMinWidth(420);
+        root.setMaxWidth(420);
+
+        Label header = new Label("Java " + javaVersion + " Runtime Required");
+        header.setStyle("-fx-text-fill: #e8eaf0; -fx-font-size: 16px; -fx-font-weight: bold;");
+
+        Label sub = new Label(server.name + " requires Java " + javaVersion + " to run.\n"
+            + "Downloading a managed runtime (~170 MB) from adoptium.net...\n"
+            + "This only happens once — it's stored in your RSPS Hub folder.");
+        sub.setStyle("-fx-text-fill: #9ba3b2; -fx-font-size: 12px;");
+        sub.setWrapText(true);
+
+        ProgressBar pb = new ProgressBar(0);
+        pb.setMaxWidth(Double.MAX_VALUE);
+        pb.setPrefHeight(8);
+
+        Label statusLabel = new Label("Connecting to adoptium.net...");
+        statusLabel.setStyle("-fx-text-fill: #555d6e; -fx-font-size: 11px;");
+
+        Button cancelBtn = new Button("Cancel");
+        cancelBtn.getStyleClass().add("dark-menu-btn");
+        cancelBtn.setOnAction(e -> { cancelled[0] = true; dlStage.close(); });
+
+        HBox btnRow = new HBox(cancelBtn);
+        btnRow.setAlignment(Pos.CENTER_RIGHT);
+
+        root.getChildren().addAll(header, sub, pb, statusLabel, btnRow);
+
+        // Allow dragging the undecorated window
+        double[] drag = {0, 0};
+        root.setOnMousePressed(e -> { drag[0] = e.getScreenX() - dlStage.getX(); drag[1] = e.getScreenY() - dlStage.getY(); });
+        root.setOnMouseDragged(e -> { dlStage.setX(e.getScreenX() - drag[0]); dlStage.setY(e.getScreenY() - drag[1]); });
+
+        Scene scene = new Scene(root);
+        scene.getStylesheets().addAll(LauncherEngine.getStylesheets(RSPSHub.class));
+        dlStage.setScene(scene);
+        dlStage.show();
+
+        java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+            try {
+                return LauncherEngine.downloadRuntime(javaVersion, progress -> Platform.runLater(() -> {
+                    pb.setProgress(progress);
+                    if (progress <= 0.01) {
+                        statusLabel.setText("Connecting to adoptium.net...");
+                    } else if (progress < 0.83) {
+                        statusLabel.setText("Downloading... " + (int)(progress / 0.82 * 100) + "%");
+                    } else if (progress < 0.97) {
+                        statusLabel.setText("Extracting runtime (this may take a moment)...");
+                    } else {
+                        statusLabel.setText("Installing...");
+                    }
+                }), cancelled);
+            } catch (Exception e) {
+                System.err.println("Runtime download failed: " + e.getMessage());
+                return null;
+            }
+        }).thenAccept(javaExe -> Platform.runLater(() -> {
+            dlStage.close();
+            if (!cancelled[0]) {
+                if (javaExe != null) {
+                    doLaunch(server, parentStage);
+                } else {
+                    Alert err = new Alert(Alert.AlertType.ERROR);
+                    err.setTitle("Download Failed");
+                    err.setHeaderText("Could not download Java " + javaVersion);
+                    err.setContentText("Check your internet connection and try again.\nYou can also install Java " + javaVersion + " manually from adoptium.net.");
+                    err.getDialogPane().getStylesheets().addAll(LauncherEngine.getStylesheets(RSPSHub.class));
+                    err.showAndWait();
+                }
+            }
+        }));
     }
 
     /**
@@ -2348,7 +2537,6 @@ public class RSPSHub extends Application {
                             refreshDownloadBadge();
                         });
                     }).start();
-                    updateDisplay();
                 });
             }).start();
 
@@ -2369,6 +2557,89 @@ public class RSPSHub extends Application {
         } else {
             launchAndTrack(server, stage);
         }
+    }
+
+    // ── Auto-update check ─────────────────────────────────────────────────────
+
+    private void checkForUpdateAsync(Stage stage) {
+        new Thread(() -> {
+            LauncherEngine.UpdateInfo info = LauncherEngine.checkForUpdate();
+            if (info == null) return;
+            final LauncherEngine.UpdateInfo updateInfo = info;
+            Platform.runLater(() -> showUpdateDialog(stage, updateInfo));
+        }, "update-check").start();
+    }
+
+    private void showUpdateDialog(Stage stage, LauncherEngine.UpdateInfo info) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.initOwner(stage);
+        alert.initModality(Modality.NONE);
+        alert.setTitle("Update Available");
+        alert.setHeaderText("Version " + info.version + " is available");
+        alert.setContentText("Update now to get the latest features and fixes." +
+            (info.notes != null && !info.notes.isEmpty() ? "\n\nWhat's new: " + info.notes : ""));
+
+        ButtonType updateBtn = new ButtonType("Update Now", ButtonBar.ButtonData.OK_DONE);
+        ButtonType laterBtn  = new ButtonType("Later",      ButtonBar.ButtonData.CANCEL_CLOSE);
+        alert.getButtonTypes().setAll(updateBtn, laterBtn);
+
+        DialogPane dp = alert.getDialogPane();
+        dp.setStyle(
+            "-fx-background-color: #1a1d24;" +
+            "-fx-border-color: #2a2e39;" +
+            "-fx-border-width: 1;" +
+            "-fx-border-radius: 8;" +
+            "-fx-background-radius: 8;"
+        );
+
+        // Apply lookups after scene is rendered
+        alert.setOnShown(e -> {
+            javafx.scene.Node hp = dp.lookup(".header-panel");
+            if (hp != null) hp.setStyle("-fx-background-color: #12141a; -fx-padding: 16 20;");
+
+            javafx.scene.Node hl = dp.lookup(".header-panel .label");
+            if (hl != null) hl.setStyle("-fx-text-fill: #e8eaf0; -fx-font-size: 14px; -fx-font-weight: bold;");
+
+            javafx.scene.Node cl = dp.lookup(".content.label");
+            if (cl != null) cl.setStyle("-fx-text-fill: #9ba3b2; -fx-font-size: 12px;");
+
+            // Style button bar background
+            javafx.scene.Node bb = dp.lookup(".button-bar");
+            if (bb != null) bb.setStyle("-fx-background-color: #12141a; -fx-padding: 12 16;");
+
+            // Style individual buttons
+            dp.lookupAll(".button").forEach(btn -> {
+                if (btn instanceof javafx.scene.control.Button b) {
+                    if (b.getText().equals("Update Now")) {
+                        b.setStyle(
+                            "-fx-background-color: " + LauncherEngine.accentColor + ";" +
+                            "-fx-text-fill: white;" +
+                            "-fx-font-weight: bold;" +
+                            "-fx-font-size: 12px;" +
+                            "-fx-background-radius: 6;" +
+                            "-fx-padding: 8 20;" +
+                            "-fx-cursor: hand;"
+                        );
+                    } else {
+                        b.setStyle(
+                            "-fx-background-color: #2a2e39;" +
+                            "-fx-text-fill: #9ba3b2;" +
+                            "-fx-font-size: 12px;" +
+                            "-fx-background-radius: 6;" +
+                            "-fx-padding: 8 20;" +
+                            "-fx-cursor: hand;"
+                        );
+                    }
+                }
+            });
+        });
+
+        alert.showAndWait().ifPresent(result -> {
+            if (result == updateBtn) {
+                new Thread(() -> LauncherEngine.downloadUpdateAndRestart(info.downloadUrl, this),
+                    "updater").start();
+            }
+        });
     }
 
     public static void main(String[] args) { launch(args); }

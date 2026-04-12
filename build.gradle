@@ -29,7 +29,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.google.code.gson:gson:2.2.4'
+    implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'org.apache.commons:commons-lang3:3.14.0'
     implementation 'com.google.guava:guava:33.2.0-jre'
     implementation 'net.java.dev.jna:jna:5.14.0'
@@ -58,7 +58,7 @@ task packageInstaller(type: Exec, dependsOn: installDist) {
     def jpackage = "${System.getenv('JAVA_HOME')}/bin/jpackage"
     def inputDir = "${buildDir}/install/RSPSHub/lib"
     def outputDir = "${buildDir}/installer"
-    def icon = "${projectDir}/src/icon.ico"
+    def icon = "${projectDir}/src/app_icon.ico"
 
     doFirst {
         delete outputDir
@@ -70,14 +70,10 @@ task packageInstaller(type: Exec, dependsOn: installDist) {
         '--dest',            outputDir,
         '--name',            'RSPS Hub',
         '--app-version',     version,
-        '--main-jar',        'RSPSHub-1.0.0.jar',
+        '--main-jar',        'rsps-hub-launcher-1.0.0.jar',
         '--main-class',      'main',
         '--icon',            icon,
-        '--type',            'exe',
-        '--win-shortcut',
-        '--win-menu',
-        '--win-dir-chooser',
-        '--win-shortcut-prompt',
+        '--type',            'app-image',
         '--java-options',    '--add-opens=javafx.graphics/com.sun.javafx.application=ALL-UNNAMED',
         '--java-options',    '--add-opens=javafx.base/com.sun.javafx.reflect=ALL-UNNAMED',
         '--vendor',          'RSPS Hub',

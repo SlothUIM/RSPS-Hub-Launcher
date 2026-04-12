@@ -18,7 +18,7 @@ import com.google.gson.reflect.TypeToken;
 
 public class ApiClient {
 
-    private static final String BASE = "http://api.therspshub.com/api/";
+    private static final String BASE = "https://api.therspshub.com/api/";
     private static final HttpClient http = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(10))
         .version(java.net.http.HttpClient.Version.HTTP_1_1)
@@ -285,6 +285,11 @@ public class ApiClient {
             .thenApply(obj -> !obj.has("error"));
     }
 
+    public static CompletableFuture<Boolean> deleteServer(int id) {
+        return fetch(post("servers/delete.php", Map.of("id", id)).build())
+            .thenApply(obj -> !obj.has("error"));
+    }
+
     public static CompletableFuture<Boolean> updateServer(int id, Map<String, Object> fields) {
         Map<String, Object> payload = new HashMap<>(fields);
         payload.put("id", id);
@@ -438,7 +443,7 @@ public class ApiClient {
     }
 
     public static String avatarUrl(String username) {
-        return "http://api.therspshub.com/uploads/avatars/" + username + ".jpg";
+        return "https://api.therspshub.com/uploads/avatars/" + username + ".jpg";
     }
 
     // -- internal utils --

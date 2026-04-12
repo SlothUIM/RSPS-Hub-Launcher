@@ -1,5 +1,8 @@
 import javafx.animation.FadeTransition;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
 import javafx.animation.PauseTransition;
+import javafx.animation.Timeline;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -10,6 +13,9 @@ import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.CycleMethod;
+import javafx.scene.paint.LinearGradient;
+import javafx.scene.paint.Stop;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
@@ -27,6 +33,10 @@ import java.util.regex.Pattern;
 public class ServerDetailScreen {
 
     public static Scene create(Stage stage, ServerProfile server, Runnable onBack) {
+        return create(stage, server, onBack, null);
+    }
+
+    public static Scene create(Stage stage, ServerProfile server, Runnable onBack, Runnable onEditServer) {
         BorderPane root = new BorderPane();
         root.getStyleClass().add("root-pane");
 
@@ -41,6 +51,31 @@ public class ServerDetailScreen {
         backBtn.setOnAction(e -> onBack.run());
 
         topBar.getChildren().add(backBtn);
+
+        // Staff-only Edit Server button — navigates directly to dev portal with this server pre-selected
+        if (LauncherEngine.isStaff && onEditServer != null) {
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+            Button editBtn = new Button("✏  Edit Server");
+            editBtn.setStyle(
+                "-fx-background-color: rgba(255,152,31,0.15); -fx-border-color: rgba(255,152,31,0.5);" +
+                "-fx-border-width: 1; -fx-border-radius: 6; -fx-background-radius: 6;" +
+                "-fx-text-fill: #ff981f; -fx-font-size: 12px; -fx-cursor: hand; -fx-padding: 6 14;"
+            );
+            editBtn.setOnMouseEntered(e -> editBtn.setStyle(
+                "-fx-background-color: rgba(255,152,31,0.25); -fx-border-color: #ff981f;" +
+                "-fx-border-width: 1; -fx-border-radius: 6; -fx-background-radius: 6;" +
+                "-fx-text-fill: #ff981f; -fx-font-size: 12px; -fx-cursor: hand; -fx-padding: 6 14;"
+            ));
+            editBtn.setOnMouseExited(e -> editBtn.setStyle(
+                "-fx-background-color: rgba(255,152,31,0.15); -fx-border-color: rgba(255,152,31,0.5);" +
+                "-fx-border-width: 1; -fx-border-radius: 6; -fx-background-radius: 6;" +
+                "-fx-text-fill: #ff981f; -fx-font-size: 12px; -fx-cursor: hand; -fx-padding: 6 14;"
+            ));
+            editBtn.setOnAction(e -> onEditServer.run());
+            topBar.getChildren().addAll(spacer, editBtn);
+        }
+
         root.setTop(new VBox(TitleBar.create(stage), topBar));
 
         // --- SCROLLABLE CONTENT ---
@@ -83,6 +118,7 @@ public class ServerDetailScreen {
         hero.setClip(heroClip);
 
         // Banner — fills full width, loaded via disk cache
+        // Falls back to the embedded RSPS Hub placeholder with animations
         if (server.bannerUrl != null && !server.bannerUrl.isEmpty()) {
             ImageView bannerImg = new ImageView();
             bannerImg.setPreserveRatio(false);
@@ -91,6 +127,53 @@ public class ServerDetailScreen {
             bannerImg.setSmooth(true);
             hero.getChildren().add(bannerImg);
             ImageCache.load(server.bannerUrl, img -> bannerImg.setImage(img));
+        } else {
+            // Default RSPS Hub placeholder banner
+            java.net.URL defaultRes = ServerDetailScreen.class.getResource("default_banner.png");
+            if (defaultRes != null) {
+                ImageView bannerImg = new ImageView(new Image(defaultRes.toExternalForm()));
+                bannerImg.setPreserveRatio(false);
+                bannerImg.setFitHeight(HERO_H);
+                bannerImg.fitWidthProperty().bind(hero.widthProperty());
+                bannerImg.setSmooth(true);
+                hero.getChildren().add(bannerImg);
+            }
+
+            // ── Animation 1: shimmer scan line sweeping left → right ──────────
+            Rectangle shimmer = new Rectangle(380, HERO_H);
+            shimmer.setFill(new LinearGradient(0, 0, 1, 0, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.TRANSPARENT),
+                new Stop(0.35, Color.rgb(255, 255, 255, 0.03)),
+                new Stop(0.5,  Color.rgb(255, 255, 255, 0.09)),
+                new Stop(0.65, Color.rgb(255, 255, 255, 0.03)),
+                new Stop(1.0, Color.TRANSPARENT)
+            ));
+            shimmer.setMouseTransparent(true);
+            Timeline shimmerAnim = new Timeline(
+                new KeyFrame(Duration.ZERO,        new KeyValue(shimmer.translateXProperty(), -380)),
+                new KeyFrame(Duration.seconds(2.8), new KeyValue(shimmer.translateXProperty(), 1800))
+            );
+            shimmerAnim.setCycleCount(Timeline.INDEFINITE);
+            shimmerAnim.play();
+            hero.getChildren().add(shimmer);
+
+            // ── Animation 2: orange left glow pulsing ─────────────────────────
+            Rectangle accentPulse = new Rectangle(180, HERO_H);
+            accentPulse.setTranslateX(-90);
+            accentPulse.setFill(new LinearGradient(0, 0, 1, 0, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.TRANSPARENT),
+                new Stop(0.6, Color.rgb(72, 149, 239, 0.14)),
+                new Stop(1.0, Color.TRANSPARENT)
+            ));
+            accentPulse.setMouseTransparent(true);
+            Timeline pulseAnim = new Timeline(
+                new KeyFrame(Duration.ZERO,        new KeyValue(accentPulse.opacityProperty(), 0.4)),
+                new KeyFrame(Duration.seconds(1.8), new KeyValue(accentPulse.opacityProperty(), 1.0)),
+                new KeyFrame(Duration.seconds(3.6), new KeyValue(accentPulse.opacityProperty(), 0.4))
+            );
+            pulseAnim.setCycleCount(Timeline.INDEFINITE);
+            pulseAnim.play();
+            hero.getChildren().add(accentPulse);
         }
 
         // Gradient fade at the bottom

@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RSPS Hub — One Launcher. Every RSPS.</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    :root {
+      --bg:        #080a0f;
+      --surface:   #0f1218;
+      --card:      #131720;
+      --border:    #1e2433;
+      --accent:    #4895ef;
+      --accent-glow: rgba(72, 149, 239, 0.15);
+      --accent-glow-strong: rgba(72, 149, 239, 0.25);
+      --text:      #e8eaf0;
+      --text-muted: #7a8499;
+      --text-dim:  #4a5268;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── DOT GRID ────────────────────────────────────────── */
+    .dot-grid {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background-image: radial-gradient(circle, rgba(72,149,239,0.12) 1px, transparent 1px);
+      background-size: 28px 28px;
+      opacity: 0.5;
+    }
+
+    /* ── NAV ─────────────────────────────────────────────── */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 0 40px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid transparent;
+      transition: background 0.3s ease, border-color 0.3s ease, backdrop-filter 0.3s ease;
+    }
+
+    nav.scrolled {
+      background: rgba(8, 10, 15, 0.92);
+      border-bottom-color: var(--border);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+
+    .nav-monogram {
+      width: 34px;
+      height: 34px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 14px;
+      color: #fff;
+      letter-spacing: -0.5px;
+      box-shadow: 0 0 16px rgba(72,149,239,0.4);
+    }
+
+    .nav-wordmark {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .nav-links a {
+      text-decoration: none;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover {
+      color: var(--text);
+    }
+
+    .nav-cta {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .nav-cta:hover {
+      background: #5ea5f7;
+      box-shadow: 0 0 20px rgba(72,149,239,0.45);
+      transform: translateY(-1px);
+    }
+
+    /* ── HERO ─────────────────────────────────────────────── */
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding: 100px 80px 80px;
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    .hero-glow {
+      position: absolute;
+      top: 10%;
+      right: -5%;
+      width: 700px;
+      height: 700px;
+      background: radial-gradient(circle, rgba(72,149,239,0.18) 0%, transparent 70%);
+      border-radius: 50%;
+      filter: blur(60px);
+      animation: float 8s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    .hero-glow-2 {
+      position: absolute;
+      bottom: -10%;
+      right: 20%;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(72,149,239,0.08) 0%, transparent 70%);
+      border-radius: 50%;
+      filter: blur(80px);
+      animation: float 11s ease-in-out infinite reverse;
+      pointer-events: none;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) scale(1); }
+      33%       { transform: translateY(-24px) scale(1.03); }
+      66%       { transform: translateY(12px) scale(0.97); }
+    }
+
+    .hero-content {
+      flex: 1;
+      max-width: 560px;
+      z-index: 2;
+      position: relative;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(72,149,239,0.1);
+      border: 1px solid rgba(72,149,239,0.25);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 100px;
+      margin-bottom: 24px;
+      letter-spacing: 0.2px;
+    }
+
+    .hero-badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.7); }
+    }
+
+    .hero-headline {
+      font-size: clamp(48px, 5.5vw, 72px);
+      font-weight: 800;
+      line-height: 1.07;
+      letter-spacing: -2.5px;
+      margin-bottom: 20px;
+    }
+
+    .hero-headline .line-blue {
+      color: var(--accent);
+      display: block;
+    }
+
+    .hero-sub {
+      font-size: 16px;
+      color: var(--text-muted);
+      line-height: 1.7;
+      margin-bottom: 36px;
+      max-width: 440px;
+      font-weight: 400;
+    }
+
+    .hero-sub strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      padding: 13px 24px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+    }
+
+    .btn-primary:hover {
+      background: #5ea5f7;
+      box-shadow: 0 0 28px rgba(72,149,239,0.5);
+      transform: translateY(-2px);
+    }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      color: var(--text);
+      text-decoration: none;
+      padding: 13px 24px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, background 0.2s, transform 0.15s;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(72,149,239,0.05);
+      transform: translateY(-2px);
+    }
+
+    /* ── MOCK LAUNCHER UI ─────────────────────────────────── */
+    .hero-ui {
+      flex: 0 0 auto;
+      width: 580px;
+      z-index: 2;
+      position: relative;
+      margin-left: 40px;
+    }
+
+    .mock-launcher {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow:
+        0 32px 80px rgba(0,0,0,0.6),
+        0 0 0 1px rgba(72,149,239,0.08),
+        inset 0 1px 0 rgba(255,255,255,0.03);
+    }
+
+    .mock-server-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+    }
+
+    .mock-server-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .mock-server-name {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mock-server-meta {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 1px;
+    }
+
+    .mock-play-btn {
+      width: 26px;
+      height: 26px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .mock-xp-bar {
+      height: 2px;
+      background: var(--border);
+      border-radius: 1px;
+      margin-top: 3px;
+    }
+
+    .mock-xp-fill {
+      height: 100%;
+      border-radius: 1px;
+      background: var(--accent);
+    }
+
+    .mock-online-tag {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(40,200,64,0.12);
+      color: #28c840;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    /* ── MOCK STORE VIEW ─────────────────────────────────── */
+    .mock-titlebar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 12px;
+      background: #0d0f14;
+      border-bottom: 1px solid var(--border);
+    }
+    .mock-wintitle-dots {
+      display: flex;
+      gap: 5px;
+    }
+    .mock-wdot {
+      width: 10px; height: 10px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .mock-navbar {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      background: #111318;
+      border-bottom: 1px solid var(--border);
+      padding: 0 12px;
+    }
+    .mock-nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-right: 18px;
+      padding: 8px 0;
+    }
+    .mock-nav-monogram {
+      width: 22px; height: 22px;
+      border-radius: 5px;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 8px; font-weight: 800; color: #fff;
+    }
+    .mock-nav-brand {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.6px;
+      color: var(--text);
+    }
+    .mock-nav-tabs {
+      display: flex;
+      gap: 0;
+      flex: 1;
+    }
+    .mock-nav-tab {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+      padding: 10px 11px;
+      cursor: default;
+      position: relative;
+    }
+    .mock-nav-tab.active {
+      color: var(--accent);
+    }
+    .mock-nav-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--accent);
+      border-radius: 1px 1px 0 0;
+    }
+    .mock-nav-user {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-left: auto;
+    }
+    .mock-nav-avatar {
+      width: 20px; height: 20px;
+      border-radius: 4px;
+      background: #1e2230;
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 7px; font-weight: 700; color: var(--accent);
+    }
+    .mock-nav-username {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+    .mock-store-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 12px 6px;
+      background: var(--surface);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .mock-store-search {
+      flex: 1;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-size: 9.5px;
+      color: var(--text-dim);
+    }
+    .mock-store-sortbtn {
+      font-size: 9px;
+      color: var(--text-dim);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 5px 8px;
+      white-space: nowrap;
+    }
+    .mock-filter-row {
+      display: flex;
+      gap: 5px;
+      padding: 6px 12px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .mock-filter-chip {
+      font-size: 8.5px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      cursor: default;
+      white-space: nowrap;
+    }
+    .mock-filter-chip.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .mock-store-list {
+      overflow-y: auto;
+      max-height: 280px;
+      background: var(--bg);
+    }
+    .mock-store-card {
+      display: flex;
+      align-items: stretch;
+      border-bottom: 1px solid var(--border);
+      cursor: default;
+      transition: background 0.15s;
+    }
+    .mock-store-card:hover {
+      background: rgba(255,255,255,0.02);
+    }
+    .mock-store-banner {
+      width: 160px;
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .mock-store-banner img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      animation: card-pulse 3s ease-in-out infinite;
+    }
+    .mock-store-banner::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(105deg,
+        transparent 30%,
+        rgba(72,149,239,0.18) 50%,
+        transparent 70%);
+      background-size: 200% 100%;
+      animation: card-shimmer 2.8s linear infinite;
+      pointer-events: none;
+    }
+    @keyframes card-shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    @keyframes card-pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.82; }
+    }
+    .mock-store-info {
+      flex: 1;
+      padding: 10px 10px;
+      min-width: 0;
+    }
+    .mock-store-name {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+    .mock-store-desc {
+      font-size: 9px;
+      color: var(--text-dim);
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+    .mock-store-tags {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .mock-tag {
+      font-size: 7.5px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      padding: 2px 5px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+    .mock-store-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 10px 12px;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .mock-store-online {
+      font-size: 8.5px;
+      color: #28c840;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .mock-online-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: #28c840;
+      display: inline-block;
+    }
+    .mock-store-play {
+      background: var(--accent);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      padding: 6px 14px;
+      border-radius: 5px;
+    }
+
+    /* ── STATS STRIP ─────────────────────────────────────── */
+    .stats-strip {
+      position: relative;
+      z-index: 1;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      padding: 0 80px;
+    }
+
+    .stats-inner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 0;
+    }
+
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 18px 32px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .stat-item .stat-icon {
+      font-size: 15px;
+    }
+
+    .stat-sep {
+      color: var(--border);
+      font-size: 18px;
+      user-select: none;
+    }
+
+    /* ── SECTION WRAPPER ─────────────────────────────────── */
+    section {
+      position: relative;
+      z-index: 1;
+    }
+
+    .section-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 40px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: clamp(28px, 3vw, 40px);
+      font-weight: 800;
+      letter-spacing: -1.2px;
+      line-height: 1.12;
+      margin-bottom: 14px;
+    }
+
+    .section-sub {
+      font-size: 15px;
+      color: var(--text-muted);
+      max-width: 480px;
+      line-height: 1.65;
+    }
+
+    /* ── FADE-IN ─────────────────────────────────────────── */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 0.65s ease, transform 0.65s ease;
+    }
+
+    .fade-in.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── FEATURES ────────────────────────────────────────── */
+    #features {
+      padding: 100px 0;
+    }
+
+    .features-header {
+      margin-bottom: 52px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 16px;
+    }
+
+    .feature-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+      cursor: default;
+    }
+
+    .feature-card:hover {
+      border-color: rgba(72,149,239,0.35);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(72,149,239,0.08);
+    }
+
+    .feature-card.large {
+      grid-row: 1 / 3;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .feature-right {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      grid-column: 2;
+      grid-row: 1 / 3;
+    }
+
+    .feature-right .feature-card {
+      height: 100%;
+    }
+
+    .feature-emoji {
+      font-size: 26px;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .feature-name {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .feature-desc {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+
+    .feature-card.large .feature-name {
+      font-size: 22px;
+      letter-spacing: -0.6px;
+      margin-bottom: 12px;
+    }
+
+    .feature-card.large .feature-desc {
+      font-size: 14.5px;
+    }
+
+    .feature-card.large .feature-emoji {
+      font-size: 36px;
+      margin-bottom: 20px;
+    }
+
+    /* Mock mini-library inside large card */
+    .feature-library-mock {
+      margin-top: auto;
+      padding-top: 24px;
+    }
+
+    .lib-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 6px;
+    }
+
+    .lib-row:last-child { margin-bottom: 0; }
+
+    .lib-dot {
+      width: 3px;
+      height: 24px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .lib-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      flex: 1;
+    }
+
+    .lib-tag {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-weight: 600;
+    }
+
+    /* ── HOW IT WORKS ─────────────────────────────────────── */
+    #how {
+      padding: 100px 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .steps {
+      display: flex;
+      align-items: flex-start;
+      gap: 0;
+      margin-top: 60px;
+      position: relative;
+    }
+
+    .steps::before {
+      content: '';
+      position: absolute;
+      top: 28px;
+      left: calc(100% / 6);
+      right: calc(100% / 6);
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), var(--accent), var(--border), transparent);
+    }
+
+    .step {
+      flex: 1;
+      text-align: center;
+      padding: 0 24px;
+      position: relative;
+    }
+
+    .step-num {
+      width: 56px;
+      height: 56px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 19px;
+      font-weight: 800;
+      color: var(--accent);
+      margin: 0 auto 20px;
+      position: relative;
+      z-index: 1;
+      box-shadow: 0 0 0 4px var(--surface), 0 0 20px rgba(72,149,239,0.2);
+    }
+
+    .step-title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      margin-bottom: 8px;
+    }
+
+    .step-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* ── NOT JUST A LAUNCHER ─────────────────────────────── */
+    #story {
+      padding: 100px 0;
+    }
+
+    .story-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: center;
+    }
+
+    .story-quote {
+      position: relative;
+    }
+
+
+    .story-text {
+      font-size: 19px;
+      font-weight: 500;
+      line-height: 1.65;
+      color: var(--text);
+      letter-spacing: -0.3px;
+      padding-top: 10px;
+    }
+
+    .story-text em {
+      font-style: normal;
+      color: var(--accent);
+    }
+
+    .story-attr {
+      margin-top: 20px;
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .story-attr span {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .story-checks {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .story-checks li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .check-icon {
+      width: 20px;
+      height: 20px;
+      background: rgba(72,149,239,0.12);
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1px;
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .story-checks li strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* ── DOWNLOAD CTA ─────────────────────────────────────── */
+    #download {
+      padding: 110px 0;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-glow {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px;
+      height: 400px;
+      background: radial-gradient(ellipse, rgba(72,149,239,0.12) 0%, transparent 70%);
+      pointer-events: none;
+      filter: blur(40px);
+    }
+
+    #download .section-inner {
+      position: relative;
+      z-index: 1;
+    }
+
+    .cta-headline {
+      font-size: clamp(36px, 4.5vw, 58px);
+      font-weight: 800;
+      letter-spacing: -2px;
+      line-height: 1.08;
+      margin-bottom: 14px;
+    }
+
+    .cta-sub {
+      font-size: 16px;
+      color: var(--text-muted);
+      margin-bottom: 40px;
+    }
+
+    /* Shimmer button */
+    .btn-shimmer {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      padding: 16px 36px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+      transition: box-shadow 0.2s, transform 0.15s;
+    }
+
+    .btn-shimmer::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 60%;
+      height: 100%;
+      background: linear-gradient(
+        105deg,
+        transparent 30%,
+        rgba(255,255,255,0.25) 50%,
+        transparent 70%
+      );
+      animation: shimmer 2.6s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      0%   { left: -80%; }
+      60%  { left: 130%; }
+      100% { left: 130%; }
+    }
+
+    .btn-shimmer:hover {
+      box-shadow: 0 0 40px rgba(72,149,239,0.55), 0 8px 32px rgba(72,149,239,0.3);
+      transform: translateY(-2px);
+    }
+
+    .cta-note {
+      margin-top: 18px;
+      font-size: 12px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+    }
+
+    .cta-note .dot {
+      width: 3px;
+      height: 3px;
+      background: var(--text-dim);
+      border-radius: 50%;
+    }
+
+    /* ── FOOTER ──────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+      padding: 32px 80px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      z-index: 1;
+    }
+
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .footer-logo .nav-monogram {
+      width: 28px;
+      height: 28px;
+      font-size: 11px;
+    }
+
+    .footer-wordmark {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .footer-right {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 20px;
+      list-style: none;
+    }
+
+    .footer-links a {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover {
+      color: var(--text);
+    }
+
+    .footer-copy {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    /* ── MISC UTILITIES ──────────────────────────────────── */
+    .accent { color: var(--accent); }
+
+    /* scroll-delay stagger */
+    .fade-in:nth-child(1) { transition-delay: 0ms; }
+    .fade-in:nth-child(2) { transition-delay: 80ms; }
+    .fade-in:nth-child(3) { transition-delay: 160ms; }
+    .fade-in:nth-child(4) { transition-delay: 240ms; }
+    .fade-in:nth-child(5) { transition-delay: 320ms; }
+  </style>
+</head>
+<body>
+
+  <div class="dot-grid" aria-hidden="true"></div>
+
+  <!-- ── NAV ───────────────────────────────────────────────── -->
+  <nav id="nav">
+    <a href="#" class="nav-logo">
+      <div class="nav-monogram">RH</div>
+      <span class="nav-wordmark">RSPS Hub</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#servers">Servers</a></li>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#download">Download</a></li>
+    </ul>
+    <a href="#download" class="nav-cta">Download Free</a>
+  </nav>
+
+  <!-- ── HERO ──────────────────────────────────────────────── -->
+  <section class="hero" id="home">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="hero-glow-2" aria-hidden="true"></div>
+
+    <div class="hero-content">
+      <div class="hero-badge">Open Beta — Free to use</div>
+      <h1 class="hero-headline">
+        One launcher.<br>
+        <span class="line-blue">Every RSPS.</span>
+      </h1>
+      <p class="hero-sub">
+        No more hunting down JAR files. No more six browser tabs and four conflicting Java installs.
+        RSPS Hub handles it all: Playtime tracking, auto-patching, Java detection,
+        and a server library that actually knows RuneLite from a bootstrapper.
+      </p>
+      <div class="hero-buttons">
+        <a href="https://therspshub.com/downloads/RSPSHub-Setup-latest.exe" class="btn-primary">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M7 1v8M3 6l4 4 4-4M2 11h10" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Download for Windows
+        </a>
+        <a href="#features" class="btn-ghost">View Servers →</a>
+      </div>
+    </div>
+
+    <div class="hero-ui" aria-label="Launcher UI preview" id="servers">
+      <div class="mock-launcher">
+        <!-- Title bar -->
+        <div class="mock-titlebar">
+          <span class="mock-titlebar-text" style="letter-spacing:0.8px; font-weight:700; color:var(--text); font-size:11px;">RSPS HUB</span>
+          <div class="mock-wintitle-dots">
+            <div class="mock-wdot"></div>
+            <div class="mock-wdot"></div>
+            <div class="mock-wdot"></div>
+          </div>
+        </div>
+        <!-- Nav bar -->
+        <div class="mock-navbar">
+          <div class="mock-nav-logo">
+            <span class="mock-nav-brand">RSPS HUB</span>
+          </div>
+          <div class="mock-nav-tabs">
+            <div class="mock-nav-tab active">STORE</div>
+            <div class="mock-nav-tab">LIBRARY</div>
+            <div class="mock-nav-tab">FRIENDS</div>
+            <div class="mock-nav-tab">STATS</div>
+            <div class="mock-nav-tab">LEADERBOARD</div>
+          </div>
+          <div class="mock-nav-user">
+            <div class="mock-nav-avatar">RH</div>
+            <span class="mock-nav-username">RSPS Hub</span>
+          </div>
+        </div>
+        <!-- Search + filter row -->
+        <div class="mock-store-toolbar">
+          <div class="mock-store-search">Search for a server…</div>
+          <div class="mock-store-sortbtn">Sort by: Name A–Z ▾</div>
+        </div>
+        <div class="mock-filter-row">
+          <div class="mock-filter-chip active">All</div>
+          <div class="mock-filter-chip">PvP</div>
+          <div class="mock-filter-chip">Economy</div>
+          <div class="mock-filter-chip">OSRS</div>
+          <div class="mock-filter-chip">Hardcore</div>
+          <div class="mock-filter-chip">Ironman</div>
+          <div class="mock-filter-chip">Skilling</div>
+        </div>
+        <!-- Store server cards -->
+        <div class="mock-store-list">
+
+          <!-- Elvarg -->
+          <div class="mock-store-card">
+            <div class="mock-store-banner" style="padding:0;overflow:hidden;">
+              <img src="/default_card_banner.png" style="width:100%;height:100%;object-fit:cover;display:block;" alt="">
+            </div>
+            <div class="mock-store-info">
+              <div class="mock-store-name">Elvarg</div>
+              <div class="mock-store-desc">A classic combat-focused RSPS. PvP-heavy with old-school mechanics and a tight-knit community that's been around for years.</div>
+              <div class="mock-store-tags">
+                <span class="mock-tag">PVP</span>
+                <span class="mock-tag">OSRS</span>
+                <span class="mock-tag">PVM</span>
+              </div>
+            </div>
+            <div class="mock-store-right">
+              <div class="mock-store-online"><span class="mock-online-dot"></span> 142 Online</div>
+              <div class="mock-store-play">PLAY</div>
+            </div>
+          </div>
+
+          <!-- Alora -->
+          <div class="mock-store-card">
+            <div class="mock-store-banner" style="padding:0;overflow:hidden;">
+              <img src="/default_card_banner.png" style="width:100%;height:100%;object-fit:cover;display:block;" alt="">
+            </div>
+            <div class="mock-store-info">
+              <div class="mock-store-name">Alora</div>
+              <div class="mock-store-desc">Consistently ranked among the top OSRS private servers. Genuine OSRS accuracy with Tombs of Amascut, Theatre of Blood and more.</div>
+              <div class="mock-store-tags">
+                <span class="mock-tag">OSRS</span>
+                <span class="mock-tag">IRONMAN</span>
+                <span class="mock-tag">PVM</span>
+                <span class="mock-tag">RUNELITE</span>
+              </div>
+            </div>
+            <div class="mock-store-right">
+              <div class="mock-store-online"><span class="mock-online-dot"></span> 89 Online</div>
+              <div class="mock-store-play">PLAY</div>
+            </div>
+          </div>
+
+          <!-- Runewild -->
+          <div class="mock-store-card">
+            <div class="mock-store-banner" style="padding:0;overflow:hidden;">
+              <img src="/default_card_banner.png" style="width:100%;height:100%;object-fit:cover;display:block;" alt="">
+            </div>
+            <div class="mock-store-info">
+              <div class="mock-store-name">Runewild</div>
+              <div class="mock-store-desc">Wilderness-focused PvP server. High skull odds, deep edge mechanics, and an economy built around the risk of the wild.</div>
+              <div class="mock-store-tags">
+                <span class="mock-tag">PVP</span>
+                <span class="mock-tag">ECONOMY</span>
+                <span class="mock-tag">WILDERNESS</span>
+              </div>
+            </div>
+            <div class="mock-store-right">
+              <div class="mock-store-online"><span class="mock-online-dot"></span> 61 Online</div>
+              <div class="mock-store-play">PLAY</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── STATS STRIP ────────────────────────────────────────── -->
+  <div class="stats-strip" role="complementary" aria-label="Quick stats">
+    <div class="stats-inner">
+      <div class="stat-item"><span class="stat-icon">🗂</span> 50+ Servers</div>
+      <span class="stat-sep">·</span>
+      <div class="stat-item"><span class="stat-icon">☕</span> Java Auto-detection</div>
+      <span class="stat-sep">·</span>
+      <div class="stat-item"><span class="stat-icon">📊</span> Playtime Tracking</div>
+      <span class="stat-sep">·</span>
+      <div class="stat-item"><span class="stat-icon">💸</span> Free Forever</div>
+      <span class="stat-sep">·</span>
+      <div class="stat-item"><span class="stat-icon">🎮</span> Discord RPC</div>
+    </div>
+  </div>
+
+  <!-- ── FEATURES ───────────────────────────────────────────── -->
+  <section id="features">
+    <div class="section-inner">
+      <div class="features-header fade-in">
+        <p class="section-label">Features</p>
+        <h2 class="section-title">Built for people who actually play RSPS</h2>
+        <p class="section-sub">We didn't reinvent the wheel. We just got tired of losing it every time a server updated their client.</p>
+      </div>
+
+      <div class="features-grid">
+        <!-- Large card -->
+        <div class="feature-card large fade-in">
+          <span class="feature-emoji">🗂</span>
+          <div class="feature-name">Server Library</div>
+          <p class="feature-desc">
+            Browse, install, and launch from 50+ RSPS without leaving the app.
+            Every server gets its own profile — custom notes, launch args, Java version.
+            Think Steam but without the bloat, the sales, or the 14GB shader cache.
+            <br><br>
+            You click play. We handle the rest.
+          </p>
+          <div class="feature-library-mock" aria-hidden="true">
+            <div class="lib-row">
+              <div class="lib-dot" style="background:#e06c75;"></div>
+              <span class="lib-name">Elvarg</span>
+              <span class="lib-tag" style="background:rgba(40,200,64,0.1);color:#28c840;">Installed</span>
+            </div>
+            <div class="lib-row">
+              <div class="lib-dot" style="background:#4895ef;"></div>
+              <span class="lib-name">Vanguard RSPS</span>
+              <span class="lib-tag" style="background:rgba(72,149,239,0.1);color:#4895ef;">Update ready</span>
+            </div>
+            <div class="lib-row">
+              <div class="lib-dot" style="background:#c678dd;"></div>
+              <span class="lib-name">Alora</span>
+              <span class="lib-tag" style="background:rgba(122,132,153,0.1);color:#7a8499;">Not installed</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right 2x2 grid -->
+        <div class="feature-right">
+          <div class="feature-card fade-in">
+            <span class="feature-emoji">⚡</span>
+            <div class="feature-name">Smart Java</div>
+            <p class="feature-desc">Knows when a server needs Java 8 vs 17. Downloads it silently, uses it once, doesn't pollute your PATH. Knows RuneLite from a bootstrapper and handles both.</p>
+          </div>
+
+          <div class="feature-card fade-in">
+            <span class="feature-emoji">📊</span>
+            <div class="feature-name">Playtime XP</div>
+            <p class="feature-desc">Every hour you play levels up that server — 1 to 99, just like RS skills. 1000 hours to max. It's stupid and we love it.</p>
+          </div>
+
+          <div class="feature-card fade-in">
+            <span class="feature-emoji">👥</span>
+            <div class="feature-name">Friends</div>
+            <p class="feature-desc">See what your mates are playing right now. No accounts required on their end — just the launcher.</p>
+          </div>
+
+          <div class="feature-card fade-in">
+            <span class="feature-emoji">🎮</span>
+            <div class="feature-name">Discord RPC</div>
+            <p class="feature-desc">Shows your current server in your Discord status. "Playing Elvarg · 4h 22m" — flex on the normies in your gaming server.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── HOW IT WORKS ───────────────────────────────────────── -->
+  <section id="how">
+    <div class="section-inner">
+      <div class="fade-in" style="text-align:center; margin-bottom: 0;">
+        <p class="section-label" style="text-align:center;">How it works</p>
+        <h2 class="section-title" style="text-align:center;">Three steps. Seriously.</h2>
+      </div>
+
+      <div class="steps" role="list">
+        <div class="step fade-in" role="listitem">
+          <div class="step-num">1</div>
+          <div class="step-title">Download the launcher</div>
+          <p class="step-desc">One .exe. Installs in under 30 seconds. No Visual C++ redistributable hellscape, no admin prompt, no bloatware.</p>
+        </div>
+        <div class="step fade-in" role="listitem">
+          <div class="step-num">2</div>
+          <div class="step-title">Browse &amp; install servers</div>
+          <p class="step-desc">Pick any server from the library. Hit install. RSPS Hub pulls the client, finds the right Java, configures launch args. You watch.</p>
+        </div>
+        <div class="step fade-in" role="listitem">
+          <div class="step-num">3</div>
+          <div class="step-title">Just play</div>
+          <p class="step-desc">Hit Play. Client opens. Playtime clock starts. Discord RPC kicks in. You're in. That's it. That's the whole thing.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── NOT JUST A LAUNCHER ───────────────────────────────── -->
+  <section id="story">
+    <div class="section-inner">
+      <div class="story-grid fade-in">
+        <div class="story-quote">
+          <p class="story-text">
+            We got sick of <em>six browser tabs</em>, four different JARs, and
+            zero idea how many hours we'd actually sunk into each server.
+            Tried Alt+Tab to check our bookmarks. Forgot which Java version
+            that server needed. Again. So we built this.
+          </p>
+        </div>
+        <ul class="story-checks">
+          <li>
+            <span class="check-icon">✓</span>
+            <span><strong>Free to register</strong> — quick sign-up to get started.</span>
+          </li>
+          <li>
+            <span class="check-icon">✓</span>
+            <span><strong>Auto-updates silently.</strong> Client patches, new server versions — handled in the background.</span>
+          </li>
+          <li>
+            <span class="check-icon">✓</span>
+            <span><strong>Minimises to tray</strong> when you launch a game. Out of your way, still tracking time.</span>
+          </li>
+          <li>
+            <span class="check-icon">✓</span>
+            <span><strong>Custom accent colours</strong> and full dark theme. It's your launcher, look how you want.</span>
+          </li>
+          <li>
+            <span class="check-icon">✓</span>
+            <span><strong>Open Beta.</strong> Bugs will exist. Tell us on Discord and we'll fix them properly, not with a hotfix at midnight.</span>
+          </li>
+          <li>
+            <span class="check-icon">✓</span>
+            <span><strong>Free forever.</strong> No subscriptions, no premium tier, no "Plus" features behind a paywall.</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── DOWNLOAD CTA ───────────────────────────────────────── -->
+  <section id="download" style="padding: 110px 0;">
+    <div class="cta-glow" aria-hidden="true"></div>
+    <div class="section-inner" style="text-align:center; position:relative; z-index:1;">
+      <div class="fade-in">
+        <p class="section-label" style="text-align:center; margin-bottom:16px;">Ready?</p>
+        <h2 class="cta-headline">Ready to play?</h2>
+        <p class="cta-sub">One download. Every server. Zero faff.</p>
+        <a href="https://therspshub.com/downloads/RSPSHub-Setup-latest.exe" class="btn-shimmer">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M8 2v9M4 8l4 4 4-4M2 13h12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Download for Windows
+        </a>
+        <div class="cta-note">
+          <span>Windows 10/11</span>
+          <span class="dot"></span>
+          <span>Java handled automatically</span>
+          <span class="dot"></span>
+          <span>Free forever</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ─────────────────────────────────────────────── -->
+  <footer>
+    <a href="#home" class="footer-logo">
+      <div class="nav-monogram" style="width:28px;height:28px;font-size:11px;">RH</div>
+      <span class="footer-wordmark">RSPS Hub</span>
+    </a>
+    <div class="footer-right">
+      <ul class="footer-links">
+        <li><a href="#">Discord</a></li>
+        <li><a href="#">GitHub</a></li>
+        <li><a href="#">Changelog</a></li>
+        <li><a href="#">Report a Bug</a></li>
+      </ul>
+      <span class="footer-copy">© 2026 RSPS Hub</span>
+    </div>
+  </footer>
+
+  <!-- ── VANILLA JS ─────────────────────────────────────────── -->
+  <script>
+    // Nav scroll effect
+    const nav = document.getElementById('nav');
+    const onScroll = () => {
+      if (window.scrollY > 20) {
+        nav.classList.add('scrolled');
+      } else {
+        nav.classList.remove('scrolled');
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    // Intersection Observer for fade-in
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, {
+      threshold: 0.12,
+      rootMargin: '0px 0px -40px 0px'
+    });
+
+    document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+    // Smooth anchor scroll (handles nav links)
+    document.querySelectorAll('a[href^="#"]').forEach(link => {
+      link.addEventListener('click', e => {
+        const target = document.querySelector(link.getAttribute('href'));
+        if (target) {
+          e.preventDefault();
+          const offset = 70;
+          const top = target.getBoundingClientRect().top + window.scrollY - offset;
+          window.scrollTo({ top, behavior: 'smooth' });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
