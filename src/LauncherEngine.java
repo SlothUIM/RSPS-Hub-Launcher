@@ -33,6 +33,7 @@ public class LauncherEngine {
     public static String avatarImagePath = null;
     public static String statusMessage   = "";
     public static boolean isStaff       = false;
+    public static String staffSecret    = System.getenv().getOrDefault("RSPS_STAFF_SECRET", "");
     public static String activeServer    = null;
 
     // Settings

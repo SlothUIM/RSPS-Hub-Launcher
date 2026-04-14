@@ -15,14 +15,15 @@ import java.util.Map;
  */
 public class ApiServer {
 
-    private static final String API_SECRET = "RH0WrSd0q05j3RA0DwWpqMfiP4cYFQxQs7kw5RTjAbfcjOGf";
+    private static String API_SECRET = "";
     private static final Gson GSON = new Gson();
 
     // Active game session — volatile so the tracker thread and HTTP thread see the same value
     private static volatile String activeSessionServer = null;
     private static volatile long   activeSessionStart  = 0;
 
-    public static void start(int port) {
+    public static void start(int port, String apiKey) {
+        API_SECRET = apiKey;
         LauncherEngine.loadSettings();
 
         Javalin app = Javalin.create(config -> {
@@ -502,7 +503,7 @@ public class ApiServer {
                     .uri(java.net.URI.create("https://api.therspshub.com/api/servers/all.php"))
                     .timeout(java.time.Duration.ofSeconds(15))
                     .header("Authorization", "Bearer " + LauncherEngine.sessionToken)
-                    .header("X-Staff-Secret", "RH_STAFF_7xKq2mNvL9pWdY4z")
+                    .header("X-Staff-Secret", LauncherEngine.staffSecret)
                     .GET().build();
                 var res = java.net.http.HttpClient.newBuilder().build()
                     .send(req, HttpResponse.BodyHandlers.ofString());
@@ -546,7 +547,7 @@ public class ApiServer {
                     .uri(java.net.URI.create("https://api.therspshub.com/api/servers/pending.php"))
                     .timeout(java.time.Duration.ofSeconds(15))
                     .header("Authorization", "Bearer " + LauncherEngine.sessionToken)
-                    .header("X-Staff-Secret", "RH_STAFF_7xKq2mNvL9pWdY4z")
+                    .header("X-Staff-Secret", LauncherEngine.staffSecret)
                     .GET().build();
                 var res = java.net.http.HttpClient.newBuilder().build()
                     .send(req, HttpResponse.BodyHandlers.ofString());

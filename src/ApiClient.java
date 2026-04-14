@@ -361,12 +361,12 @@ public class ApiClient {
 
     public static CompletableFuture<JsonObject> postAnnouncement(String title, String message) {
         return fetch(post("announcements/post.php", Map.of("title", title, "message", message))
-            .header("X-Staff-Secret", "RH_STAFF_7xKq2mNvL9pWdY4z").build());
+            .header("X-Staff-Secret", LauncherEngine.staffSecret).build());
     }
 
     public static CompletableFuture<JsonObject> deleteAnnouncement(int id) {
         return fetch(post("announcements/delete.php", Map.of("id", id))
-            .header("X-Staff-Secret", "RH_STAFF_7xKq2mNvL9pWdY4z").build());
+            .header("X-Staff-Secret", LauncherEngine.staffSecret).build());
     }
 
     // -- image uploads --
