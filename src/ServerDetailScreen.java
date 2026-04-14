@@ -310,7 +310,8 @@ public class ServerDetailScreen {
                 long startEpoch = System.currentTimeMillis() / 1000;
                 DiscordRPC.setActivity(server.name, startEpoch);
                 // Start tracking — timer will show in hub navbar
-                RSPSHub.beginSession(server.name, proc, stage);
+                ApiClient.sessionStart(server.id);
+                RSPSHub.beginSession(server.name, server.id, proc, stage);
                 // Navigate back to hub so the session timer is visible to the user
                 javafx.application.Platform.runLater(onBack);
             }
@@ -344,6 +345,10 @@ public class ServerDetailScreen {
         };
 
         playBtn.setOnAction(e -> {
+            if (!LauncherEngine.IS_WINDOWS && LauncherEngine.isExeLauncher(server)) {
+                DarkDialog.showAlert(stage, server.name + " uses a Windows-only client and cannot be launched on Linux or Mac.\n\nContact the server owner to request a cross-platform JAR client.");
+                return;
+            }
             if (!LauncherEngine.isDownloaded(server)) {
                 downloadThen.accept(launchNow);
             } else {
@@ -351,7 +356,13 @@ public class ServerDetailScreen {
             }
         });
 
-        updatePlayBtn.setOnAction(e -> downloadThen.accept(launchNow));
+        updatePlayBtn.setOnAction(e -> {
+            if (!LauncherEngine.IS_WINDOWS && LauncherEngine.isExeLauncher(server)) {
+                DarkDialog.showAlert(stage, server.name + " uses a Windows-only client and cannot be launched on Linux or Mac.\n\nContact the server owner to request a cross-platform JAR client.");
+                return;
+            }
+            downloadThen.accept(launchNow);
+        });
 
         // Async update check (only if already installed)
         if (alreadyInstalled) {

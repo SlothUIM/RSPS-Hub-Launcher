@@ -51,6 +51,7 @@ public class RSPSHub extends Application {
     private String activeTag                   = "All";
     private boolean applyPreferredTagsOnNextLoad = false;
     private String searchText       = "";
+    private boolean showingNews        = true;
     private boolean showingLibrary     = false;
     private boolean showingFriends     = false;
     private boolean showingMessaging   = false;
@@ -65,9 +66,10 @@ public class RSPSHub extends Application {
     private VBox       hubTopVBox;   // outer VBox holding titleBar+navbar+topControls
     private ScrollPane hubScrollPane;
     private VBox serverGrid;
+    private VBox sidebarFavStrip;   // outer favourite servers strip
 
     // Navbar tab refs
-    private Button storeTab, libraryTab, friendsTab, statsTab, leaderboardTab;
+    private Button newsTab, storeTab, libraryTab, friendsTab, statsTab, leaderboardTab;
 
     // Session timer — static so ServerDetailScreen can also drive them
     static Label    sessionTimerLabel;
@@ -120,27 +122,40 @@ public class RSPSHub extends Application {
     // ── Desktop shortcut (created on first run, avoids OneDrive install trigger) ──
 
     private void createDesktopShortcutIfNeeded() {
-        if (!System.getProperty("os.name", "").toLowerCase().contains("windows")) return;
         try {
-            String appDir = new java.io.File(
-                RSPSHub.class.getProtectionDomain().getCodeSource().getLocation().toURI()
-            ).getParentFile().getParent(); // go up from lib/ to install root
-            String exe  = appDir + "\\RSPS Hub.exe";
-            String ico  = appDir + "\\app_icon.ico";
-            String desktop = javax.swing.filechooser.FileSystemView.getFileSystemView()
-                .getHomeDirectory().getAbsolutePath();
-            String lnk = desktop + "\\RSPS Hub.lnk";
-            if (new java.io.File(lnk).exists()) return; // already created
-            if (!new java.io.File(exe).exists()) return; // not installed via installer
-            String ps = String.format(
-                "$ws=$([Runtime.InteropServices.Marshal]::GetActiveObject('WScript.Shell'));" +
-                "trap{$ws=New-Object -ComObject WScript.Shell};" +
-                "$s=$ws.CreateShortcut('%s');$s.TargetPath='%s';" +
-                "$s.IconLocation='%s,0';$s.Save()",
-                lnk, exe, ico);
-            new ProcessBuilder("powershell", "-NoProfile", "-WindowStyle", "Hidden",
-                "-ExecutionPolicy", "Bypass", "-Command", ps)
-                .start();
+            if (LauncherEngine.IS_WINDOWS) {
+                String appDir = new java.io.File(
+                    RSPSHub.class.getProtectionDomain().getCodeSource().getLocation().toURI()
+                ).getParentFile().getParent();
+                String exe  = appDir + "\\RSPS Hub.exe";
+                String ico  = appDir + "\\app_icon.ico";
+                String desktop = javax.swing.filechooser.FileSystemView.getFileSystemView()
+                    .getHomeDirectory().getAbsolutePath();
+                String lnk = desktop + "\\RSPS Hub.lnk";
+                if (new java.io.File(lnk).exists()) return;
+                if (!new java.io.File(exe).exists()) return;
+                String ps = String.format(
+                    "$ws=$([Runtime.InteropServices.Marshal]::GetActiveObject('WScript.Shell'));" +
+                    "trap{$ws=New-Object -ComObject WScript.Shell};" +
+                    "$s=$ws.CreateShortcut('%s');$s.TargetPath='%s';" +
+                    "$s.IconLocation='%s,0';$s.Save()",
+                    lnk, exe, ico);
+                new ProcessBuilder("powershell", "-NoProfile", "-WindowStyle", "Hidden",
+                    "-ExecutionPolicy", "Bypass", "-Command", ps).start();
+
+            } else if (LauncherEngine.IS_LINUX) {
+                java.nio.file.Path desktopDir = java.nio.file.Paths.get(
+                    System.getProperty("user.home"), "Desktop");
+                java.nio.file.Path desktopFile = desktopDir.resolve("rsps-hub.desktop");
+                if (java.nio.file.Files.exists(desktopFile)) return;
+                if (!java.nio.file.Files.exists(desktopDir)) return;
+                String exe = ProcessHandle.current().info().command().orElse("rsps-hub");
+                String content = "[Desktop Entry]\nType=Application\nName=RSPS Hub\n" +
+                    "Exec=" + exe + "\nIcon=rsps-hub\nComment=RSPS Hub Launcher\n" +
+                    "Categories=Game;\nTerminal=false\n";
+                java.nio.file.Files.writeString(desktopFile, content);
+                desktopFile.toFile().setExecutable(true, false);
+            }
         } catch (Exception ignored) {}
     }
 
@@ -155,6 +170,13 @@ public class RSPSHub extends Application {
         primaryStage.setHeight(860);
         primaryStage.setMinWidth(1200);
         primaryStage.setMinHeight(650);
+
+        // Try to load Cinzel font for RS branding
+        try {
+            javafx.scene.text.Font.loadFont(
+                RSPSHub.class.getResourceAsStream("/cinzel_bold.ttf"), 22
+            );
+        } catch (Exception ignored) {}
 
         // Attach resize support and maximize corner fix to every new scene
         primaryStage.sceneProperty().addListener((obs, old, scene) -> {
@@ -302,6 +324,7 @@ public class RSPSHub extends Application {
         MessageStore.reload();
         ApiClient.getBlockedUsers().thenAccept(list -> Platform.runLater(() -> { blockedUsers.clear(); blockedUsers.addAll(list); updateDisplaySilent(); }));
 
+        showingNews        = true;
         showingLibrary     = false;
         showingFriends     = false;
         showingMessaging   = false;
@@ -317,6 +340,7 @@ public class RSPSHub extends Application {
         if (allServers == null) {
             LauncherEngine.init();
             allServers = LauncherEngine.fetchServers();
+            Platform.runLater(this::refreshSidebarFavorites);
             DiscordRPC.connectAsync();
             new Thread(() -> {
                 try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
@@ -347,42 +371,51 @@ public class RSPSHub extends Application {
         Label brand = new Label("RSPS HUB");
         brand.getStyleClass().add("nav-brand");
 
-        storeTab       = navTab("STORE",       true);
+        newsTab        = navTab("NEWS",        true);
+        storeTab       = navTab("STORE",       false);
         libraryTab     = navTab("LIBRARY",     false);
         friendsTab     = navTab("FRIENDS",     false);
         statsTab       = navTab("STATS",       false);
         leaderboardTab = navTab("LEADERBOARD", false);
 
+        newsTab.setOnAction(e -> {
+            showingNews = true; showingLibrary = false; showingFriends = false; showingStats = false; showingLeaderboard = false;
+            if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
+            setActiveTab(newsTab);
+            if (LauncherEngine.activeServer == null) DiscordRPC.setBrowsing("Reading the news");
+            updateDisplay();
+        });
+
         storeTab.setOnAction(e -> {
-            showingLibrary = false; showingFriends = false; showingStats = false; showingLeaderboard = false;
+            showingNews = false; showingLibrary = false; showingFriends = false; showingStats = false; showingLeaderboard = false;
             if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
             setActiveTab(storeTab);
             if (LauncherEngine.activeServer == null) DiscordRPC.setBrowsing("Browsing the store");
             updateDisplay();
         });
         libraryTab.setOnAction(e -> {
-            showingLibrary = true; showingFriends = false; showingStats = false; showingLeaderboard = false;
+            showingNews = false; showingLibrary = true; showingFriends = false; showingStats = false; showingLeaderboard = false;
             if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
             setActiveTab(libraryTab);
             if (LauncherEngine.activeServer == null) DiscordRPC.setBrowsing("Viewing their library");
             updateDisplay();
         });
         friendsTab.setOnAction(e -> {
-            showingFriends = true; showingLibrary = false; showingStats = false; showingLeaderboard = false;
+            showingNews = false; showingFriends = true; showingLibrary = false; showingStats = false; showingLeaderboard = false;
             if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
             setActiveTab(friendsTab);
             if (LauncherEngine.activeServer == null) DiscordRPC.setBrowsing("Hanging out in Friends");
             updateDisplay();
         });
         statsTab.setOnAction(e -> {
-            showingStats = true; showingLibrary = false; showingFriends = false; showingLeaderboard = false;
+            showingNews = false; showingStats = true; showingLibrary = false; showingFriends = false; showingLeaderboard = false;
             if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
             setActiveTab(statsTab);
             if (LauncherEngine.activeServer == null) DiscordRPC.setBrowsing("Checking their stats");
             updateDisplay();
         });
         leaderboardTab.setOnAction(e -> {
-            showingLeaderboard = true; showingLibrary = false; showingFriends = false; showingStats = false;
+            showingNews = false; showingLeaderboard = true; showingLibrary = false; showingFriends = false; showingStats = false;
             if (showingMessaging) { hubRoot.setCenter(hubScrollPane); showingMessaging = false; }
             setActiveTab(leaderboardTab);
             if (LauncherEngine.activeServer == null) DiscordRPC.setBrowsing("Checking the leaderboard");
@@ -502,7 +535,7 @@ public class RSPSHub extends Application {
 
         Region navSpacer = new Region();
         HBox.setHgrow(navSpacer, Priority.ALWAYS);
-        navbar.getChildren().addAll(brand, storeTab, libraryTab, friendsTab, statsTab, leaderboardTab,
+        navbar.getChildren().addAll(brand, newsTab, storeTab, libraryTab, friendsTab, statsTab, leaderboardTab,
             navSpacer, sessionTimerLabel, discordJoinBtn, downloadPane, bellPane, accountWidget);
 
         // --- SEARCH & FILTERS ---
@@ -552,11 +585,13 @@ public class RSPSHub extends Application {
         // --- CONTENT ---
         serverGrid = new VBox(20);
         serverGrid.setPadding(new Insets(30));
+        serverGrid.getStyleClass().add("server-grid");
         hubScrollPane = new ScrollPane(serverGrid);
         hubScrollPane.setFitToWidth(true);
         hubScrollPane.getStyleClass().add("main-scroll");
         boostScrollSpeed(hubScrollPane);
         hubRoot.setCenter(hubScrollPane);
+        hubRoot.setLeft(buildSidebar());
 
         updateDisplay();
 
@@ -567,6 +602,123 @@ public class RSPSHub extends Application {
 
     }
 
+    // ── SIDEBAR ──────────────────────────────────────────────────────────────
+
+    private HBox buildSidebar() {
+        // Outer strip — favourite servers
+        sidebarFavStrip = new VBox(3);
+        sidebarFavStrip.getStyleClass().add("sidebar-outer");
+        sidebarFavStrip.setPrefWidth(68);
+        sidebarFavStrip.setMinWidth(68);
+        sidebarFavStrip.setPadding(new Insets(6, 6, 6, 6));
+
+        Label favLabel = new Label("★");
+        favLabel.setStyle("-fx-text-fill: #c8a840; -fx-font-size: 11px; -fx-font-weight: bold; -fx-padding: 0 0 4 0;");
+        favLabel.setMaxWidth(Double.MAX_VALUE);
+        favLabel.setAlignment(Pos.CENTER);
+        sidebarFavStrip.getChildren().add(favLabel);
+        refreshSidebarFavorites();
+
+        // Inner strip — RS navigation icon tabs
+        VBox innerStrip = new VBox(0);
+        innerStrip.getStyleClass().add("sidebar-inner");
+        innerStrip.setPrefWidth(68);
+        innerStrip.setMinWidth(68);
+
+        String[][] tabs = {
+            {"⚔", "Store"},
+            {"📜", "Stats"},
+            {"👥", "Friends"},
+            {"🏆", "Leaderboard"}
+        };
+
+        for (String[] tab : tabs) {
+            // Use a Label as graphic inside a Button so emoji render without truncation
+            Label iconLabel = new Label(tab[0]);
+            iconLabel.setStyle("-fx-font-size: 26px; -fx-text-fill: #7d6a4a;");
+            iconLabel.setAlignment(Pos.CENTER);
+            iconLabel.setMaxWidth(Double.MAX_VALUE);
+
+            Button btn = new Button();
+            btn.setGraphic(iconLabel);
+            btn.setContentDisplay(javafx.scene.control.ContentDisplay.GRAPHIC_ONLY);
+            btn.setTooltip(new javafx.scene.control.Tooltip(tab[1]));
+            btn.getStyleClass().add("rs-sidebar-tab");
+            btn.setMaxWidth(Double.MAX_VALUE);
+            btn.setPrefHeight(72);
+            btn.setPadding(Insets.EMPTY);
+            btn.setOnAction(e -> {
+                switch (tab[1]) {
+                    case "Store"       -> { showingNews=false; showingLibrary=false; showingFriends=false; showingStats=false; showingLeaderboard=false; setActiveTab(storeTab); updateDisplay(); }
+                    case "Stats"       -> { showingNews=false; showingStats=true; showingLibrary=false; showingFriends=false; showingLeaderboard=false; setActiveTab(statsTab); updateDisplay(); }
+                    case "Friends"     -> { showingNews=false; showingFriends=true; showingLibrary=false; showingStats=false; showingLeaderboard=false; setActiveTab(friendsTab); updateDisplay(); }
+                    case "Leaderboard" -> { showingNews=false; showingLeaderboard=true; showingLibrary=false; showingFriends=false; showingStats=false; setActiveTab(leaderboardTab); updateDisplay(); }
+                }
+            });
+            innerStrip.getChildren().add(btn);
+        }
+
+        HBox sidebar = new HBox(sidebarFavStrip, innerStrip);
+        return sidebar;
+    }
+
+    private void refreshSidebarFavorites() {
+        if (sidebarFavStrip == null) return;
+        // Keep the star header label, replace the rest
+        while (sidebarFavStrip.getChildren().size() > 1) sidebarFavStrip.getChildren().remove(1);
+
+        if (LauncherEngine.favouriteServers.isEmpty()) {
+            Label hint = new Label("No\nfavs");
+            hint.setStyle("-fx-text-fill: #5a4a2a; -fx-font-size: 9px; -fx-text-alignment: center;");
+            hint.setMaxWidth(Double.MAX_VALUE);
+            hint.setAlignment(Pos.CENTER);
+            sidebarFavStrip.getChildren().add(hint);
+            return;
+        }
+
+        for (String favName : LauncherEngine.favouriteServers) {
+            // Find the server profile to get its icon
+            ServerProfile match = allServers == null ? null :
+                allServers.stream().filter(s -> s.name.equals(favName)).findFirst().orElse(null);
+
+            VBox slot = new VBox(2);
+            slot.getStyleClass().add("fav-slot");
+            slot.setAlignment(Pos.CENTER);
+            slot.setPrefSize(44, 44);
+            slot.setMaxWidth(Double.MAX_VALUE);
+            slot.setPadding(new Insets(4));
+
+            // Icon — server icon image or initial letter
+            if (match != null && match.iconUrl != null && !match.iconUrl.isEmpty()) {
+                try {
+                    javafx.scene.image.ImageView iv = new javafx.scene.image.ImageView(new javafx.scene.image.Image(match.iconUrl, 28, 28, true, true, true));
+                    iv.setFitWidth(28); iv.setFitHeight(28);
+                    slot.getChildren().add(iv);
+                } catch (Exception ex) {
+                    Label letter = new Label(favName.substring(0, 1).toUpperCase());
+                    letter.setStyle("-fx-text-fill: #e8c840; -fx-font-size: 16px; -fx-font-weight: bold;");
+                    slot.getChildren().add(letter);
+                }
+            } else {
+                Label letter = new Label(favName.substring(0, 1).toUpperCase());
+                letter.setStyle("-fx-text-fill: #e8c840; -fx-font-size: 16px; -fx-font-weight: bold;");
+                slot.getChildren().add(letter);
+            }
+
+            Label name = new Label(favName.length() > 6 ? favName.substring(0, 5) + "…" : favName);
+            name.getStyleClass().add("fav-slot-name");
+            name.setMaxWidth(Double.MAX_VALUE);
+            name.setAlignment(Pos.CENTER);
+            slot.getChildren().add(name);
+
+            if (match != null) {
+                final ServerProfile srv = match;
+                slot.setOnMouseClicked(e -> showServerDetail((Stage) hubRoot.getScene().getWindow(), srv));
+            }
+            sidebarFavStrip.getChildren().add(slot);
+        }
+    }
+
     private Button navTab(String text, boolean active) {
         Button btn = new Button(text);
         btn.getStyleClass().add(active ? "nav-tab-active" : "nav-tab");
@@ -574,7 +726,7 @@ public class RSPSHub extends Application {
     }
 
     private void setActiveTab(Button active) {
-        for (Button b : new Button[]{storeTab, libraryTab, friendsTab, statsTab, leaderboardTab})
+        for (Button b : new Button[]{newsTab, storeTab, libraryTab, friendsTab, statsTab, leaderboardTab})
             b.getStyleClass().setAll("nav-tab");
         active.getStyleClass().setAll("nav-tab-active");
     }
@@ -692,6 +844,7 @@ public class RSPSHub extends Application {
         }
 
         topControls.getChildren().clear();
+        if (showingNews) { buildNewsContent(); return; }
         boolean showSearch = !showingFriends && !showingStats && !showingLeaderboard;
         if (showSearch) {
             topControls.setPadding(new Insets(20, 40, 20, 40));
@@ -710,6 +863,7 @@ public class RSPSHub extends Application {
                         allServers = servers;
                         refreshBtn.setDisable(false);
                         refreshBtn.setText("↻ Refresh");
+                        refreshSidebarFavorites();
                         updateDisplay();
                     }));
                 });
@@ -752,7 +906,7 @@ public class RSPSHub extends Application {
             case "Name A–Z"       -> filtered.sort(Comparator.comparing(s -> s.name));
             case "Name Z–A"       -> filtered.sort(Comparator.comparing((ServerProfile s) -> s.name).reversed());
             case "Most Played (You)" -> filtered.sort(Comparator.comparingLong((ServerProfile s) -> PlaytimeStore.getMinutes(s.name)).reversed());
-            default               -> filtered.sort(Comparator.comparingInt((ServerProfile s) -> s.playersOnline).reversed());
+            default               -> filtered.sort(Comparator.comparingInt((ServerProfile s) -> s.hubPlayers > 0 ? s.hubPlayers : s.playersOnline).reversed());
         }
 
         if (filtered.isEmpty()) {
@@ -786,6 +940,26 @@ public class RSPSHub extends Application {
             serverGrid.getChildren().add(card);
             animateCard(card, cardIndex++);
         }
+    }
+
+    // ── NEWS CONTENT ─────────────────────────────────────────────────────────
+
+    private void buildNewsContent() {
+        serverGrid.setSpacing(0);
+        serverGrid.setPadding(new Insets(40, 40, 40, 40));
+        serverGrid.getChildren().clear();
+
+        topControls.setPadding(new Insets(22, 40, 0, 40));
+        topControls.setAlignment(Pos.TOP_LEFT);
+        Label titleLbl = new Label("NEWS");
+        titleLbl.setStyle("-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;");
+        Label subLbl = new Label("Announcements and updates from the RSPS Hub");
+        subLbl.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 13px;");
+        topControls.getChildren().addAll(titleLbl, subLbl);
+
+        Label placeholder = new Label("No announcements yet. Check back soon.");
+        placeholder.setStyle("-fx-text-fill: #555d6e; -fx-font-size: 14px;");
+        serverGrid.getChildren().add(placeholder);
     }
 
     // ── FRIENDS CONTENT ──────────────────────────────────────────────────────
@@ -1607,6 +1781,14 @@ public class RSPSHub extends Application {
         Label title = new Label(server.name);
         title.getStyleClass().add("card-title");
 
+        String statusColor = server.serverOnline == 1 ? "#4caf50" : server.serverOnline == 0 ? "#e05252" : "#555d6e";
+        String statusTip   = server.serverOnline == 1 ? "Online" : server.serverOnline == 0 ? "Offline" : "Status unknown";
+        Label statusDot = new Label("●");
+        statusDot.setStyle("-fx-text-fill: " + statusColor + "; -fx-font-size: 9px;");
+        statusDot.setTooltip(new Tooltip(statusTip));
+        HBox titleRow = new HBox(6, title, statusDot);
+        titleRow.setAlignment(Pos.CENTER_LEFT);
+
         String rawDesc = server.description != null ? server.description : "";
         // Flatten newlines, cap at 240 chars (~3 lines at card width)
         String flatDesc = rawDesc.replace("\n", " ").replace("\r", "").replaceAll("\\s+", " ").trim();
@@ -1624,7 +1806,7 @@ public class RSPSHub extends Application {
         Region infoSpacer = new Region();
         VBox.setVgrow(infoSpacer, Priority.ALWAYS);
 
-        info.getChildren().addAll(title, desc, infoSpacer, tagBox);
+        info.getChildren().addAll(titleRow, desc, infoSpacer, tagBox);
         HBox.setHgrow(info, Priority.ALWAYS);
 
         String existingNote = LauncherEngine.serverNotes.get(server.name);
@@ -1687,9 +1869,17 @@ public class RSPSHub extends Application {
             delay.play();
         });
 
-        // Updated to use playersOnline
-        Label players = new Label("\uD83D\uDFE2 " + server.playersOnline + " Online");
+        String countLabel = server.hubPlayers > 0
+            ? "\uD83D\uDFE2 " + server.hubPlayers + " on Hub"
+            : "\uD83D\uDFE2 " + server.playersOnline + " Online";
+        Label players = new Label(countLabel);
         players.getStyleClass().add("player-count");
+
+        Label reviewLabel = new Label(server.reviewCount > 0
+            ? "\u2605 " + server.avgRating + " (" + server.reviewCount + ")"
+            : "\u2605 No reviews");
+        reviewLabel.getStyleClass().add("player-count");
+        reviewLabel.setStyle("-fx-text-fill: " + (server.reviewCount > 0 ? "#f5a623" : "#555d6e") + ";");
 
         boolean downloaded = LauncherEngine.isDownloaded(server);
         Button playBtn = new Button(downloaded ? "PLAY" : "INSTALL");
@@ -1699,7 +1889,7 @@ public class RSPSHub extends Application {
             handlePlayAction(server, (Stage) card.getScene().getWindow(), playBtn, () -> { if (showingLibrary) updateDisplay(); });
         });
 
-        actions.getChildren().addAll(levelBadge, cardTools, players, playBtn);
+        actions.getChildren().addAll(levelBadge, cardTools, players, reviewLabel, playBtn);
 
         if (showingLibrary && downloaded) {
             Button uninstallBtn = new Button("Uninstall");
@@ -1909,7 +2099,7 @@ public class RSPSHub extends Application {
                     name.setMinWidth(160);
 
                     Region fill = new Region();
-                    fill.getStyleClass().add("play-button");
+                    fill.getStyleClass().add("stats-bar-fill");
                     fill.setPrefHeight(8);
                     double ratio = (double) e.getValue() / max;
                     fill.prefWidthProperty().bind(serverGrid.widthProperty().multiply(ratio * 0.5));
@@ -1940,21 +2130,21 @@ public class RSPSHub extends Application {
                 HBox row = new HBox(16);
                 row.setAlignment(Pos.CENTER_LEFT);
                 row.setPadding(new Insets(10, 16, 10, 16));
-                row.setStyle("-fx-background-color: #1a1d24; -fx-background-radius: 8;");
+                row.setStyle("-fx-background-color: linear-gradient(to bottom right, #1e1c14, #161410); -fx-background-radius: 6; -fx-border-color: #3a3220; -fx-border-radius: 6; -fx-border-width: 1;");
 
                 // Colour dot
                 Label dot = new Label("▶");
-                dot.setStyle("-fx-text-fill: " + LauncherEngine.accentColor + "; -fx-font-size: 11px;");
+                dot.setStyle("-fx-text-fill: #c8a840; -fx-font-size: 11px;");
 
                 Label serverName = new Label(rec.serverName);
                 serverName.setStyle("-fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold;");
                 HBox.setHgrow(serverName, Priority.ALWAYS);
 
                 Label duration = new Label(formatMinutes(rec.minutes));
-                duration.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 12px;");
+                duration.setStyle("-fx-text-fill: #8b8470; -fx-font-size: 12px;");
 
                 Label date = new Label(rec.date);
-                date.setStyle("-fx-text-fill: #8b92a5; -fx-font-size: 11px; -fx-min-width: 90;");
+                date.setStyle("-fx-text-fill: #8b8470; -fx-font-size: 11px; -fx-min-width: 90;");
                 date.setAlignment(Pos.CENTER_RIGHT);
 
                 row.getChildren().addAll(dot, serverName, duration, date);
@@ -2314,7 +2504,8 @@ public class RSPSHub extends Application {
         if (proc != null) {
             long startEpoch = System.currentTimeMillis() / 1000;
             DiscordRPC.setActivity(server.name, startEpoch);
-            beginSession(server.name, proc, stage);
+            ApiClient.sessionStart(server.id);
+            beginSession(server.name, server.id, proc, stage);
         }
     }
 
@@ -2409,7 +2600,7 @@ public class RSPSHub extends Application {
      * The timer only stops when every spawned process has exited — it cannot be
      * manually extended, making it safe for reward-based playtime systems.
      */
-    static void beginSession(String serverName, Process proc, Stage stage) {
+    static void beginSession(String serverName, int serverId, Process proc, Stage stage) {
         LauncherEngine.activeServer = serverName;
         sessionStage = stage;
         long start = System.currentTimeMillis();
@@ -2443,10 +2634,17 @@ public class RSPSHub extends Application {
             java.util.Set<ProcessHandle> watched = new java.util.LinkedHashSet<>();
             watched.add(proc.toHandle());
 
+            long lastPing = System.currentTimeMillis();
+
             // Poll every 500 ms while the launcher process is alive
             while (proc.isAlive()) {
                 proc.toHandle().descendants().forEach(watched::add);
                 try { Thread.sleep(500); } catch (InterruptedException ignored) { break; }
+                // Ping hub every 60s so the server knows we're still playing
+                if (System.currentTimeMillis() - lastPing >= 60_000) {
+                    ApiClient.sessionPing(serverId);
+                    lastPing = System.currentTimeMillis();
+                }
             }
             // One final snapshot after exit (child may appear in the last moment)
             try { proc.toHandle().descendants().forEach(watched::add); } catch (Exception ignored) {}
@@ -2458,6 +2656,9 @@ public class RSPSHub extends Application {
                 }
             }
             // ──────────────────────────────────────────────────────────────────
+
+            // Notify hub that this session has ended
+            ApiClient.sessionEnd(serverId);
 
             long mins = (System.currentTimeMillis() - start) / 60000;
 
@@ -2495,6 +2696,12 @@ public class RSPSHub extends Application {
     }
 
     void handlePlayAction(ServerProfile server, Stage stage, Button playBtn, Runnable onDownloadComplete) {
+        // Block .exe-only servers on non-Windows platforms
+        if (!LauncherEngine.IS_WINDOWS && LauncherEngine.isExeLauncher(server)) {
+            DarkDialog.showAlert(stage, server.name + " uses a Windows-only client and cannot be launched on Linux or Mac.\n\nContact the server owner to request a cross-platform JAR client.");
+            return;
+        }
+
         if (!LauncherEngine.isDownloaded(server)) {
             playBtn.setDisable(true);
             playBtn.setText("DOWNLOADING...");

@@ -18,6 +18,11 @@ import com.google.gson.Gson;
 
 public class LauncherEngine {
 
+    // ── OS detection ──────────────────────────────────────────────────────────
+    public static final boolean IS_WINDOWS = System.getProperty("os.name", "").toLowerCase().contains("windows");
+    public static final boolean IS_LINUX   = System.getProperty("os.name", "").toLowerCase().contains("linux");
+    public static final boolean IS_MAC     = System.getProperty("os.name", "").toLowerCase().contains("mac");
+
     // ── Auto-update ───────────────────────────────────────────────────────────
     public static final String CURRENT_VERSION   = "1.0.0";
     public static final String VERSION_CHECK_URL = "https://therspshub.com/version.json";
@@ -55,6 +60,39 @@ public class LauncherEngine {
     private static final Path SETTINGS_PATH    = Paths.get(System.getProperty("user.home"), ".rsps_hub", "settings.json");
     private static final Path ACCENT_CSS_PATH  = Paths.get(System.getProperty("user.home"), ".rsps_hub", "accent.css");
     private static final Path RUNTIMES_PATH    = Paths.get(System.getProperty("user.home"), ".rsps_hub", "runtimes");
+    private static final Path SESSION_PATH     = Paths.get(System.getProperty("user.home"), ".rsps_hub", "session.json");
+
+    private static class SessionData { String username; String token; }
+
+    /** Persist session to disk after login/register. */
+    public static void saveSession() {
+        try {
+            if (currentUsername.isEmpty()) { clearSession(); return; }
+            SessionData s = new SessionData();
+            s.username = currentUsername; s.token = sessionToken;
+            Files.createDirectories(SESSION_PATH.getParent());
+            Files.writeString(SESSION_PATH, new Gson().toJson(s));
+        } catch (Exception e) { System.err.println("Failed to save session: " + e.getMessage()); }
+    }
+
+    /** Load saved session on startup. Returns true if a session was restored. */
+    public static boolean loadSession() {
+        try {
+            if (!Files.exists(SESSION_PATH)) return false;
+            SessionData s = new Gson().fromJson(Files.readString(SESSION_PATH), SessionData.class);
+            if (s == null || s.username == null || s.username.isEmpty() || s.token == null) return false;
+            currentUsername = s.username;
+            sessionToken    = s.token;
+            loadUserSettings();
+            System.out.println("[session] Restored session for: " + currentUsername);
+            return true;
+        } catch (Exception e) { System.err.println("Failed to load session: " + e.getMessage()); return false; }
+    }
+
+    /** Remove session file on logout. */
+    public static void clearSession() {
+        try { Files.deleteIfExists(SESSION_PATH); } catch (Exception ignored) {}
+    }
 
     // Per-user settings path — dynamic based on logged-in account
     private static Path userSettingsPath() {
@@ -231,12 +269,27 @@ public class LauncherEngine {
 
     public static void setAutoLaunch(boolean enable) {
         try {
-            if (enable) {
+            if (IS_WINDOWS) {
                 String jarPath = LauncherEngine.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
                 if (jarPath.startsWith("/")) jarPath = jarPath.substring(1);
-                new ProcessBuilder("reg", "add", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", "/v", "RSPSHub", "/t", "REG_SZ", "/d", "javaw -jar \"" + jarPath + "\"", "/f").start().waitFor();
-            } else {
-                new ProcessBuilder("reg", "delete", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", "/v", "RSPSHub", "/f").start().waitFor();
+                if (enable) {
+                    new ProcessBuilder("reg", "add", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                        "/v", "RSPSHub", "/t", "REG_SZ", "/d", "javaw -jar \"" + jarPath + "\"", "/f").start().waitFor();
+                } else {
+                    new ProcessBuilder("reg", "delete", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                        "/v", "RSPSHub", "/f").start().waitFor();
+                }
+            } else if (IS_LINUX) {
+                Path autostartDir  = Paths.get(System.getProperty("user.home"), ".config", "autostart");
+                Path desktopFile   = autostartDir.resolve("rsps-hub.desktop");
+                if (enable) {
+                    Files.createDirectories(autostartDir);
+                    String exe = ProcessHandle.current().info().command().orElse("java");
+                    String desktop = "[Desktop Entry]\nType=Application\nName=RSPS Hub\nExec=" + exe + "\nHidden=false\nNoDisplay=false\nX-GNOME-Autostart-enabled=true\n";
+                    Files.writeString(desktopFile, desktop);
+                } else {
+                    Files.deleteIfExists(desktopFile);
+                }
             }
         } catch (Exception e) { System.err.println("Auto-launch toggle failed: " + e.getMessage()); }
     }
@@ -275,9 +328,10 @@ public class LauncherEngine {
         return detectRequiredJavaMajor(jarPath);
     }
 
-    /** Returns the managed java.exe Path for the given Java version (e.g. 11), or null if not downloaded yet. */
+    /** Returns the managed java binary Path for the given Java version (e.g. 11), or null if not downloaded yet. */
     public static Path getManagedJavaExe(int javaVersion) {
-        Path exe = RUNTIMES_PATH.resolve("java-" + javaVersion).resolve("bin").resolve("java.exe");
+        String bin = IS_WINDOWS ? "java.exe" : "java";
+        Path exe = RUNTIMES_PATH.resolve("java-" + javaVersion).resolve("bin").resolve(bin);
         return Files.exists(exe) ? exe : null;
     }
 
@@ -288,14 +342,17 @@ public class LauncherEngine {
      */
     public static Path downloadRuntime(int javaVersion, DoubleConsumer onProgress, boolean[] cancelled) throws Exception {
         Path runtimeDir = RUNTIMES_PATH.resolve("java-" + javaVersion);
-        Path tmpZip     = RUNTIMES_PATH.resolve("java-" + javaVersion + ".zip.tmp");
+        String archiveExt = IS_WINDOWS ? ".zip.tmp" : ".tar.gz.tmp";
+        Path tmpZip     = RUNTIMES_PATH.resolve("java-" + javaVersion + archiveExt);
         Path tmpExtract = RUNTIMES_PATH.resolve("java-" + javaVersion + "-extract.tmp");
         Files.createDirectories(RUNTIMES_PATH);
 
         try {
             // 1. Query Adoptium API for download link + size
+            String osParam   = IS_WINDOWS ? "windows" : IS_LINUX ? "linux" : "mac";
+            String archParam = System.getProperty("os.arch", "amd64").contains("aarch64") ? "aarch64" : "x64";
             String apiUrl = "https://api.adoptium.net/v3/assets/latest/" + javaVersion
-                + "/hotspot?architecture=x64&image_type=jre&os=windows&vendor=eclipse";
+                + "/hotspot?architecture=" + archParam + "&image_type=jre&os=" + osParam + "&vendor=eclipse";
             HttpURLConnection apiConn = (HttpURLConnection) new URL(apiUrl).openConnection(java.net.Proxy.NO_PROXY);
             apiConn.setConnectTimeout(12000);
             apiConn.setReadTimeout(15000);
@@ -335,25 +392,31 @@ public class LauncherEngine {
             if (cancelled != null && cancelled[0]) return null;
             if (onProgress != null) onProgress.accept(0.84);
 
-            // 3. Extract ZIP to temp dir (82 → 97%)
+            // 3. Extract archive to temp dir (82 → 97%)
             Files.createDirectories(tmpExtract);
-            try (java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(Files.newInputStream(tmpZip))) {
-                java.util.zip.ZipEntry entry;
-                while ((entry = zis.getNextEntry()) != null) {
-                    if (cancelled != null && cancelled[0]) return null;
-                    Path target = tmpExtract.resolve(entry.getName()).normalize();
-                    if (!target.startsWith(tmpExtract.normalize())) { zis.closeEntry(); continue; } // zip-slip guard
-                    if (entry.isDirectory()) {
-                        Files.createDirectories(target);
-                    } else {
-                        Files.createDirectories(target.getParent());
-                        try (java.io.OutputStream out = Files.newOutputStream(target)) {
-                            byte[] buf = new byte[65536]; int n;
-                            while ((n = zis.read(buf)) != -1) out.write(buf, 0, n);
+            if (IS_WINDOWS) {
+                try (java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(Files.newInputStream(tmpZip))) {
+                    java.util.zip.ZipEntry entry;
+                    while ((entry = zis.getNextEntry()) != null) {
+                        if (cancelled != null && cancelled[0]) return null;
+                        Path target = tmpExtract.resolve(entry.getName()).normalize();
+                        if (!target.startsWith(tmpExtract.normalize())) { zis.closeEntry(); continue; }
+                        if (entry.isDirectory()) {
+                            Files.createDirectories(target);
+                        } else {
+                            Files.createDirectories(target.getParent());
+                            try (java.io.OutputStream out = Files.newOutputStream(target)) {
+                                byte[] buf = new byte[65536]; int n;
+                                while ((n = zis.read(buf)) != -1) out.write(buf, 0, n);
+                            }
                         }
+                        zis.closeEntry();
                     }
-                    zis.closeEntry();
                 }
+            } else {
+                // Linux/Mac: use system tar to extract .tar.gz (preserves execute bits)
+                new ProcessBuilder("tar", "-xzf", tmpZip.toString(), "-C", tmpExtract.toString())
+                    .inheritIO().start().waitFor();
             }
             if (onProgress != null) onProgress.accept(0.97);
 
@@ -368,7 +431,10 @@ public class LauncherEngine {
             Files.move(jreRoot, runtimeDir);
             if (onProgress != null) onProgress.accept(1.0);
 
-            Path javaExe = runtimeDir.resolve("bin").resolve("java.exe");
+            String javaBin = IS_WINDOWS ? "java.exe" : "java";
+            Path javaExe = runtimeDir.resolve("bin").resolve(javaBin);
+            // Make executable on Linux/Mac
+            if (!IS_WINDOWS && Files.exists(javaExe)) javaExe.toFile().setExecutable(true, false);
             System.out.println("Managed Java " + javaVersion + " installed at: " + javaExe);
             return Files.exists(javaExe) ? javaExe : null;
 
@@ -429,12 +495,53 @@ public class LauncherEngine {
 
     public static boolean downloadClient(ServerProfile server) { return downloadClient(server, null, null); }
 
+    // Trusted domains that JAR/client URLs are allowed to be served from
+    private static final java.util.Set<String> TRUSTED_JAR_HOSTS = new java.util.HashSet<>(java.util.Arrays.asList(
+        "api.therspshub.com",
+        "therspshub.com",
+        "github.com",
+        "raw.githubusercontent.com",
+        "objects.githubusercontent.com",
+        "cdn.discordapp.com",
+        "media.discordapp.net",
+        "drive.google.com",
+        "dropbox.com",
+        "dl.dropboxusercontent.com",
+        "mega.nz",
+        "mediafire.com"
+    ));
+
+    private static boolean isTrustedJarUrl(String urlStr) {
+        try {
+            java.net.URL url = new java.net.URL(urlStr);
+            String protocol = url.getProtocol().toLowerCase();
+            // Allow any HTTPS URL — server owners supply their own client hosting
+            if (protocol.equals("https")) return true;
+            // For HTTP, fall back to the trusted-host whitelist
+            String host = url.getHost().toLowerCase();
+            return TRUSTED_JAR_HOSTS.stream().anyMatch(host::endsWith);
+        } catch (Exception e) { return false; }
+    }
+
     public static boolean downloadClient(ServerProfile server, DoubleConsumer onProgress, boolean[] cancelledFlag) {
         Path jarPath = null;
         try {
+            // Validate JAR URL is from a trusted host before downloading
+            if (server.jarUrl == null || server.jarUrl.isBlank()) {
+                System.err.println("Download blocked: no JAR URL provided for " + server.name);
+                return false;
+            }
+            if (!isTrustedJarUrl(server.jarUrl)) {
+                System.err.println("Download blocked: untrusted host in JAR URL: " + server.jarUrl);
+                return false;
+            }
+
             Path serverFolder = Paths.get(downloadPath, server.name.replaceAll(" ", "_"));
             Files.createDirectories(serverFolder);
             jarPath = serverFolder.resolve(clientFileName(server));
+
+            // If the file already exists and auto-update is disabled, skip the download
+            if (Files.exists(jarPath) && !autoUpdateClients) return true;
 
             System.out.println("Downloading " + server.name + "...");
 
@@ -465,6 +572,27 @@ public class LauncherEngine {
                     if (onProgress != null && contentLength > 0) onProgress.accept((double) downloaded / contentLength);
                 }
             }
+
+            // Verify the downloaded file is a valid ZIP/JAR (magic bytes: PK\x03\x04)
+            // Also allow native executables (MZ header for .exe on Windows, ELF for Linux)
+            try (InputStream check = Files.newInputStream(jarPath)) {
+                byte[] magic = new byte[4];
+                int bytesRead = check.read(magic);
+                if (bytesRead < 2) {
+                    System.err.println("Download verification failed: file too small for " + server.name);
+                    Files.deleteIfExists(jarPath);
+                    return false;
+                }
+                boolean isZipJar = bytesRead >= 4 && magic[0] == 0x50 && magic[1] == 0x4B && magic[2] == 0x03 && magic[3] == 0x04;
+                boolean isExeWin = bytesRead >= 2 && magic[0] == 0x4D && magic[1] == 0x5A; // MZ
+                boolean isExeElf = bytesRead >= 4 && magic[0] == 0x7F && magic[1] == 0x45; // ELF
+                if (!isZipJar && !isExeWin && !isExeElf) {
+                    System.err.println("Download verification failed: file is not a valid JAR or executable for " + server.name);
+                    Files.deleteIfExists(jarPath);
+                    return false;
+                }
+            }
+
             return true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -489,16 +617,19 @@ public class LauncherEngine {
                 String javaExe    = findJavaExecutable(requiredMajor);
                 System.out.println("JAR requires bytecode major " + requiredMajor + " → using: " + javaExe);
 
-                // Use javaw (no console window) instead of java — this matches what Windows does
-                // on double-click, and avoids pipe-buffer blocking where the child process fills
-                // the 64 KB stdout pipe (which we never read) and hangs waiting for a consumer.
+                // On Windows use javaw (no console window). On Linux/Mac just use java
+                // and discard stdout/stderr below to avoid pipe-buffer blocking.
                 String javaLauncher;
-                if (javaExe.equals("java")) {
-                    javaLauncher = "javaw"; // system javaw, same bin dir as java
+                if (IS_WINDOWS) {
+                    if (javaExe.equals("java")) {
+                        javaLauncher = "javaw";
+                    } else {
+                        Path javawPath = Paths.get(javaExe.endsWith("java.exe")
+                            ? javaExe.replace("java.exe", "javaw.exe") : javaExe);
+                        javaLauncher = Files.exists(javawPath) ? javawPath.toString() : javaExe;
+                    }
                 } else {
-                    Path javawPath = Paths.get(javaExe.endsWith("java.exe")
-                        ? javaExe.replace("java.exe", "javaw.exe") : javaExe);
-                    javaLauncher = Files.exists(javawPath) ? javawPath.toString() : javaExe;
+                    javaLauncher = javaExe; // java on Linux/Mac
                 }
 
                 pb = new ProcessBuilder(
@@ -578,13 +709,21 @@ public class LauncherEngine {
         }
 
         // 2. Fall back to system installs
-        String[] roots = {
+        String javaBin = IS_WINDOWS ? "java.exe" : "java";
+        String sep     = IS_WINDOWS ? "\\" : "/";
+
+        String[] roots = IS_WINDOWS ? new String[]{
             "C:\\Program Files\\Java",
             "C:\\Program Files\\Eclipse Adoptium",
             "C:\\Program Files\\Microsoft",
             "C:\\Program Files\\Amazon Corretto",
             "C:\\Program Files\\Zulu",
             "C:\\Program Files\\BellSoft",
+        } : new String[]{
+            "/usr/lib/jvm",
+            "/usr/java",
+            "/opt/java",
+            "/opt/jdk",
         };
 
         for (String root : roots) {
@@ -594,8 +733,11 @@ public class LauncherEngine {
             if (kids == null) continue;
             for (java.io.File kid : kids) {
                 String name = kid.getName().toLowerCase();
-                if (name.contains("jdk") && (name.contains("-" + javaVersion + ".") || name.contains("-" + javaVersion + "-") || name.endsWith("-" + javaVersion) || name.contains("jdk" + javaVersion) || (javaVersion == 8 && (name.contains("1.8") || name.contains("jdk8"))))) {
-                    java.io.File javaExe = new java.io.File(kid, "bin\\java.exe");
+                if ((name.contains("jdk") || name.contains("java")) &&
+                    (name.contains("-" + javaVersion + ".") || name.contains("-" + javaVersion + "-") ||
+                     name.endsWith("-" + javaVersion) || name.contains("jdk" + javaVersion) ||
+                     (javaVersion == 8 && (name.contains("1.8") || name.contains("jdk8"))))) {
+                    java.io.File javaExe = new java.io.File(kid, "bin" + sep + javaBin);
                     if (javaExe.exists()) {
                         System.out.println("Found Java " + javaVersion + " at: " + javaExe.getAbsolutePath());
                         return javaExe.getAbsolutePath();
@@ -663,46 +805,28 @@ public class LauncherEngine {
 
     public static void downloadUpdateAndRestart(String downloadUrl, javafx.application.Application app) {
         try {
-            Path updateJar = Paths.get(System.getProperty("user.home"), ".rsps_hub", "RSPSHub-update.jar");
-            Files.createDirectories(updateJar.getParent());
+            String tmpName = IS_WINDOWS ? "RSPSHub-update.exe" : "RSPSHub-update.deb";
+            Path updatePkg = Paths.get(System.getProperty("java.io.tmpdir"), tmpName);
 
-            // Find current JAR location
-            String currentJar = LauncherEngine.class.getProtectionDomain()
-                .getCodeSource().getLocation().toURI().getPath();
-            // On Windows the path starts with / — strip it
-            if (System.getProperty("os.name").toLowerCase().contains("win") && currentJar.startsWith("/")) {
-                currentJar = currentJar.substring(1);
-            }
-            currentJar = currentJar.replace("%20", " ");
-            Path currentJarPath = Paths.get(currentJar);
-
-            // Download new JAR
+            // Download new installer
             HttpURLConnection conn = (HttpURLConnection) new URL(downloadUrl).openConnection();
             conn.setConnectTimeout(15000);
-            conn.setReadTimeout(60000);
+            conn.setReadTimeout(120000);
             try (InputStream in = conn.getInputStream()) {
-                Files.copy(in, updateJar, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                Files.copy(in, updatePkg, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
 
-            // Write PowerShell restart script
-            Path script = Paths.get(System.getProperty("java.io.tmpdir"), "rsps_hub_update.ps1");
-            String javaw = ProcessHandle.current().info().command().orElse("javaw");
-            // Prefer javaw over java
-            javaw = javaw.replace("java.exe", "javaw.exe");
+            if (IS_WINDOWS) {
+                // Inno Setup handles replacing files and relaunching
+                new ProcessBuilder(updatePkg.toString(), "/SILENT", "/CLOSEAPPLICATIONS").start();
+            } else if (IS_LINUX) {
+                // Install .deb silently — requires pkexec or user has sudo
+                new ProcessBuilder("pkexec", "dpkg", "-i", updatePkg.toString()).start();
+            } else {
+                // macOS — open the .dmg / .pkg
+                new ProcessBuilder("open", updatePkg.toString()).start();
+            }
 
-            String ps = String.join("\r\n",
-                "Start-Sleep -Seconds 2",
-                "Copy-Item -Path '" + updateJar.toString().replace("'", "''") + "' " +
-                    "-Destination '" + currentJarPath.toString().replace("'", "''") + "' -Force",
-                "Start-Process '" + javaw.replace("'", "''") + "' " +
-                    "-ArgumentList '-jar','" + currentJarPath.toString().replace("'", "''") + "'",
-                "Remove-Item -Path $MyInvocation.MyCommand.Path -Force"
-            );
-            Files.writeString(script, ps);
-
-            // Launch script detached and exit
-            new ProcessBuilder("powershell", "-WindowStyle", "Hidden", "-File", script.toString())
-                .start();
             javafx.application.Platform.exit();
             System.exit(0);
 

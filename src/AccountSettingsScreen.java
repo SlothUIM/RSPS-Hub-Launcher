@@ -322,7 +322,7 @@ public class AccountSettingsScreen {
         autoUpdateCheck.setSelected(LauncherEngine.autoUpdateClients);
         autoUpdateCheck.selectedProperty().addListener((obs, old, val) -> { LauncherEngine.autoUpdateClients = val; LauncherEngine.saveSettings(); });
 
-        CheckBox autoLaunchCheck = new CheckBox("Start RSPS Hub with Windows");
+        CheckBox autoLaunchCheck = new CheckBox("Start RSPS Hub on login");
         autoLaunchCheck.getStyleClass().add("settings-checkbox");
         autoLaunchCheck.setSelected(LauncherEngine.autoLaunch);
         autoLaunchCheck.selectedProperty().addListener((obs, old, val) -> {

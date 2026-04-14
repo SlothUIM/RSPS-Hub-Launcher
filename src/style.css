@@ -5,8 +5,11 @@
 }
 
 .main-scroll {
-    /* Makes the scroll area transparent so we see the root background */
     -fx-background: transparent;
+    -fx-background-color: transparent;
+}
+
+.server-grid {
     -fx-background-color: transparent;
 }
 
@@ -36,8 +39,8 @@
 }
 
 .nav-tab-active {
-    -fx-text-fill: #9b5de5;
-    -fx-border-color: #9b5de5;
+    -fx-text-fill: #ff981f;
+    -fx-border-color: #ff981f;
 }
 
 /* --- SEARCH & FILTERS --- */
@@ -51,7 +54,7 @@
 }
 
 .search-field:focused {
-    -fx-border-color: #9b5de5;
+    -fx-border-color: #ff981f;
 }
 
 .filter-btn, .filter-btn-active {
@@ -68,7 +71,7 @@
 .filter-btn-active {
     -fx-text-fill: white;
     -fx-background-color: #2a2e39;
-    -fx-border-color: #9b5de5;
+    -fx-border-color: #ff981f;
 }
 
 /* --- SERVER CARDS --- */
@@ -80,7 +83,7 @@
 }
 
 .server-card-wrapper:hover {
-    -fx-border-color: #9b5de5;
+    -fx-border-color: #ff981f;
 }
 
 .server-card-wrapper:hover .xp-bar-fill {
@@ -117,6 +120,84 @@
     -fx-padding: 3 10;
     -fx-background-radius: 4;
     -fx-font-weight: bold;
+}
+
+/* --- SIDEBAR --- */
+.sidebar-outer {
+    -fx-background-color: #12141a;
+    -fx-border-color: #0a0c10;
+    -fx-border-width: 0 2 0 0;
+}
+
+.sidebar-inner {
+    -fx-background-color: #1a1d24;
+    -fx-border-color: #2a2e39;
+    -fx-border-width: 0 1 0 0;
+}
+
+.fav-slot {
+    -fx-background-color: #0f1115;
+    -fx-border-color: #2a2e39;
+    -fx-border-width: 1;
+    -fx-cursor: hand;
+    -fx-background-radius: 4;
+    -fx-border-radius: 4;
+}
+
+.fav-slot:hover {
+    -fx-background-color: #1a1d24;
+    -fx-border-color: #ff981f;
+}
+
+.fav-slot-name {
+    -fx-text-fill: #8b92a5;
+    -fx-font-size: 8px;
+    -fx-font-weight: bold;
+}
+
+.stats-server-name {
+    -fx-text-fill: #c0c5d0;
+    -fx-font-size: 13px;
+}
+
+.stats-time-label {
+    -fx-text-fill: #8b92a5;
+    -fx-font-size: 12px;
+}
+
+.stats-bar-track {
+    -fx-background-color: #0f1115;
+    -fx-background-radius: 3;
+}
+
+.stats-bar-fill {
+    -fx-background-color: #ff981f;
+    -fx-background-radius: 3;
+}
+
+.rs-sidebar-tab {
+    -fx-background-color: #1a1d24;
+    -fx-cursor: hand;
+    -fx-font-size: 22px;
+    -fx-alignment: center;
+    -fx-border-color: transparent;
+    -fx-text-fill: #8b92a5;
+    -fx-border-width: 0 0 0 3;
+}
+
+.rs-sidebar-tab:hover {
+    -fx-background-color: #22263a;
+    -fx-text-fill: white;
+}
+
+.rs-sidebar-tab-active {
+    -fx-background-color: #0f1115;
+    -fx-cursor: hand;
+    -fx-font-size: 22px;
+    -fx-alignment: center;
+    -fx-text-fill: #ff981f;
+    -fx-border-color: #ff981f;
+    -fx-border-width: 0 0 0 3;
 }
 
 /* --- ACTIONS & STATS --- */
@@ -170,7 +251,7 @@
 }
 
 .detail-icon-placeholder {
-    -fx-text-fill: #9b5de5;
+    -fx-text-fill: #c8a840;
     -fx-font-size: 28px;
     -fx-font-weight: 800;
 }
@@ -203,7 +284,7 @@
 }
 
 .detail-stars-display {
-    -fx-text-fill: #9b5de5;
+    -fx-text-fill: #c8a840;
     -fx-font-size: 16px;
 }
 
@@ -230,7 +311,7 @@
 
 .review-avatar {
     -fx-background-color: #2a2e39;
-    -fx-text-fill: #9b5de5;
+    -fx-text-fill: #c8a840;
     -fx-font-weight: 800;
     -fx-font-size: 14px;
     -fx-min-width: 38px;
@@ -248,13 +329,13 @@
 }
 
 .review-star-pick {
-    -fx-text-fill: #3a3e4a;
+    -fx-text-fill: #3a3220;
     -fx-font-size: 24px;
     -fx-cursor: hand;
 }
 
 .review-star-selected {
-    -fx-text-fill: #9b5de5;
+    -fx-text-fill: #c8a840;
     -fx-font-size: 24px;
     -fx-cursor: hand;
 }
@@ -394,7 +475,7 @@
 }
 
 .msg-bubble-me {
-    -fx-background-color: #9b5de5;
+    -fx-background-color: #7d6030;
     -fx-text-fill: black;
     -fx-font-size: 14px;
     -fx-padding: 10 14;
@@ -402,7 +483,7 @@
 }
 
 .msg-sender-name {
-    -fx-text-fill: #9b5de5;
+    -fx-text-fill: #c8a840;
     -fx-font-size: 11px;
     -fx-font-weight: 800;
 }
@@ -414,8 +495,8 @@
 
 /* --- NAVBAR ACCOUNT WIDGET --- */
 .nav-avatar {
-    -fx-background-color: #9b5de5;
-    -fx-text-fill: #0f1115;
+    -fx-background-color: linear-gradient(to bottom right, #4a3a20, #7d6030);
+    -fx-text-fill: #f0c060;
     -fx-font-weight: 800;
     -fx-font-size: 14px;
     -fx-min-width: 34px;
@@ -427,13 +508,13 @@
 }
 
 .nav-username {
-    -fx-text-fill: white;
+    -fx-text-fill: #d4cfc4;
     -fx-font-size: 14px;
     -fx-font-weight: bold;
 }
 
 .nav-account-widget:hover .nav-username {
-    -fx-text-fill: #9b5de5;
+    -fx-text-fill: #f0c060;
 }
 
 /* --- SETTINGS PAGE --- */
@@ -465,7 +546,7 @@
 }
 
 .settings-section-header {
-    -fx-text-fill: #9b5de5;
+    -fx-text-fill: #c8a840;
     -fx-font-size: 11px;
     -fx-font-weight: 800;
 }
@@ -501,8 +582,8 @@
 }
 
 .settings-checkbox:selected .box {
-    -fx-background-color: #9b5de5;
-    -fx-border-color: #9b5de5;
+    -fx-background-color: #c8a840;
+    -fx-border-color: #c8a840;
 }
 
 .settings-checkbox:selected .mark {
@@ -510,8 +591,8 @@
 }
 
 .settings-avatar {
-    -fx-background-color: #9b5de5;
-    -fx-text-fill: #0f1115;
+    -fx-background-color: linear-gradient(to bottom right, #4a3a20, #7d6030);
+    -fx-text-fill: #f0c060;
     -fx-font-weight: 800;
     -fx-font-size: 32px;
     -fx-min-width: 80px;
@@ -1284,7 +1365,7 @@
 
 /* --- PINNED SECTION HEADER --- */
 .pinned-header {
-    -fx-text-fill: #9b5de5;
+    -fx-text-fill: #8b8470;
     -fx-font-size: 11px;
     -fx-font-weight: bold;
     -fx-padding: 6 0 2 0;

@@ -1177,6 +1177,150 @@
     .fade-in:nth-child(3) { transition-delay: 160ms; }
     .fade-in:nth-child(4) { transition-delay: 240ms; }
     .fade-in:nth-child(5) { transition-delay: 320ms; }
+
+    /* ── RESPONSIVE ──────────────────────────────────────── */
+
+    /* Tablet */
+    @media (max-width: 960px) {
+      .hero {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 100px 40px 60px;
+        gap: 48px;
+      }
+
+      .hero-ui {
+        width: 100%;
+        margin-left: 0;
+      }
+
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .feature-card.large {
+        grid-row: auto;
+      }
+
+      .feature-right {
+        grid-column: auto;
+        grid-row: auto;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .story-grid {
+        grid-template-columns: 1fr;
+        gap: 40px;
+      }
+
+      footer {
+        padding: 28px 40px;
+      }
+    }
+
+    /* Mobile */
+    @media (max-width: 640px) {
+      nav {
+        padding: 0 20px;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .hero {
+        padding: 88px 20px 48px;
+        gap: 36px;
+      }
+
+      .hero-ui {
+        display: none;
+      }
+
+      .hero-headline {
+        font-size: 42px;
+        letter-spacing: -1.8px;
+      }
+
+      .hero-sub {
+        font-size: 15px;
+      }
+
+      .hero-buttons {
+        flex-direction: column;
+      }
+
+      .hero-buttons .btn-primary,
+      .hero-buttons .btn-ghost {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .section-inner {
+        padding: 0 20px;
+      }
+
+      #features,
+      #how,
+      #story,
+      #download {
+        padding: 64px 0;
+      }
+
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .feature-right {
+        grid-template-columns: 1fr;
+      }
+
+      .steps {
+        flex-direction: column;
+        align-items: center;
+        gap: 32px;
+        margin-top: 40px;
+      }
+
+      .steps::before {
+        display: none;
+      }
+
+      .step {
+        padding: 0;
+        width: 100%;
+        max-width: 320px;
+      }
+
+      .cta-headline {
+        font-size: 34px;
+        letter-spacing: -1.2px;
+      }
+
+      .btn-shimmer {
+        width: 100%;
+        justify-content: center;
+        max-width: 360px;
+      }
+
+      .cta-note {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      footer {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+        padding: 28px 20px;
+      }
+
+      .footer-right {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1432,7 +1576,7 @@
         <div class="step fade-in" role="listitem">
           <div class="step-num">1</div>
           <div class="step-title">Download the launcher</div>
-          <p class="step-desc">One .exe. Installs in under 30 seconds. No Visual C++ redistributable hellscape, no admin prompt, no bloatware.</p>
+          <p class="step-desc">One .exe. Installs in under 30 seconds. No Visual C++ redistributable hellscape, no bloatware.</p>
         </div>
         <div class="step fade-in" role="listitem">
           <div class="step-num">2</div>
@@ -1523,10 +1667,10 @@
     </a>
     <div class="footer-right">
       <ul class="footer-links">
-        <li><a href="#">Discord</a></li>
-        <li><a href="#">GitHub</a></li>
+        <li><a href="https://discord.gg/grt9C4GJcj" target="_blank" rel="noopener">Discord</a></li>
+        <li><a href="https://github.com/SlothUIM/RSPS-Hub-Launcher" target="_blank" rel="noopener">GitHub</a></li>
         <li><a href="#">Changelog</a></li>
-        <li><a href="#">Report a Bug</a></li>
+        <li><a href="https://github.com/SlothUIM/RSPS-Hub-Launcher/issues" target="_blank" rel="noopener">Report a Bug</a></li>
       </ul>
       <span class="footer-copy">© 2026 RSPS Hub</span>
     </div>

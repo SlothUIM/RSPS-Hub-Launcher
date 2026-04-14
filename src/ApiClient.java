@@ -129,8 +129,46 @@ public class ApiClient {
             .thenApply(obj -> !obj.has("error"));
     }
 
+    public static CompletableFuture<Boolean> removeFriend(String username) {
+        return fetch(post("friends/remove.php", Map.of("username", username)).build())
+            .thenApply(obj -> !obj.has("error"));
+    }
+
+    // -- leaderboard --
+
+    public static CompletableFuture<List<Map<String, Object>>> getLeaderboard() {
+        return fetch(get("users/leaderboard.php").build()).thenApply(obj -> {
+            List<Map<String, Object>> list = new ArrayList<>();
+            for (JsonElement el : arr(obj, "entries")) {
+                JsonObject e = el.getAsJsonObject();
+                Map<String, Object> entry = new java.util.LinkedHashMap<>();
+                entry.put("username",     str(e, "username"));
+                entry.put("totalMinutes", e.has("total_playtime_minutes")
+                    ? e.get("total_playtime_minutes").getAsLong() : 0L);
+                entry.put("topServer",    str(e, "most_played_server"));
+                entry.put("isYou",        false);
+                list.add(entry);
+            }
+            return list;
+        }).exceptionally(ex -> new ArrayList<>());
+    }
+
     public static CompletableFuture<Void> heartbeat() {
         return fetch(post("friends/heartbeat.php", Map.of()).build()).thenApply(o -> null);
+    }
+
+    // -- hub player sessions --
+
+    public static CompletableFuture<Void> sessionStart(int serverId) {
+        return fetch(post("servers/session_start.php", Map.of("server_id", serverId)).build()).thenApply(o -> null);
+    }
+
+    public static CompletableFuture<Void> sessionEnd(int serverId) {
+        return fetch(post("servers/session_end.php", Map.of("server_id", serverId)).build()).thenApply(o -> null);
+    }
+
+    public static CompletableFuture<Void> sessionPing(int serverId) {
+        return fetch(post("servers/session_ping.php", Map.of("server_id", serverId)).build()).thenApply(o -> null);
     }
 
     // -- messages --
@@ -297,61 +335,57 @@ public class ApiClient {
             .thenApply(obj -> !obj.has("error"));
     }
 
-    public static CompletableFuture<String> uploadIcon(int serverId, String filePath) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                byte[] bytes = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(filePath));
-                return java.util.Base64.getEncoder().encodeToString(bytes);
-            } catch (Exception e) {
-                System.err.println("Icon read failed: " + e.getMessage());
-                return null;
-            }
-        }).thenCompose(b64 -> {
-            if (b64 == null) return CompletableFuture.completedFuture(null);
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("image", b64);
-            payload.put("server_id", serverId);
-            return fetch(post("servers/upload_icon.php", payload).build())
-                .thenApply(obj -> obj.has("url") ? obj.get("url").getAsString() : null);
-        });
+
+    // -- announcements --
+
+    public static CompletableFuture<JsonObject> getAnnouncements() {
+        // Public endpoint — no Authorization header (matches getLiveServers pattern)
+        var req = HttpRequest.newBuilder()
+            .uri(URI.create(BASE + "announcements/list.php"))
+            .timeout(Duration.ofSeconds(15))
+            .GET().build();
+        return http.sendAsync(req, HttpResponse.BodyHandlers.ofString())
+            .thenApply(res -> {
+                System.out.println("[getAnnouncements] status=" + res.statusCode() + " body=" + res.body().substring(0, Math.min(200, res.body().length())));
+                try { return JsonParser.parseString(res.body()).getAsJsonObject(); }
+                catch (Exception e) {
+                    System.err.println("[getAnnouncements] parse error: " + e.getMessage());
+                    return new JsonObject();
+                }
+            })
+            .exceptionally(ex -> {
+                System.err.println("[getAnnouncements] network error: " + ex.getMessage());
+                return new JsonObject();
+            });
     }
 
-    public static CompletableFuture<String> uploadBanner(int serverId, String filePath) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                byte[] bytes = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(filePath));
-                return java.util.Base64.getEncoder().encodeToString(bytes);
-            } catch (Exception e) {
-                System.err.println("Banner read failed: " + e.getMessage());
-                return null;
-            }
-        }).thenCompose(b64 -> {
-            if (b64 == null) return CompletableFuture.completedFuture(null);
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("image", b64);
-            payload.put("server_id", serverId);
-            return fetch(post("servers/upload_banner.php", payload).build())
-                .thenApply(obj -> obj.has("url") ? obj.get("url").getAsString() : null);
-        });
+    public static CompletableFuture<JsonObject> postAnnouncement(String title, String message) {
+        return fetch(post("announcements/post.php", Map.of("title", title, "message", message))
+            .header("X-Staff-Secret", "RH_STAFF_7xKq2mNvL9pWdY4z").build());
     }
 
-    public static CompletableFuture<String> uploadCardBanner(int serverId, String filePath) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                byte[] bytes = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(filePath));
-                return java.util.Base64.getEncoder().encodeToString(bytes);
-            } catch (Exception e) {
-                System.err.println("Card banner read failed: " + e.getMessage());
-                return null;
-            }
-        }).thenCompose(b64 -> {
-            if (b64 == null) return CompletableFuture.completedFuture(null);
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("image", b64);
-            payload.put("server_id", serverId);
-            return fetch(post("servers/upload_card_banner.php", payload).build())
-                .thenApply(obj -> obj.has("url") ? obj.get("url").getAsString() : null);
-        });
+    public static CompletableFuture<JsonObject> deleteAnnouncement(int id) {
+        return fetch(post("announcements/delete.php", Map.of("id", id))
+            .header("X-Staff-Secret", "RH_STAFF_7xKq2mNvL9pWdY4z").build());
+    }
+
+    // -- image uploads --
+
+    private static CompletableFuture<String> uploadImage(String endpoint, int serverId, String base64) {
+        return fetch(post("servers/" + endpoint, Map.of("server_id", serverId, "image", base64)).build())
+            .thenApply(obj -> obj.has("url") ? obj.get("url").getAsString() : null);
+    }
+
+    public static CompletableFuture<String> uploadIcon(int serverId, String base64) {
+        return uploadImage("upload_icon.php", serverId, base64);
+    }
+
+    public static CompletableFuture<String> uploadBanner(int serverId, String base64) {
+        return uploadImage("upload_banner.php", serverId, base64);
+    }
+
+    public static CompletableFuture<String> uploadCardBanner(int serverId, String base64) {
+        return uploadImage("upload_card_banner.php", serverId, base64);
     }
 
     public static CompletableFuture<Boolean> checkStaff() {

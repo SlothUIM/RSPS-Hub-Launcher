@@ -48,17 +48,15 @@ public class ServerSkillSystem {
     }
 
     public static String getRankName(int level) {
-        if (level >= 99) return "LEGENDARY";
-        if (level >= 90) return "GRANDMASTER";
-        if (level >= 75) return "MASTER";
-        if (level >= 60) return "ELITE";
-        if (level >= 50) return "VETERAN";
-        if (level >= 40) return "EXPERT";
-        if (level >= 30) return "SKILLED";
-        if (level >= 20) return "ADEPT";
-        if (level >= 10) return "JOURNEYMAN";
-        if (level >= 5)  return "APPRENTICE";
-        return "NOVICE";
+        if (level >= 99) return "INFERNAL";
+        if (level >= 85) return "DRAGON";
+        if (level >= 70) return "RUNE";
+        if (level >= 55) return "ADAMANT";
+        if (level >= 40) return "MITHRIL";
+        if (level >= 25) return "BLACK";
+        if (level >= 10) return "STEEL";
+        if (level >= 5)  return "IRON";
+        return "BRONZE";
     }
 
     /** Accent color for the level badge based on milestone bracket. */

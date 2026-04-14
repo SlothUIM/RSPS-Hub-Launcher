@@ -36,6 +36,9 @@ dependencies {
     implementation 'net.java.dev.jna:jna-platform:5.14.0'
     implementation 'org.json:json:20250517'
     implementation 'org.jsoup:jsoup:1.22.1'
+    implementation 'io.javalin:javalin:6.3.0'
+    implementation 'org.slf4j:slf4j-simple:2.0.13'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.2'
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
 }
@@ -54,18 +57,25 @@ sourceSets {
 
 // ── JPACKAGE INSTALLER ────────────────────────────────────────────────────────
 
+def isLinuxBuild = System.getProperty('os.name', '').toLowerCase().contains('linux')
+def isMacBuild   = System.getProperty('os.name', '').toLowerCase().contains('mac')
+
 task packageInstaller(type: Exec, dependsOn: installDist) {
-    def jpackage = "${System.getenv('JAVA_HOME')}/bin/jpackage"
-    def inputDir = "${buildDir}/install/RSPSHub/lib"
+    def jpackage  = "${System.getenv('JAVA_HOME') ?: '/usr'}/bin/jpackage"
+    def inputDir  = "${buildDir}/install/RSPSHub/lib"
     def outputDir = "${buildDir}/installer"
-    def icon = "${projectDir}/src/app_icon.ico"
+    def icon      = isLinuxBuild || isMacBuild
+        ? "${projectDir}/src/app_icon.png"
+        : "${projectDir}/src/app_icon.ico"
+    def pkgType   = isLinuxBuild ? 'deb' : isMacBuild ? 'dmg' : 'app-image'
 
     doFirst {
         delete outputDir
         mkdir outputDir
     }
 
-    commandLine jpackage,
+    def args = [
+        jpackage,
         '--input',           inputDir,
         '--dest',            outputDir,
         '--name',            'RSPS Hub',
@@ -73,11 +83,22 @@ task packageInstaller(type: Exec, dependsOn: installDist) {
         '--main-jar',        'rsps-hub-launcher-1.0.0.jar',
         '--main-class',      'main',
         '--icon',            icon,
-        '--type',            'app-image',
+        '--type',            pkgType,
         '--java-options',    '--add-opens=javafx.graphics/com.sun.javafx.application=ALL-UNNAMED',
         '--java-options',    '--add-opens=javafx.base/com.sun.javafx.reflect=ALL-UNNAMED',
         '--vendor',          'RSPS Hub',
         '--description',     'The unified RSPS launcher'
+    ]
+
+    if (isLinuxBuild) {
+        args += ['--linux-deb-maintainer', 'support@therspshub.com']
+        args += ['--linux-menu-group',     'Game']
+        args += ['--linux-shortcut']
+        args += ['--java-options', '-Dprism.forceGPU=true']
+        args += ['--java-options', '-Dprism.vsync=false']
+    }
+
+    commandLine args
 
     doLast {
         println "\nInstaller built → ${outputDir}"

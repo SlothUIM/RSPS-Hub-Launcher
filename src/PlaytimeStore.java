@@ -9,7 +9,8 @@ public class PlaytimeStore {
 
     private static Path getPath() {
         String user = LauncherEngine.currentUsername;
-        if (user == null || user.isEmpty()) return null;
+        if (user == null || user.isEmpty())
+            return Paths.get(System.getProperty("user.home"), ".rsps_hub", "playtime.json");
         return Paths.get(System.getProperty("user.home"), ".rsps_hub", user, "playtime.json");
     }
 

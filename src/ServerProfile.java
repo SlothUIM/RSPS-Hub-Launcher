@@ -39,6 +39,18 @@ public class ServerProfile {
     @SerializedName("players_online")
     public int playersOnline;
 
+    @SerializedName("hub_players")
+    public int hubPlayers;
+
+    @SerializedName("review_count")
+    public int reviewCount;
+
+    @SerializedName("avg_rating")
+    public float avgRating;
+
+    @SerializedName("server_online")
+    public int serverOnline; // 1=online, 0=offline, -1=unknown
+
     public List<String> tags;
     public List<String> screenshots;
     public boolean isNew;
